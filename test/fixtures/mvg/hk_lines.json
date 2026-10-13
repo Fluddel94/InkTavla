@@ -1,0 +1,1 @@
+[{"label": "SEV S3", "transportType": "BUS", "sev": true}, {"label": "361", "transportType": "REGIONAL_BUS", "sev": false}, {"label": "SEV", "transportType": "BAHN", "sev": true}, {"label": "RB 55", "transportType": "BAHN", "sev": false}, {"label": "RB 56", "transportType": "BAHN", "sev": false}, {"label": "S3", "transportType": "SBAHN", "sev": false}]

@@ -1,0 +1,20 @@
+# Partition table for 16 MB flash (XIAO ESP32-S3 Plus).
+#
+# Changing this layout later requires a full USB reflash and erases the
+# settings, so it is planned generously from the start:
+#   nvs       Wi-Fi credentials and a few small settings. The main
+#             configuration lives as a file on the filesystem.
+#   otadata   Required for OTA updates.
+#   app0/1    Two 4 MB slots for OTA with rollback (expected firmware
+#             size ~1.5-2 MB including Wi-Fi, TLS and fonts).
+#   littlefs  Configuration, data cache, fonts and icons (~7.9 MB).
+#             Mount with LittleFS.begin(false, "/littlefs", 10, "littlefs").
+#   coredump  Crash dumps for diagnosing failures in the field.
+#
+# Name,    Type, SubType,  Offset,   Size,     Flags
+nvs,       data, nvs,      0x9000,   0x5000,
+otadata,   data, ota,      0xE000,   0x2000,
+app0,      app,  ota_0,    0x10000,  0x400000,
+app1,      app,  ota_1,    0x410000, 0x400000,
+littlefs,  data, littlefs, 0x810000, 0x7E0000,
+coredump,  data, coredump, 0xFF0000, 0x10000,

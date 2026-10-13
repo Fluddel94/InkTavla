@@ -1,0 +1,16 @@
+# PlatformIO
+.pio/
+
+# VS Code (keep only the recommended extensions)
+.vscode/*
+!.vscode/extensions.json
+
+# Credentials must never be committed. They are entered at runtime; this
+# entry is a safety net in case such a file is ever created locally.
+secrets.h
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*~
