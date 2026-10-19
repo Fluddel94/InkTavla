@@ -15,3 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   core dump.
 - Layer skeleton (HAL, core, UI, widgets) with minimal interfaces.
 - Host unit tests (`pio test -e native`) with MVG API responses as fixtures.
+- MVG departures: data model, line selection and processing of the API
+  response (messages, duplicates, early termination, split trains incl.
+  coupled regional trains, rail replacement services, delay of combined
+  trips, line filter), ported from the MVG departure display. New: departures
+  are sorted by planned time plus delay.
+- ArduinoJson 7.4.3 (MIT) for reading API responses from a stream with a
+  filter.

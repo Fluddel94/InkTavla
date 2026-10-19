@@ -1,0 +1,6 @@
+[
+{"plannedDepartureTime": 1792386000000, "realtime": true, "delayInMinutes": 5, "transportType": "SBAHN", "label": "S3", "lineId": "ddb:92M03: :H:j26", "destination": "Holzkirchen", "cancelled": false, "sev": false, "infos": [], "platform": 1},
+{"plannedDepartureTime": 1792386120000, "realtime": true, "delayInMinutes": 0, "transportType": "SBAHN", "label": "S4", "lineId": "ddb:92M04: :H:j26", "destination": "Trudering", "cancelled": false, "sev": false, "infos": [], "platform": 2},
+{"plannedDepartureTime": 1792386240000, "realtime": true, "delayInMinutes": -1, "transportType": "SBAHN", "label": "S6", "lineId": "ddb:92M06: :H:j26", "destination": "Zorneding", "cancelled": false, "sev": false, "infos": [], "platform": 3},
+{"plannedDepartureTime": 1792386300000, "realtime": true, "delayInMinutes": 0, "transportType": "SBAHN", "label": "S8", "lineId": "ddb:92M08: :H:j26", "destination": "Flughafen München", "cancelled": false, "sev": false, "infos": [], "platform": 4}
+]

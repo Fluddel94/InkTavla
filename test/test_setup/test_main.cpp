@@ -74,8 +74,15 @@ void test_widget_draws_through_canvas() {
 }
 
 void test_mvg_fixtures_are_readable() {
-  const char* files[] = {"mvg/pasing_deps.json", "mvg/pasing_lines.json", "mvg/hk_deps.json",
-                         "mvg/hk_lines.json", "mvg/parse_deps.json"};
+  const char* files[] = {"mvg/pasing_deps.json",
+                         "mvg/pasing_lines.json",
+                         "mvg/hk_deps.json",
+                         "mvg/hk_lines.json",
+                         "mvg/parse_deps.json",
+                         "mvg/rules_messages.json",
+                         "mvg/rules_early_termination.json",
+                         "mvg/rules_split_trains.json",
+                         "mvg/rules_sorting.json"};
   for (const char* name : files) {
     const std::string content = readFile(fixturePath(name));
     TEST_ASSERT_TRUE_MESSAGE(!content.empty(), name);

@@ -84,6 +84,13 @@ later a settings page in the browser.
 - **MVG** (Munich public transport): unofficial API, not endorsed by MVG.
   It may change or stop working at any time.
 
+## Third-party libraries
+
+| Library | Version | License | Used for |
+|---|---|---|---|
+| [ArduinoJson](https://arduinojson.org/) | 7.4.3 | MIT | Reading API responses |
+| [Unity](https://www.throwtheswitch.org/unity) | 2.6.1 | MIT | Unit tests only |
+
 ## Contributing
 
 - Everything in the repository is in English.

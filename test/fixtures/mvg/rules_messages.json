@@ -1,0 +1,7 @@
+[
+{"plannedDepartureTime": 1792386000000, "realtime": true, "delayInMinutes": 0, "transportType": "SBAHN", "label": "S8", "lineId": "ddb:92M08: :R:j26", "destination": "Herrsching", "cancelled": false, "sev": false, "infos": [{"type": "INFO", "message": "Bitte beachten Sie die geänderten Tarife."}], "platform": 1},
+{"plannedDepartureTime": 1792386060000, "realtime": true, "delayInMinutes": 0, "transportType": "SBAHN", "label": "S8", "lineId": "ddb:92M08: :H:j26", "destination": "Flughafen München", "cancelled": false, "sev": false, "infos": [{"type": "INFO", "message": "Tarifhinweis"}, {"type": "INCIDENT", "message": "Verspätungen wegen einer Signalstörung."}], "platform": 2},
+{"plannedDepartureTime": 1792386120000, "delayInMinutes": 0, "transportType": "UBAHN", "label": "U6", "lineId": "swm:01006:G:H:016", "destination": "Garching, Forschungszentrum", "cancelled": false, "sev": false, "platform": 1},
+{"plannedDepartureTime": 1792386180000, "realtime": true, "delayInMinutes": 0, "label": "19", "lineId": "swm:02019:G:H:016", "destination": "Berg am Laim Bf.", "cancelled": false, "sev": false, "infos": [], "product": "TRAM"},
+{"plannedDepartureTime": 1792386240000, "realtime": true, "delayInMinutes": 0, "transportType": "SCHIFF", "label": "X1", "lineId": "mvv:99001: :H:s26", "destination": "Starnberg", "cancelled": false, "sev": false, "infos": []}
+]
