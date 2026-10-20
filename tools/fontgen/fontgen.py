@@ -31,9 +31,12 @@ SOURCE = {
     "license": "SIL Open Font License 1.1, see OFL.txt",
 }
 
-# (C++ name, output file, weight, pixel size). Sizes follow the overall UI
-# design from 2026-10-20 (style A); they are provisional until checked on the
-# panel from 2-3 m.
+# Characters of large fonts that only show numbers (temperatures).
+NUMBERS = [ord(c) for c in " +-0123456789"] + [0xB0, 0x2212]  # degree sign, minus
+
+# (C++ name, output file, weight, pixel size[, characters]). Sizes follow the
+# overall UI design from 2026-10-20 (style A); they are provisional until
+# checked on the panel from 2-3 m. Without a character list: CHARSET.
 FONTS = [
     ("kRobotoCondensedBold16", "roboto_condensed_bold_16.cpp", 700, 16),  # section names
     ("kRobotoCondensedMedium17", "roboto_condensed_medium_17.cpp", 500, 17),  # tile notes
@@ -44,6 +47,11 @@ FONTS = [
     ("kRobotoCondensedMedium26", "roboto_condensed_medium_26.cpp", 500, 26),  # header date
     ("kRobotoCondensedBold26", "roboto_condensed_bold_26.cpp", 700, 26),  # departure times
     ("kRobotoCondensedBold30", "roboto_condensed_bold_30.cpp", 700, 30),  # header time
+    ("kRobotoCondensedMedium18", "roboto_condensed_medium_18.cpp", 500, 18),  # weather notes
+    ("kRobotoCondensedBold18", "roboto_condensed_bold_18.cpp", 700, 18),  # chart temperatures
+    ("kRobotoCondensedMedium20", "roboto_condensed_medium_20.cpp", 500, 20),  # weather texts
+    ("kRobotoCondensedBold22", "roboto_condensed_bold_22.cpp", 700, 22),  # weekdays, highs
+    ("kRobotoCondensedBold56", "roboto_condensed_bold_56.cpp", 700, 56, NUMBERS),  # temperature
 ]
 
 # Characters: ASCII, Latin-1 Supplement, Latin Extended-A and typographic
@@ -94,13 +102,13 @@ def pack(rows):
     return bytes(data)
 
 
-def generate(name, filename, weight, size):
+def generate(name, filename, weight, size, charset=None):
     font = load(weight, size)
     ascent, descent = font.getmetrics()
     cap_height = -render(font, ord("H"))[3]
     missing = render(font, 0x10FFFD)  # private use: renders as .notdef
     glyphs, bitmap = [], bytearray()
-    for cp in CHARSET:
+    for cp in charset or CHARSET:
         glyph = render(font, cp)
         if glyph == missing:
             print(f"  U+{cp:04X} not in the font, skipped")
@@ -155,8 +163,8 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256((FONT_DIR / SOURCE["file"]).read_bytes()).hexdigest()
     print(f"{SOURCE['file']} sha256 {digest}")
-    for name, filename, weight, size in FONTS:
-        path, count, size_bytes = generate(name, filename, weight, size)
+    for entry in FONTS:
+        path, count, size_bytes = generate(*entry)
         print(f"{path.relative_to(ROOT)}: {count} glyphs, {size_bytes} bytes bitmap")
     (OUT_DIR / "OFL.txt").write_bytes((FONT_DIR / "OFL.txt").read_bytes())
     return 0

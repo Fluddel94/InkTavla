@@ -36,7 +36,8 @@ unit-tested on the PC.
 The display controller (`core/display_controller.h`) runs the device:
 
 - It fetches each widget's data when it is due (MVG: at second 1 of every
-  minute) and redraws the screen, at the latest once a minute for the clock.
+  minute, weather: every 30 minutes) and redraws the screen, at the latest
+  once a minute for the clock.
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
   data shows "Keine Verbindung". A failing widget only affects its own tile.
@@ -133,6 +134,10 @@ Nothing user-specific is compiled in.
 
 - **MVG** (Munich public transport): unofficial API, not endorsed by MVG.
   It may change or stop working at any time.
+- **Weather data by [Open-Meteo.com](https://open-meteo.com/)**, licensed
+  under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The free
+  API is for non-commercial use only; the source is named in the title of
+  the weather tile.
 
 ## Third-party libraries
 
@@ -146,6 +151,8 @@ Nothing user-specific is compiled in.
 MVV line symbols (S-Bahn, U-Bahn): from Wikimedia Commons ("München S1.svg"
 etc. by Claus Färber, marked as public domain), converted to 1 bit. They may
 be trademarks of MVV, MVG or DB. Tram and night tram symbols are our own.
+
+Weather symbols are our own, drawn by `tools/icongen` (Pillow).
 
 ## Contributing
 

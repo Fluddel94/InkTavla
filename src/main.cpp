@@ -18,6 +18,7 @@
 #include "hal/trmnl_display.h"
 #include "widgets/app.h"
 #include "widgets/mvg/api.h"
+#include "widgets/weather/api.h"
 
 namespace {
 
@@ -28,9 +29,11 @@ core::SystemClock clock_source;
 hal::TrmnlDisplay display;
 core::Wifi wifi;
 widgets::mvg::ApiSource mvg_source;
+widgets::weather::ApiSource weather_source;
 widgets::App app(clock_source, display, [] {
   widgets::Services s;
   s.mvg = &mvg_source;
+  s.weather = &weather_source;
   return s;
 }());
 bool time_sync_started = false;

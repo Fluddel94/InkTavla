@@ -68,7 +68,8 @@ void test_example_file_is_valid() {
   for (const core::ConfigIssue& i : issues) TEST_FAIL_MESSAGE((i.path + ": " + i.message).c_str());
   assertDefaults(c);
   TEST_ASSERT_FALSE(core::widgetSection(doc.as<JsonObjectConst>(), "mvg").isNull());
-  TEST_ASSERT_TRUE(core::widgetSection(doc.as<JsonObjectConst>(), "weather").isNull());
+  TEST_ASSERT_FALSE(core::widgetSection(doc.as<JsonObjectConst>(), "weather").isNull());
+  TEST_ASSERT_TRUE(core::widgetSection(doc.as<JsonObjectConst>(), "calendar").isNull());
 }
 
 void test_values_are_read() {

@@ -25,6 +25,10 @@ enum class Text {
   kTitleDepartures,
   kTitleWeather,
   kTitleCalendar,
+  kFeelsLike,        // "gefühlt 5°"
+  kClockSuffix,      // after a time range: "14–18 Uhr"
+  kNoRain,           // rain outlook without rain
+  kLocationMissing,  // weather widget without coordinates
 };
 
 const char* text(Language language, Text id);
@@ -33,6 +37,9 @@ const char* text(Language language, Text id);
 // of range.
 const char* weekdayName(Language language, int weekday);
 const char* monthName(Language language, int month);
+
+// Short day of the week for tables: "Mi" / "Wed".
+const char* weekdayShort(Language language, int weekday);
 
 // Long date for the header: "Dienstag, 20. Oktober" / "Tuesday, 20 October".
 std::string longDate(Language language, int weekday, int day, int month);

@@ -16,6 +16,7 @@
 #include "widgets/header/header.h"
 #include "widgets/mvg/widget.h"
 #include "widgets/screen.h"
+#include "widgets/weather/widget.h"
 #include "widgets/widget.h"
 
 namespace widgets {
@@ -23,10 +24,11 @@ namespace widgets {
 // Data sources of the widgets (network on the device, saved data in tests).
 struct Services {
   mvg::Source* mvg = nullptr;
+  weather::Source* weather = nullptr;
 };
 
-// Widget for an ID of layout.slots: MVG, or a placeholder for widgets that do
-// not exist yet ("weather", "calendar") and unknown IDs (reported).
+// Widget for an ID of layout.slots: MVG, weather, or a placeholder for widgets
+// that do not exist yet ("calendar") and unknown IDs (reported).
 std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
                                      const Services& services, core::ConfigIssues& issues);
 

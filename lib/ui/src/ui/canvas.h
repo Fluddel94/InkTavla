@@ -44,6 +44,11 @@ class Canvas {
   // Line of one pixel width (Bresenham).
   void drawLine(int x0, int y0, int x1, int y1, Color color);
   void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, Color color);
+  // Line of the given width (round ends), e.g. for curves in charts.
+  void drawThickLine(int x0, int y0, int x1, int y1, int width, Color color);
+  // Circle around (cx, cy): filled, or as a ring of the given thickness.
+  void fillCircle(int cx, int cy, int radius, Color color);
+  void drawCircle(int cx, int cy, int radius, int thickness, Color color);
   void fillRoundRect(int x, int y, int w, int h, int radius, Color color);
   // Outline inside the rectangle with rounded corners.
   void drawRoundRect(int x, int y, int w, int h, int radius, Color color, int thickness = 1);

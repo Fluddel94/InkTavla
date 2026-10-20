@@ -20,6 +20,7 @@
 #include "hal/png_display.h"
 #include "widgets/app.h"
 #include "widgets/mvg/departures.h"
+#include "widgets/weather/forecast.h"
 
 namespace {
 
@@ -54,6 +55,31 @@ class FixtureSource : public widgets::mvg::Source {
   std::string last_types;
 };
 
+// Weather source with the saved Open-Meteo response of 2026-10-20 18:30.
+class WeatherFixtureSource : public widgets::weather::Source {
+ public:
+  bool fetchForecast(const widgets::weather::Config& config, JsonDocument& doc) override {
+    (void)config;
+    requests++;
+    if (fail) return false;
+    std::ifstream file("test/fixtures/weather/muenchen_20261020.json", std::ios::binary);
+    if (deserializeJson(doc, file,
+                        DeserializationOption::Filter(widgets::weather::forecastFilter())) !=
+        DeserializationError::Ok) {
+      return false;
+    }
+    // One day earlier, to fit the simulated evening of 2026-10-19.
+    doc["current"]["time"] = doc["current"]["time"].as<int64_t>() - kDay;
+    for (const char* list : {"hourly", "daily"}) {
+      for (JsonVariant t : doc[list]["time"].as<JsonArray>()) t.set(t.as<int64_t>() - kDay);
+    }
+    return true;
+  }
+  static constexpr int64_t kDay = 86400;
+  bool fail = false;
+  int requests = 0;
+};
+
 constexpr char kConfig[] = R"({
   "language": "de",
   "display": {"full_refresh_minutes": 60},
@@ -61,7 +87,8 @@ constexpr char kConfig[] = R"({
   "widgets": {"mvg": {"station": "de:09162:10", "name": "Pasing", "sections": [
     {"name": "Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
     {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
-  ]}}
+  ]},
+  "weather": {"latitude": 48.137, "longitude": 11.575, "name": "München"}}
 })";
 
 struct Rig {
@@ -78,6 +105,7 @@ struct Rig {
   widgets::Services services() {
     widgets::Services s;
     s.mvg = &source;
+    s.weather = &weather;
     return s;
   }
 
@@ -95,6 +123,7 @@ struct Rig {
 
   SimClock clock;
   FixtureSource source;
+  WeatherFixtureSource weather;
   hal::PngDisplay display;
   widgets::App app;
   core::ConfigIssues issues;
@@ -154,7 +183,7 @@ void test_normal_operation_and_refresh_types() {
   const hal::PngDisplay::Update& u = rig.display.updates()[1];
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header
-  TEST_ASSERT_FALSE(contains(u.regions, 360, 42));   // weather placeholder
+  TEST_ASSERT_FALSE(contains(u.regions, 360, 42));   // weather (every 30 minutes)
   TEST_ASSERT_FALSE(contains(u.regions, 360, 262));  // calendar placeholder
 
   // One hour later at least one full refresh against ghosting.

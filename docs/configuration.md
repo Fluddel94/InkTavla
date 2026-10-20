@@ -63,6 +63,11 @@ The commands are plain text lines on the serial line, next to Improv; see
       "lines": ["S3:B:S", "RE80:R:Z"],
       "direction": "all",
       "time_format": "clock"
+    },
+    "weather": {
+      "latitude": 48.137,
+      "longitude": 11.575,
+      "name": "München"
     }
   }
 }
@@ -165,3 +170,34 @@ choice, for example towards the city and away from it:
 
 The same response from the API is used for both sections, so two sections do
 not cause more requests.
+
+### `weather`: Weather forecast
+
+Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
+every 30 minutes. The tile shows the current weather with the felt
+temperature and the rain outlook, the course of the day from 5 to 23 o'clock
+(symbols, temperature line, rain probability per hour) and the next three
+days. Temperatures are in degrees Celsius.
+
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `latitude` | −90 to 90 | none | Latitude of the place in decimal degrees, e.g. `48.137`. |
+| `longitude` | −180 to 180 | none | Longitude of the place in decimal degrees, e.g. `11.575`. |
+| `name` | text (≤ 32 bytes) | `""` | Name of the place, shown on the right of the tile title. |
+
+Without `latitude` and `longitude` the tile shows "Standort fehlt".
+
+To find the coordinates of a place: open it in a map service such as
+[OpenStreetMap](https://www.openstreetmap.org/) and right-click it
+(**Adresse anzeigen** / **Show address** shows them on the left), or use the
+[place search of Open-Meteo](https://open-meteo.com/en/docs/geocoding-api).
+Two or three decimals are enough; the weather models work with a grid of
+about 2 km.
+
+Rain outlook: the highest rain probability in the next 12 hours and the hours
+around it that are at most 15 points lower, e.g. "65 % 14–18 Uhr". Below 20 %
+the tile shows "Kein Regen".
+
+Open-Meteo is free for non-commercial use; the data is licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the
+tile title names the source ("WETTER · OPEN-METEO").

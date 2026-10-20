@@ -15,7 +15,15 @@ constexpr const char* kMonthsEn[] = {"January",   "February", "March",    "April
                                      "May",       "June",     "July",     "August",
                                      "September", "October",  "November", "December"};
 
+constexpr const char* kWeekdaysShortDe[] = {"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"};
+constexpr const char* kWeekdaysShortEn[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+
 }  // namespace
+
+const char* weekdayShort(Language language, int weekday) {
+  if (weekday < 0 || weekday > 6) return "";
+  return language == Language::kGerman ? kWeekdaysShortDe[weekday] : kWeekdaysShortEn[weekday];
+}
 
 Language languageFromCode(std::string_view code) {
   return code == "en" ? Language::kEnglish : Language::kGerman;
@@ -50,6 +58,14 @@ const char* text(Language language, Text id) {
       return de ? "Wetter" : "Weather";
     case Text::kTitleCalendar:
       return de ? "Kalender" : "Calendar";
+    case Text::kFeelsLike:
+      return de ? "gefühlt" : "feels";
+    case Text::kClockSuffix:
+      return de ? " Uhr" : " h";
+    case Text::kNoRain:
+      return de ? "Kein Regen" : "No rain";
+    case Text::kLocationMissing:
+      return de ? "Standort fehlt" : "Location missing";
   }
   return "";
 }

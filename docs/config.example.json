@@ -18,6 +18,11 @@
       "lines": ["S3:B:S", "RE80:R:Z"],
       "direction": "all",
       "time_format": "clock"
+    },
+    "weather": {
+      "latitude": 48.137,
+      "longitude": 11.575,
+      "name": "München"
     }
   }
 }

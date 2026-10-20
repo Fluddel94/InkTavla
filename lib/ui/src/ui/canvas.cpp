@@ -102,6 +102,62 @@ void Canvas::fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, Color 
   }
 }
 
+void Canvas::fillCircle(int cx, int cy, int radius, Color color) {
+  // Pixels whose centre lies within radius + 0.5 of the centre pixel's centre.
+  const double r2 = (radius + 0.5) * (radius + 0.5);
+  for (int dy = -radius; dy <= radius; dy++) {
+    for (int dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy <= r2) setPixel(cx + dx, cy + dy, color);
+    }
+  }
+}
+
+void Canvas::drawCircle(int cx, int cy, int radius, int thickness, Color color) {
+  const double outer = (radius + 0.5) * (radius + 0.5);
+  const double inner = std::max(0.0, radius + 0.5 - thickness);
+  for (int dy = -radius; dy <= radius; dy++) {
+    for (int dx = -radius; dx <= radius; dx++) {
+      const int d2 = dx * dx + dy * dy;
+      if (d2 <= outer && d2 > inner * inner) setPixel(cx + dx, cy + dy, color);
+    }
+  }
+}
+
+void Canvas::drawThickLine(int x0, int y0, int x1, int y1, int width, Color color) {
+  if (width <= 1) {
+    drawLine(x0, y0, x1, y1, color);
+    return;
+  }
+  // Stamp a small disc along the line (Bresenham).
+  const double r = width / 2.0;
+  const int reach = static_cast<int>(r);
+  const int dx = std::abs(x1 - x0);
+  const int dy = -std::abs(y1 - y0);
+  const int sx = x0 < x1 ? 1 : -1;
+  const int sy = y0 < y1 ? 1 : -1;
+  int err = dx + dy;
+  while (true) {
+    for (int oy = -reach; oy <= reach; oy++) {
+      for (int ox = -reach; ox <= reach; ox++) {
+        // Even widths: disc between pixel centres (offset by half a pixel).
+        const double fx = width % 2 == 0 ? ox + 0.5 : ox;
+        const double fy = width % 2 == 0 ? oy + 0.5 : oy;
+        if (fx * fx + fy * fy <= r * r) setPixel(x0 + ox, y0 + oy, color);
+      }
+    }
+    if (x0 == x1 && y0 == y1) break;
+    const int e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
 void Canvas::fillRoundRect(int x, int y, int w, int h, int radius, Color color) {
   if (w <= 0 || h <= 0) return;
   const int r = std::max(0, std::min({radius, w / 2, h / 2}));

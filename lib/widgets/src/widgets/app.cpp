@@ -3,6 +3,7 @@
 #include "core/time.h"
 #include "widgets/mvg/config.h"
 #include "widgets/placeholder.h"
+#include "widgets/weather/config.h"
 
 namespace widgets {
 
@@ -11,6 +12,12 @@ std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root
   if (id == "mvg") {
     mvg::Config config = mvg::parseConfig(core::widgetSection(root, "mvg"), issues);
     if (services.mvg != nullptr) return std::make_unique<mvg::MvgWidget>(config, *services.mvg);
+  }
+  if (id == "weather") {
+    weather::Config config = weather::parseConfig(core::widgetSection(root, "weather"), issues);
+    if (services.weather != nullptr) {
+      return std::make_unique<weather::WeatherWidget>(config, *services.weather);
+    }
   }
   if (id != "mvg" && id != "weather" && id != "calendar") {
     issues.push_back({"layout.slots", "unknown widget \"" + id + "\""});

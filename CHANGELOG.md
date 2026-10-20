@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verbindung" or "Keine Daten"; a failing widget only affects its own tile.
   Departures that left more than a minute ago are no longer shown.
 - Common widget interface for the header and the MVG widget; slots without a
-  widget (weather, calendar for now) show "Nicht eingerichtet".
+  widget (calendar for now) show "Nicht eingerichtet".
 - `widgets::App` builds widgets, screen and controller from the
   configuration; `src/main.cpp` only provides clock and panel and loads
   `/config.json` from LittleFS.
@@ -93,6 +93,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the serial line next to Improv; a new file is checked, saved atomically and
   the device restarts. `tools/inktavla_config.py` (pyserial 3.5,
   BSD-3-Clause, pinned in `tools/requirements.txt`) is the PC side.
+
+- Weather widget with forecasts from Open-Meteo (CC BY 4.0, free for
+  non-commercial use) for a place given by `latitude`, `longitude` and
+  `name`, updated every 30 minutes: current weather with felt temperature
+  and rain outlook, course of the day from 5 to 23 o'clock (symbols,
+  temperature line dashed up to now, rain probability per hour) and the next
+  three days; the tile title names the source ("WETTER · OPEN-METEO").
+- Weather symbols (sun, partly cloudy, cloudy, rain, fog, moon, partly cloudy
+  at night, snow, thunder) in 26, 32 and 50 px, drawn by `tools/icongen`.
+- Canvas: thick lines, filled and outlined circles.
+- Fonts: Roboto Condensed Medium 18 and 20, Bold 18 and 22, and Bold 56 for
+  numbers only (`fontgen.py` can limit a font to a list of characters).
+- A real Open-Meteo response for München from 2026-10-20 as test fixture.
 
 ### Changed
 

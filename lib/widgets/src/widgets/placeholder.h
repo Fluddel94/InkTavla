@@ -1,7 +1,7 @@
 #pragma once
 
-// Stand-in for a slot whose widget does not exist (yet), e.g. "weather" and
-// "calendar" before they are implemented, or an empty slot.
+// Stand-in for a slot whose widget does not exist (yet), e.g. "calendar"
+// before it is implemented, a widget without its data source, or an empty slot.
 
 #include <string>
 #include <utility>
