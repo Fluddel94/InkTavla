@@ -176,8 +176,9 @@ void handleImprov(const improv::Parser& parser) {
 void handleCommand(const CommandParser::Event& event) {
   if (event.kind == CommandParser::Event::Kind::kNone) return;
   LittleFsStore store;
-  const CommandReply reply =
-      core::handleCommand(event, store, options.validate, options.info ? options.info() : "");
+  NvsSecretStore secrets;
+  const CommandReply reply = core::handleCommand(event, store, options.validate,
+                                                 options.info ? options.info() : "", &secrets);
   send(reply.text);
   if (reply.restart) {
     Serial.flush();

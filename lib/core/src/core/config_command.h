@@ -7,6 +7,12 @@
 //   INKTAVLA CONFIG PUT <bytes> <crc32>   then exactly <bytes> bytes of JSON
 //   INKTAVLA CONFIG GET                   the stored /config.json
 //   INKTAVLA INFO                         firmware version and memory
+//   INKTAVLA SECRET SET <name> <bytes> <crc32>   then exactly <bytes> bytes
+//   INKTAVLA SECRET CLEAR <name>
+//
+// Secrets (core/secrets.h, e.g. "calendar_url") are kept in NVS, never in
+// the configuration file; there is no command to read them back, and
+// replies never repeat them. Saving or clearing one restarts the device.
 //
 // Replies are lines starting with "INKTAVLA ": "OK ...", "ERR <reason>",
 // "ISSUE <path>: <message>" (problems found in a new configuration),
@@ -22,6 +28,7 @@
 #include <string>
 
 #include "core/config.h"
+#include "core/secrets.h"
 
 namespace core {
 
@@ -33,9 +40,10 @@ class CommandParser {
   static constexpr int64_t kPayloadTimeoutMs = 5000;
 
   struct Event {
-    enum class Kind { kNone, kConfigPut, kConfigGet, kInfo, kError };
+    enum class Kind { kNone, kConfigPut, kConfigGet, kInfo, kSecretSet, kSecretClear, kError };
     Kind kind = Kind::kNone;
-    std::string payload;  // kConfigPut: the received file (CRC checked)
+    std::string payload;  // kConfigPut: the received file, kSecretSet: the value (CRC checked)
+    std::string name;     // kSecretSet, kSecretClear: name of the secret
     std::string error;    // kError: reason
   };
 
@@ -55,6 +63,7 @@ class CommandParser {
   std::string line_;
   bool overflow_ = false;
   std::string payload_;
+  std::string payload_name_;  // empty: configuration file, else the secret
   size_t payload_left_ = 0;
   uint32_t payload_crc_ = 0;
   int64_t last_byte_ms_ = 0;
@@ -80,8 +89,9 @@ struct CommandReply {
 // Carries out a command. A new configuration is only saved if it is valid
 // JSON (an object, at most kMaxConfigBytes); it is written to a temporary
 // file first and then renamed, so the old file stays complete until the new
-// one is.
+// one is. Secrets need `secrets` and are checked with checkSecret().
 CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store,
-                           const ConfigValidator& validate, const std::string& info);
+                           const ConfigValidator& validate, const std::string& info,
+                           SecretStore* secrets = nullptr);
 
 }  // namespace core

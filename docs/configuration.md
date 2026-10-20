@@ -4,9 +4,11 @@ All user-specific settings live in one JSON file, `/config.json`, in the
 device's flash file system (LittleFS). Nothing user-specific is compiled
 into the firmware.
 
-**Not in this file:** Wi-Fi credentials and other secrets. They are entered
-at runtime (first via Improv over USB) and kept in the device's protected
-storage.
+**Not in this file:** Wi-Fi credentials and other secrets such as the
+address of your calendar. They are entered at runtime (Wi-Fi via Improv over
+USB, the calendar address with `tools/inktavla_config.py calendar-url`, see
+[the calendar widget](#calendar-calendar-agenda)) and kept only in the
+device's protected storage; they cannot be read back.
 
 ## Putting the file onto the device
 
@@ -201,3 +203,69 @@ the tile shows "Kein Regen".
 Open-Meteo is free for non-commercial use; the data is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the
 tile title names the source ("WETTER · OPEN-METEO").
+
+### `calendar`: Calendar agenda
+
+An agenda of one calendar from its private iCal address, updated every 15
+minutes. The address works with Google Calendar, Outlook, Nextcloud, iCloud
+and other services that publish a calendar in iCalendar format.
+
+The tile shows "Heute" and "Morgen" with their dates and below them the rest
+of the week (seven days in all, one line per event with its day). The next
+event of today is bold with a countdown ("in 48 min", from one hour on
+"in 4 h"); events that have started show "läuft". Events of today stay
+until midnight, also when they are over. All-day events are black badges
+with "ganztägig"; events over several days show their last day ("bis Fr",
+"bis 30.10.", "bis 12:00"). The tile title shows the week number ("KW 43").
+If not everything fits, today comes first and the rest is counted
+("+3 weitere").
+
+The section has no settings yet; the widget only needs the address.
+
+#### Setting the address
+
+The private iCal address is a secret: **whoever knows it can read the whole
+calendar.** It therefore never goes into `config.json` but into the
+device's protected storage, like the Wi-Fi password.
+
+1. Copy the address. In Google Calendar (in a browser): point at the
+   calendar in the list on the left, click the three dots and choose
+   **Einstellungen und Freigabe** / **Settings and sharing**, then under
+   **Kalender integrieren** / **Integrate calendar** copy
+   **Privatadresse im iCal-Format** / **Secret address in iCal format**.
+2. Send it to the device (connected by USB, serial monitor closed):
+
+   ```sh
+   python tools/inktavla_config.py calendar-url --port COM5
+   ```
+
+   The script asks for the address without showing it (paste it and press
+   Enter). The device checks it (it must start with `https://` or
+   `webcal://`), saves it and restarts. `info` then shows
+   `calendar_url=set`.
+3. To remove it: `python tools/inktavla_config.py calendar-url --clear --port COM5`.
+
+There is no command to read the address back, and the device never prints
+it (not even in error messages). If it may have been seen by someone else,
+reset it in Google Calendar (**Zurücksetzen** / **Reset** next to the
+address); the old one stops working, and you send the new one to the
+device.
+
+Without an address the tile shows "Kalender-Adresse fehlt".
+
+#### What is read
+
+The file is read as it arrives and never held as a whole (up to 8 MB, years
+of history are fine); only events of the coming days are kept, at most
+400 per file. Supported:
+
+- Single, all-day and multi-day events; cancelled events are left out.
+- Series (`RRULE`) by day, week, month and year with `INTERVAL`, `COUNT`,
+  `UNTIL`, weekdays (also "second Tuesday", "last Friday"), days of the
+  month, months and `BYSETPOS` (e.g. "last working day"); excluded dates
+  (`EXDATE`) and single occurrences that were moved or cancelled
+  (`RECURRENCE-ID`). Series with other rules (e.g. several times a day)
+  only show their first occurrence.
+- Time zones from the file (`VTIMEZONE`), so an event in New York appears
+  at the right local time. Times without a zone and zones the file does not
+  describe use the device's `time_zone`.

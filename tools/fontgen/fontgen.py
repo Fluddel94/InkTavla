@@ -50,7 +50,8 @@ FONTS = [
     ("kRobotoCondensedMedium18", "roboto_condensed_medium_18.cpp", 500, 18),  # weather notes
     ("kRobotoCondensedBold18", "roboto_condensed_bold_18.cpp", 700, 18),  # chart temperatures
     ("kRobotoCondensedMedium20", "roboto_condensed_medium_20.cpp", 500, 20),  # weather texts
-    ("kRobotoCondensedBold22", "roboto_condensed_bold_22.cpp", 700, 22),  # weekdays, highs
+    ("kRobotoCondensedBold22", "roboto_condensed_bold_22.cpp", 700, 22),  # weekdays, highs, next event
+    ("kRobotoCondensedMedium22", "roboto_condensed_medium_22.cpp", 500, 22),  # calendar entries
     ("kRobotoCondensedBold56", "roboto_condensed_bold_56.cpp", 700, 56, NUMBERS),  # temperature
 ]
 

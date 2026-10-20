@@ -1,6 +1,7 @@
 // Unit tests for the network parts that work without hardware: URL encoding
 // and building, removing chunk lengths, the Wi-Fi reconnection rules, the
-// Improv protocol and the configuration commands on the serial line.
+// Improv protocol, the configuration commands on the serial line and the
+// secrets set over it.
 
 #include <unity.h>
 
@@ -12,6 +13,7 @@
 #include "core/chunked.h"
 #include "core/config_command.h"
 #include "core/improv.h"
+#include "core/secrets.h"
 #include "core/url.h"
 #include "core/wifi_policy.h"
 #include "widgets/mvg/api.h"
@@ -53,6 +55,32 @@ std::string crcHex(const std::string& data) {
 std::string put(const std::string& data) {
   return "INKTAVLA CONFIG PUT " + std::to_string(data.size()) + " " + crcHex(data) + "\n" + data;
 }
+
+std::string secretSet(const std::string& name, const std::string& value) {
+  return "INKTAVLA SECRET SET " + name + " " + std::to_string(value.size()) + " " + crcHex(value) +
+         "\n" + value;
+}
+
+class MemorySecrets : public core::SecretStore {
+ public:
+  bool write(const char* name, const std::string& value) override {
+    if (fail) return false;
+    values[name] = value;
+    return true;
+  }
+  bool erase(const char* name) override {
+    values.erase(name);
+    return true;
+  }
+  bool read(const char* name, std::string& value) override {
+    auto it = values.find(name);
+    if (it == values.end()) return false;
+    value = it->second;
+    return true;
+  }
+  std::map<std::string, std::string> values;
+  bool fail = false;
+};
 
 class MemoryStore : public core::ConfigStore {
  public:
@@ -405,6 +433,97 @@ void test_handle_get_and_info() {
                            core::handleCommand(e, store, nullptr, "").text.c_str());
 }
 
+// --- Secrets ----------------------------------------------------------------------------
+
+constexpr char kAddress[] =
+    "https://calendar.example.invalid/ical/private-0123456789abcdef/basic.ics";
+
+void test_secret_commands_are_parsed() {
+  CommandParser p;
+  // The value may contain anything printable, also "INKTAVLA" or "IMPROV".
+  auto events =
+      feedAll(p, secretSet("calendar_url", kAddress) + "INKTAVLA SECRET CLEAR calendar_url\n");
+  TEST_ASSERT_EQUAL_size_t(2, events.size());
+  TEST_ASSERT_TRUE(events[0].kind == CommandParser::Event::Kind::kSecretSet);
+  TEST_ASSERT_EQUAL_STRING("calendar_url", events[0].name.c_str());
+  TEST_ASSERT_EQUAL_STRING(kAddress, events[0].payload.c_str());
+  TEST_ASSERT_TRUE(events[1].kind == CommandParser::Event::Kind::kSecretClear);
+  TEST_ASSERT_EQUAL_STRING("calendar_url", events[1].name.c_str());
+
+  for (const char* line :
+       {"INKTAVLA SECRET SET wifi_pass 3 0\n", "INKTAVLA SECRET SET calendar_url 0 0\n",
+        "INKTAVLA SECRET SET calendar_url 2000 0\n", "INKTAVLA SECRET SET calendar_url 5\n",
+        "INKTAVLA SECRET SET calendar_url\n", "INKTAVLA SECRET CLEAR other\n"}) {
+    events = feedAll(p, line);
+    TEST_ASSERT_EQUAL_size_t_MESSAGE(1, events.size(), line);
+    TEST_ASSERT_TRUE_MESSAGE(events[0].kind == CommandParser::Event::Kind::kError, line);
+    TEST_ASSERT_FALSE(p.receivingPayload());
+  }
+  // A damaged value is not handed on; then the parser works normally.
+  events = feedAll(p, "INKTAVLA SECRET SET calendar_url 3 00000000\nabc");
+  TEST_ASSERT_TRUE(events[0].kind == CommandParser::Event::Kind::kError);
+  events = feedAll(p, put("{}"));
+  TEST_ASSERT_TRUE(events[0].kind == CommandParser::Event::Kind::kConfigPut);
+  TEST_ASSERT_TRUE(events[0].name.empty());
+}
+
+void test_secret_values_are_checked() {
+  std::string reason;
+  TEST_ASSERT_TRUE(core::checkSecret("calendar_url", kAddress, reason));
+  TEST_ASSERT_TRUE(core::checkSecret("calendar_url", "webcal://example.invalid/a.ics", reason));
+  TEST_ASSERT_TRUE(core::checkSecret("calendar_url", "HTTPS://example.invalid/a.ics", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("calendar_url", "http://example.invalid/a.ics", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("calendar_url", "https://", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("calendar_url", "https://a b", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("calendar_url", "", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("calendar_url", "https://\xC3\xA4", reason));
+  TEST_ASSERT_FALSE(core::checkSecret("other", kAddress, reason));
+  TEST_ASSERT_EQUAL_STRING("unknown secret", reason.c_str());
+  TEST_ASSERT_EQUAL_STRING("https://example.invalid/a.ics",
+                           core::secretUrl("webcal://example.invalid/a.ics").c_str());
+  TEST_ASSERT_EQUAL_STRING(kAddress, core::secretUrl(kAddress).c_str());
+}
+
+void test_handle_secrets_never_repeats_them() {
+  MemoryStore store;
+  MemorySecrets secrets;
+  CommandParser::Event e;
+  e.kind = CommandParser::Event::Kind::kSecretSet;
+  e.name = "calendar_url";
+  e.payload = kAddress;
+  core::CommandReply r = core::handleCommand(e, store, nullptr, "", &secrets);
+  TEST_ASSERT_TRUE(r.restart);
+  TEST_ASSERT_EQUAL_STRING("INKTAVLA OK calendar_url saved, restarting\n", r.text.c_str());
+  TEST_ASSERT_EQUAL_STRING(kAddress, secrets.values["calendar_url"].c_str());
+  TEST_ASSERT_TRUE(secrets.has("calendar_url"));
+  TEST_ASSERT_EQUAL_size_t(0, store.log.size());  // never in the configuration file
+
+  // Invalid: refused, the old value stays, the reply does not repeat it.
+  e.payload = "http://calendar.example.invalid/secret-token";
+  r = core::handleCommand(e, store, nullptr, "", &secrets);
+  TEST_ASSERT_FALSE(r.restart);
+  TEST_ASSERT_TRUE(r.text.rfind("INKTAVLA ERR calendar_url must start with https://", 0) == 0);
+  TEST_ASSERT_TRUE(r.text.find("secret-token") == std::string::npos);
+  TEST_ASSERT_EQUAL_STRING(kAddress, secrets.values["calendar_url"].c_str());
+
+  secrets.fail = true;
+  e.payload = kAddress;
+  r = core::handleCommand(e, store, nullptr, "", &secrets);
+  TEST_ASSERT_FALSE(r.restart);
+  TEST_ASSERT_EQUAL_STRING("INKTAVLA ERR cannot save calendar_url\n", r.text.c_str());
+
+  e.kind = CommandParser::Event::Kind::kSecretClear;
+  r = core::handleCommand(e, store, nullptr, "", &secrets);
+  TEST_ASSERT_TRUE(r.restart);
+  TEST_ASSERT_EQUAL_STRING("INKTAVLA OK calendar_url cleared, restarting\n", r.text.c_str());
+  TEST_ASSERT_FALSE(secrets.has("calendar_url"));
+
+  // Without a secret store (e.g. on the PC): an error, nothing else.
+  r = core::handleCommand(e, store, nullptr, "");
+  TEST_ASSERT_FALSE(r.restart);
+  TEST_ASSERT_EQUAL_STRING("INKTAVLA ERR secrets not available\n", r.text.c_str());
+}
+
 void test_crc32_matches_zlib() {
   const std::string text = "123456789";
   TEST_ASSERT_EQUAL_HEX32(0xCBF43926,
@@ -430,6 +549,9 @@ int main() {
   RUN_TEST(test_handle_put_saves_atomically_and_reports_issues);
   RUN_TEST(test_handle_put_rejects_invalid_files);
   RUN_TEST(test_handle_get_and_info);
+  RUN_TEST(test_secret_commands_are_parsed);
+  RUN_TEST(test_secret_values_are_checked);
+  RUN_TEST(test_handle_secrets_never_repeats_them);
   RUN_TEST(test_crc32_matches_zlib);
   return UNITY_END();
 }

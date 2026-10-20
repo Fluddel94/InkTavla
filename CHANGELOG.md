@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verbindung" or "Keine Daten"; a failing widget only affects its own tile.
   Departures that left more than a minute ago are no longer shown.
 - Common widget interface for the header and the MVG widget; slots without a
-  widget (calendar for now) show "Nicht eingerichtet".
+  widget show "Nicht eingerichtet".
 - `widgets::App` builds widgets, screen and controller from the
   configuration; `src/main.cpp` only provides clock and panel and loads
   `/config.json` from LittleFS.
@@ -106,6 +106,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fonts: Roboto Condensed Medium 18 and 20, Bold 18 and 22, and Bold 56 for
   numbers only (`fontgen.py` can limit a font to a list of characters).
 - A real Open-Meteo response for München from 2026-10-20 as test fixture.
+
+- Calendar widget: an agenda of one calendar from its private iCal address
+  (Google Calendar, Outlook, Nextcloud, iCloud), updated every 15 minutes:
+  "Heute" and "Morgen" with their dates, the rest of the week one line per
+  event; the next event bold with a countdown ("in 48 min", "in 4 h"),
+  running events marked "läuft", events of today kept until midnight,
+  all-day events as black badges ("ganztägig", "bis Fr"), the week number
+  in the tile title and "+3 weitere" when not everything fits.
+- Own streaming iCalendar reader (RFC 5545): unfolds lines, skips values
+  that are not needed and drops events outside the coming days while the
+  file arrives (up to 8 MB, at most 400 events kept, events and titles in
+  PSRAM). Supports recurrence rules (daily to yearly with INTERVAL, COUNT,
+  UNTIL, WKST, BYDAY with ordinals, BYMONTHDAY, BYMONTH, BYSETPOS),
+  excluded dates, moved and cancelled occurrences, all-day and multi-day
+  events and time zones from VTIMEZONE.
+- Secrets of widgets in NVS: commands `INKTAVLA SECRET SET <name>` and
+  `INKTAVLA SECRET CLEAR <name>` on the serial line (no command reads them
+  back, replies never repeat them); `tools/inktavla_config.py calendar-url`
+  asks for the calendar address without showing it; `INFO` reports
+  `calendar_url=set`. An address put into `config.json` by mistake is
+  reported and ignored.
+- HTTPS: `fetchStream` hands a response body to a reader piece by piece and
+  follows redirects; `core::PsramAllocator` for containers in PSRAM.
+- Font: Roboto Condensed Medium 22 (calendar entries).
+- Hand-written calendar files as test fixtures; the simulation of the main
+  loop includes the calendar.
 
 ### Changed
 

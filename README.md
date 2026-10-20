@@ -36,8 +36,8 @@ unit-tested on the PC.
 The display controller (`core/display_controller.h`) runs the device:
 
 - It fetches each widget's data when it is due (MVG: at second 1 of every
-  minute, weather: every 30 minutes) and redraws the screen, at the latest
-  once a minute for the clock.
+  minute, calendar: every 15 minutes, weather: every 30 minutes) and redraws
+  the screen, at the latest once a minute for the clock.
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
   data shows "Keine Verbindung". A failing widget only affects its own tile.
@@ -110,6 +110,10 @@ Nothing user-specific is compiled in.
   [Improv](https://www.improv-wifi.com/) ("Connect device to Wi-Fi" in a
   browser with Web Serial, e.g. Chrome or Edge). They are stored only on the
   device (NVS) and never printed.
+- **Calendar address:** the private iCal address of your calendar is a
+  secret as well; it is sent over USB with
+  `tools/inktavla_config.py calendar-url`, stored only in NVS and can be
+  replaced or cleared but never read back.
 - **Everything else** is set in a JSON file on the device, for now sent over
   USB with `tools/inktavla_config.py`, later through a settings page in the
   browser. See [docs/configuration.md](docs/configuration.md).
@@ -121,7 +125,11 @@ Nothing user-specific is compiled in.
   root CAs, built into the framework). No certificates are kept in this
   repository.
 - Responses are read as a stream with a filter, never held as a whole;
-  large buffers go to PSRAM. Requests time out after 10 s.
+  large buffers go to PSRAM. Requests time out after 10 s without data.
+  Calendar files (iCalendar, up to 8 MB) are read the same way, keeping only
+  the events of the coming days.
+- Addresses are never written to the log, since some of them are secret
+  (the private iCal address).
 - Wi-Fi reconnects on its own with growing pauses (2, 5, 15, 30 s) and
   switches itself off and on after six failures in a row; power saving is
   off and the strongest access point is used.
@@ -134,6 +142,9 @@ Nothing user-specific is compiled in.
 
 - **MVG** (Munich public transport): unofficial API, not endorsed by MVG.
   It may change or stop working at any time.
+- **Calendar:** your own calendar, from its private iCal address (Google
+  Calendar, Outlook, Nextcloud, iCloud, ...). It is only requested from the
+  service that publishes it.
 - **Weather data by [Open-Meteo.com](https://open-meteo.com/)**, licensed
   under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The free
   API is for non-commercial use only; the source is named in the title of
@@ -159,7 +170,7 @@ Weather symbols are our own, drawn by `tools/icongen` (Pillow).
 - Everything in the repository is in English.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`type(scope): description`, scopes = modules such as `core`, `display`,
-  `transit`).
+  `transit`, `weather`, `calendar`).
 - Versions follow [Semantic Versioning](https://semver.org/); changes are
   recorded in [CHANGELOG.md](CHANGELOG.md).
 - Code is formatted with `clang-format` (`.clang-format`, Google-based).

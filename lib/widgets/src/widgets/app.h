@@ -13,6 +13,7 @@
 #include "core/config.h"
 #include "core/display_controller.h"
 #include "hal/display.h"
+#include "widgets/calendar/widget.h"
 #include "widgets/header/header.h"
 #include "widgets/mvg/widget.h"
 #include "widgets/screen.h"
@@ -25,10 +26,11 @@ namespace widgets {
 struct Services {
   mvg::Source* mvg = nullptr;
   weather::Source* weather = nullptr;
+  calendar::Source* calendar = nullptr;
 };
 
-// Widget for an ID of layout.slots: MVG, weather, or a placeholder for widgets
-// that do not exist yet ("calendar") and unknown IDs (reported).
+// Widget for an ID of layout.slots: MVG, weather, calendar, or a placeholder
+// for unknown IDs (reported).
 std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
                                      const Services& services, core::ConfigIssues& issues);
 

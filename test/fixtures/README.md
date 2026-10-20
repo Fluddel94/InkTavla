@@ -24,6 +24,21 @@ early-terminating trips) is modelled on observations of the API; the
 captures from 2026-10-19 confirm the early-termination cases. All
 `rules_*.json` times are on 2026-10-19 from 05:00 UTC.
 
+## `calendar/`
+
+Hand-written iCalendar files (RFC 5545) with invented events, no real
+calendar data. All times are around Tuesday, 2026-10-20 (the time of the
+overall UI design, 07:42 CEST).
+
+| File | Content |
+|---|---|
+| `week.ics` | Structured like an export of Google Calendar: a VTIMEZONE for Europe/Berlin, a weekly series with a long folded description and an alarm, single events in local time and UTC, an all-day series every four weeks, a series with UNTIL and EXDATE, a cancelled event, a yearly all-day event since 1950, an ended series and an old single event |
+| `busy.ics` | More events than fit into the tile, long titles and multi-day events (all-day and timed) |
+
+More cases (recurrence rules, moved and cancelled occurrences, other time
+zones, folding inside UTF-8 characters) are written directly into
+`test/test_calendar`.
+
 ## `ui/`
 
 Reference images of the screen previews (`test/test_ui_preview`), drawn with

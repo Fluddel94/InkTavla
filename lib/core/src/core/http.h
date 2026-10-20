@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace core {
@@ -30,14 +31,24 @@ struct HttpResult {
   int status = 0;          // HTTP status, negative: error of the HTTP client
   size_t bytes = 0;        // body bytes read
   bool timed_out = false;  // reading stopped by kHttpTimeoutMs
-  std::string error;       // JSON error, if any
+  std::string error;       // JSON error or other reason, if any
 };
+
+// Receives the body of a response piece by piece; returning false stops
+// the transfer (the request then counts as failed).
+using BodySink = std::function<bool(const char* data, size_t length)>;
 
 #if defined(ARDUINO)
 // GET url and read the JSON body into doc, keeping only the fields in
 // filter. True on status 200 and valid JSON.
 bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocument& filter,
                      HttpResult* result = nullptr);
+
+// GET url and hand the body to sink as it arrives, never holding all of it
+// (e.g. iCal files of several megabytes). Follows redirects. True on status
+// 200 if the whole body (at most max_bytes) was read and accepted.
+bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes,
+                 HttpResult* result = nullptr);
 #endif
 
 }  // namespace core

@@ -7,15 +7,23 @@ close the serial monitor first (only one program can use the port).
     python tools/inktavla_config.py put config.json --port COM5
     python tools/inktavla_config.py get backup.json --port COM5
     python tools/inktavla_config.py info --port /dev/ttyACM0
+    python tools/inktavla_config.py calendar-url --port COM5
+    python tools/inktavla_config.py calendar-url --clear --port COM5
 
 "put" checks the file, sends it and shows the problems the device found in
 it (e.g. an invalid station ID). The device saves the file only if it is
-valid JSON and then restarts with it. Requires pyserial
-(pip install -r tools/requirements.txt). The protocol is described in
-lib/core/src/core/config_command.h.
+valid JSON and then restarts with it.
+
+"calendar-url" asks for the private iCal address of the calendar (the
+input is not shown) and stores it in the device's protected storage, not in
+the configuration file; it can be replaced or cleared, but never read back.
+
+Requires pyserial (pip install -r tools/requirements.txt). The protocol is
+described in lib/core/src/core/config_command.h.
 """
 
 import argparse
+import getpass
 import json
 import sys
 import time
@@ -23,6 +31,7 @@ import zlib
 
 PREFIX = b"INKTAVLA "
 MAX_BYTES = 16384
+MAX_SECRET_BYTES = 1024
 TIMEOUT_S = 10.0
 
 
@@ -126,6 +135,50 @@ def command_get(link, path):
             return 0
 
 
+def wait_ok(link):
+    """Waits for "OK" or "ERR"; prints the answer, returns the exit code."""
+    deadline = time.monotonic() + TIMEOUT_S
+    while True:
+        line = read_reply_line(link, deadline)
+        if line is None:
+            print("No answer from the device (is the InkTavla firmware running?)")
+            return 1
+        if line.startswith("OK"):
+            print(line[2:].strip() or "OK")
+            return 0
+        if line.startswith("ERR"):
+            print("Error: " + line[3:].strip())
+            return 1
+
+
+def read_calendar_url():
+    """Asks for the address without showing it; None if invalid."""
+    print("Private iCal address of the calendar (input is hidden).")
+    print("Google Calendar: the calendar's 'Settings and sharing' -> 'Integrate calendar'")
+    print("-> 'Secret address in iCal format'.")
+    value = getpass.getpass("Address: ").strip()
+    lower = value.lower()
+    if not (lower.startswith("https://") or lower.startswith("webcal://")):
+        print("The address must start with https:// or webcal://")
+        return None
+    if any(c <= " " or c > "~" for c in value) or len(value) > MAX_SECRET_BYTES:
+        print("The address must be printable ASCII without spaces, "
+              f"at most {MAX_SECRET_BYTES} characters")
+        return None
+    return value
+
+
+def command_calendar_url(link, clear, value):
+    if clear:
+        link.write(b"\n" + PREFIX + b"SECRET CLEAR calendar_url\n")
+    else:
+        data = value.encode("ascii")
+        header = f"SECRET SET calendar_url {len(data)} {zlib.crc32(data):08x}\n".encode()
+        link.write(b"\n" + PREFIX + header + data)
+    link.flush()
+    return wait_ok(link)
+
+
 def command_info(link):
     link.write(b"\n" + PREFIX + b"INFO\n")
     link.flush()
@@ -145,16 +198,27 @@ def command_info(link):
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("command", choices=["put", "get", "info"])
+    parser.add_argument("command", choices=["put", "get", "info", "calendar-url"])
     parser.add_argument("file", nargs="?", help="configuration file (put: required)")
+    parser.add_argument("--clear", action="store_true",
+                        help="calendar-url: remove the stored address")
     parser.add_argument("--port", required=True, help="serial port, e.g. COM5 or /dev/ttyACM0")
     parser.add_argument("--baud", type=int, default=115200)
     args = parser.parse_args(argv)
     if args.command == "put" and not args.file:
         parser.error("put needs the configuration file")
 
+    # Ask before opening the port, so that the device is not kept waiting.
+    url = None
+    if args.command == "calendar-url" and not args.clear:
+        url = read_calendar_url()
+        if url is None:
+            return 1
+
     link = open_port(args.port, args.baud)
     try:
+        if args.command == "calendar-url":
+            return command_calendar_url(link, args.clear, url)
         if args.command == "put":
             return command_put(link, args.file)
         if args.command == "get":

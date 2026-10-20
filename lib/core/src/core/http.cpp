@@ -78,10 +78,11 @@ class HttpBodyStream : public Stream {
   size_t bytes_ = 0;
 };
 
-}  // namespace
-
-bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocument& filter,
-                     HttpResult* result) {
+// Common part of the requests: TLS with the certificate bundle, timeouts,
+// HTTP/1.0 (no chunks if the server honours it). read gets the body of a
+// response with status 200.
+bool get(const std::string& url, bool follow_redirects,
+         const std::function<bool(HttpBodyStream&, HttpResult&)>& read, HttpResult* result) {
   HttpResult r;
   NetworkClientSecure client;
   client.useBuiltinCACertBundle();  // certificate check with the core's CA bundle
@@ -91,6 +92,7 @@ bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocume
   http.setConnectTimeout(kHttpTimeoutMs);
   http.setTimeout(kHttpTimeoutMs);
   http.useHTTP10(true);  // no chunks if the server honours it
+  if (follow_redirects) http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   const char* header_keys[] = {"Transfer-Encoding"};
   http.collectHeaders(header_keys, 1);
 
@@ -102,25 +104,62 @@ bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocume
     if (r.status == 200) {
       const bool chunked = http.header("Transfer-Encoding").equalsIgnoreCase("chunked");
       HttpBodyStream body(client, chunked, kHttpTimeoutMs);
-      const DeserializationError error =
-          deserializeJson(doc, body, DeserializationOption::Filter(filter));
+      ok = read(body, r);
       r.bytes = body.bytes();
       r.timed_out = body.timedOut();
-      if (error) {
-        r.error = error.c_str();
-      } else {
-        ok = true;
-      }
     }
     http.end();
   }
   if (!ok) {
     // No URL in the log: it may contain secrets (e.g. a private iCal address).
-    Serial.printf("HTTP: request failed, status %d%s%s\n", r.status,
-                  r.error.empty() ? "" : ", JSON ", r.error.c_str());
+    Serial.printf("HTTP: request failed, status %d%s%s%s\n", r.status,
+                  r.timed_out ? ", timed out" : "", r.error.empty() ? "" : ", ", r.error.c_str());
   }
   if (result != nullptr) *result = r;
   return ok;
+}
+
+}  // namespace
+
+bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocument& filter,
+                     HttpResult* result) {
+  return get(
+      url, false,
+      [&](HttpBodyStream& body, HttpResult& r) {
+        const DeserializationError error =
+            deserializeJson(doc, body, DeserializationOption::Filter(filter));
+        if (error) r.error = std::string("JSON ") + error.c_str();
+        return !error;
+      },
+      result);
+}
+
+bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes,
+                 HttpResult* result) {
+  return get(
+      url, true,
+      [&](HttpBodyStream& body, HttpResult& r) {
+        char buffer[512];
+        size_t total = 0;
+        while (true) {
+          size_t n = 0;
+          int c = -1;
+          while (n < sizeof(buffer) && (c = body.read()) >= 0) buffer[n++] = static_cast<char>(c);
+          total += n;
+          if (total > max_bytes) {
+            r.error = "response too large";
+            return false;
+          }
+          if (n > 0 && !sink(buffer, n)) {
+            r.error = "stopped by the reader";
+            return false;
+          }
+          // A body without length ends with the connection; one that stops
+          // arriving is incomplete.
+          if (c < 0) return !body.timedOut();
+        }
+      },
+      result);
 }
 
 }  // namespace core

@@ -25,10 +25,21 @@ enum class Text {
   kTitleDepartures,
   kTitleWeather,
   kTitleCalendar,
-  kFeelsLike,        // "gefühlt 5°"
-  kClockSuffix,      // after a time range: "14–18 Uhr"
-  kNoRain,           // rain outlook without rain
-  kLocationMissing,  // weather widget without coordinates
+  kFeelsLike,               // "gefühlt 5°"
+  kClockSuffix,             // after a time range: "14–18 Uhr"
+  kNoRain,                  // rain outlook without rain
+  kLocationMissing,         // weather widget without coordinates
+  kToday,                   // agenda: "Heute"
+  kTomorrow,                // agenda: "Morgen"
+  kAllDay,                  // after an all-day event: "ganztägig"
+  kNoEvents,                // a day without events
+  kRunning,                 // an event that has started: "läuft"
+  kUntil,                   // end of a multi-day event: "bis Fr"
+  kIn,                      // countdown: "in 48 min"
+  kHoursUnit,               // after a number of hours: "in 2 h"
+  kMoreEvents,              // events that do not fit: "+3 weitere"
+  kWeekShort,               // week number in the tile title: "KW 43"
+  kCalendarAddressMissing,  // calendar widget without an iCal address
 };
 
 const char* text(Language language, Text id);

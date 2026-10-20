@@ -1,6 +1,7 @@
 #include "widgets/app.h"
 
 #include "core/time.h"
+#include "widgets/calendar/config.h"
 #include "widgets/mvg/config.h"
 #include "widgets/placeholder.h"
 #include "widgets/weather/config.h"
@@ -17,6 +18,12 @@ std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root
     weather::Config config = weather::parseConfig(core::widgetSection(root, "weather"), issues);
     if (services.weather != nullptr) {
       return std::make_unique<weather::WeatherWidget>(config, *services.weather);
+    }
+  }
+  if (id == "calendar") {
+    calendar::checkConfig(core::widgetSection(root, "calendar"), issues);
+    if (services.calendar != nullptr) {
+      return std::make_unique<calendar::CalendarWidget>(*services.calendar);
     }
   }
   if (id != "mvg" && id != "weather" && id != "calendar") {

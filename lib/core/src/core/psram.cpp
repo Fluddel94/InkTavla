@@ -10,7 +10,7 @@ namespace core {
 
 namespace {
 
-class PsramAllocator : public ArduinoJson::Allocator {
+class JsonPsramAllocator : public ArduinoJson::Allocator {
  public:
   void* allocate(size_t size) override {
 #if defined(ESP_PLATFORM)
@@ -35,8 +35,22 @@ class PsramAllocator : public ArduinoJson::Allocator {
 
 }  // namespace
 
+void* psramAllocate(size_t size) {
+  if (size == 0) size = 1;
+#if defined(ESP_PLATFORM)
+  void* p = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (p == nullptr) p = std::malloc(size);
+#else
+  void* p = std::malloc(size);
+#endif
+  if (p == nullptr) std::abort();
+  return p;
+}
+
+void psramFree(void* ptr) { std::free(ptr); }
+
 ArduinoJson::Allocator* jsonAllocator() {
-  static PsramAllocator allocator;
+  static JsonPsramAllocator allocator;
   return &allocator;
 }
 

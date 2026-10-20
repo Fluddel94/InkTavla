@@ -22,6 +22,7 @@ extern const Font kRobotoCondensedMedium18;
 extern const Font kRobotoCondensedBold18;
 extern const Font kRobotoCondensedMedium20;
 extern const Font kRobotoCondensedBold22;
+extern const Font kRobotoCondensedMedium22;
 extern const Font kRobotoCondensedBold56;  // numbers, "+", "-", "°" and "−" only
 
 }  // namespace ui::fonts

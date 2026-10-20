@@ -56,11 +56,13 @@ CommandParser::Event CommandParser::feed(uint8_t b, int64_t now_ms) {
     const uint32_t crc = crc32(reinterpret_cast<const uint8_t*>(payload_.data()), payload_.size());
     if (crc != payload_crc_) {
       payload_.clear();
+      payload_name_.clear();
       return error("checksum mismatch, nothing saved");
     }
     Event e;
-    e.kind = Event::Kind::kConfigPut;
+    e.kind = payload_name_.empty() ? Event::Kind::kConfigPut : Event::Kind::kSecretSet;
     e.payload.swap(payload_);
+    e.name.swap(payload_name_);
     return e;
   }
   if (b == '\n') {
@@ -86,6 +88,7 @@ CommandParser::Event CommandParser::poll(int64_t now_ms) {
   if (payload_left_ == 0 || now_ms - last_byte_ms_ < kPayloadTimeoutMs) return {};
   payload_left_ = 0;
   payload_.clear();
+  payload_name_.clear();
   return error("timeout while receiving, nothing saved");
 }
 
@@ -115,15 +118,47 @@ CommandParser::Event CommandParser::line(const std::string& text) {
     }
     payload_.clear();
     payload_.reserve(length);
+    payload_name_.clear();
     payload_left_ = length;
     payload_crc_ = static_cast<uint32_t>(crc);
     return {};
+  }
+  if (command.compare(0, 11, "SECRET SET ") == 0) {
+    // <name> <bytes> <crc32>
+    const std::string args = command.substr(11);
+    const size_t first = args.find(' ');
+    const size_t second = first == std::string::npos ? first : args.find(' ', first + 1);
+    unsigned long length = 0;
+    unsigned long crc = 0;
+    if (second == std::string::npos ||
+        !parseNumber(args.substr(first + 1, second - first - 1), 10, 0xFFFFFFFF, length) ||
+        !parseNumber(args.substr(second + 1), 16, 0xFFFFFFFF, crc)) {
+      return error("usage: SECRET SET <name> <bytes> <crc32>");
+    }
+    const std::string name = args.substr(0, first);
+    if (!isKnownSecret(name)) return error("unknown secret");
+    if (length == 0 || length > kMaxSecretBytes) {
+      return error("size must be 1 to " + std::to_string(kMaxSecretBytes) + " bytes");
+    }
+    payload_.clear();
+    payload_.reserve(length);
+    payload_name_ = name;
+    payload_left_ = length;
+    payload_crc_ = static_cast<uint32_t>(crc);
+    return {};
+  }
+  if (command.compare(0, 13, "SECRET CLEAR ") == 0) {
+    e.name = command.substr(13);
+    if (!isKnownSecret(e.name)) return error("unknown secret");
+    e.kind = Event::Kind::kSecretClear;
+    return e;
   }
   return error("unknown command");
 }
 
 CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store,
-                           const ConfigValidator& validate, const std::string& info) {
+                           const ConfigValidator& validate, const std::string& info,
+                           SecretStore* secrets) {
   using Kind = CommandParser::Event::Kind;
   CommandReply reply;
   switch (event.kind) {
@@ -144,6 +179,30 @@ CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store
       const uint32_t crc = crc32(reinterpret_cast<const uint8_t*>(data.data()), data.size());
       reply.text = std::string(kPrefix) + "DATA " + std::to_string(data.size()) + " " + hex(crc) +
                    "\n" + data + "\n" + kPrefix + "OK\n";
+      return reply;
+    }
+    case Kind::kSecretSet:
+    case Kind::kSecretClear: {
+      // The value is never repeated in a reply.
+      std::string reason;
+      if (secrets == nullptr) {
+        reply.text = std::string(kPrefix) + "ERR secrets not available\n";
+      } else if (event.kind == Kind::kSecretClear) {
+        if (secrets->erase(event.name.c_str())) {
+          reply.text = std::string(kPrefix) + "OK " + event.name + " cleared, restarting\n";
+          reply.restart = true;
+        } else {
+          reply.text = std::string(kPrefix) + "ERR cannot clear " + event.name + "\n";
+        }
+      } else if (!checkSecret(event.name, event.payload, reason)) {
+        reply.text =
+            std::string(kPrefix) + "ERR " + event.name + " " + reason + ", nothing saved\n";
+      } else if (!secrets->write(event.name.c_str(), event.payload)) {
+        reply.text = std::string(kPrefix) + "ERR cannot save " + event.name + "\n";
+      } else {
+        reply.text = std::string(kPrefix) + "OK " + event.name + " saved, restarting\n";
+        reply.restart = true;
+      }
       return reply;
     }
     case Kind::kConfigPut:

@@ -66,6 +66,28 @@ const char* text(Language language, Text id) {
       return de ? "Kein Regen" : "No rain";
     case Text::kLocationMissing:
       return de ? "Standort fehlt" : "Location missing";
+    case Text::kToday:
+      return de ? "Heute" : "Today";
+    case Text::kTomorrow:
+      return de ? "Morgen" : "Tomorrow";
+    case Text::kAllDay:
+      return de ? "ganztägig" : "all day";
+    case Text::kNoEvents:
+      return de ? "Keine Termine" : "No events";
+    case Text::kRunning:
+      return de ? "läuft" : "now";
+    case Text::kUntil:
+      return de ? "bis" : "until";
+    case Text::kIn:
+      return "in";
+    case Text::kHoursUnit:
+      return "h";
+    case Text::kMoreEvents:
+      return de ? "weitere" : "more";
+    case Text::kWeekShort:
+      return de ? "KW" : "Wk";
+    case Text::kCalendarAddressMissing:
+      return de ? "Kalender-Adresse fehlt" : "Calendar address missing";
   }
   return "";
 }

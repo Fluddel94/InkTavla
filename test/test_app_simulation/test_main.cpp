@@ -19,6 +19,7 @@
 #include "hal/png.h"
 #include "hal/png_display.h"
 #include "widgets/app.h"
+#include "widgets/calendar/parser.h"
 #include "widgets/mvg/departures.h"
 #include "widgets/weather/forecast.h"
 
@@ -80,6 +81,24 @@ class WeatherFixtureSource : public widgets::weather::Source {
   int requests = 0;
 };
 
+// Calendar source with the hand-written week of test/fixtures/calendar/.
+class CalendarFixtureSource : public widgets::calendar::Source {
+ public:
+  bool configured() const override { return has_address; }
+  bool fetchCalendar(widgets::calendar::Parser& parser) override {
+    requests++;
+    if (fail) return false;
+    std::ifstream file("test/fixtures/calendar/week.ics", std::ios::binary);
+    std::stringstream text;
+    text << file.rdbuf();
+    parser.feed(text.str());
+    return true;
+  }
+  bool has_address = true;
+  bool fail = false;
+  int requests = 0;
+};
+
 constexpr char kConfig[] = R"({
   "language": "de",
   "display": {"full_refresh_minutes": 60},
@@ -92,8 +111,11 @@ constexpr char kConfig[] = R"({
 })";
 
 struct Rig {
-  explicit Rig(const char* config_text, const char* name)
+  // calendar_address: whether an iCal address is set (read once, like on the
+  // device where saving one restarts it).
+  explicit Rig(const char* config_text, const char* name, bool calendar_address = true)
       : display(800, 480, std::string(".pio/simulation/") + name), app(clock, display, services()) {
+    calendar.has_address = calendar_address;
     std::filesystem::remove_all(std::string(".pio/simulation/") + name);
     JsonDocument doc;
     core::ConfigIssues read_issues;
@@ -106,6 +128,7 @@ struct Rig {
     widgets::Services s;
     s.mvg = &source;
     s.weather = &weather;
+    s.calendar = &calendar;
     return s;
   }
 
@@ -124,6 +147,7 @@ struct Rig {
   SimClock clock;
   FixtureSource source;
   WeatherFixtureSource weather;
+  CalendarFixtureSource calendar;
   hal::PngDisplay display;
   widgets::App app;
   core::ConfigIssues issues;
@@ -176,7 +200,7 @@ void test_normal_operation_and_refresh_types() {
   checkPanel(rig.display, "sim_start");
 
   // 22:25:01: new minute in the header, MVG updated at second 1 - one
-  // partial refresh of the changed areas only (the placeholders stay).
+  // partial refresh of the changed areas only (weather and calendar stay).
   rig.runUntil(11000);
   TEST_ASSERT_EQUAL_INT(2, rig.source.requests);
   TEST_ASSERT_EQUAL_size_t(2, rig.display.updates().size());
@@ -184,15 +208,16 @@ void test_normal_operation_and_refresh_types() {
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header
   TEST_ASSERT_FALSE(contains(u.regions, 360, 42));   // weather (every 30 minutes)
-  TEST_ASSERT_FALSE(contains(u.regions, 360, 262));  // calendar placeholder
+  TEST_ASSERT_FALSE(contains(u.regions, 360, 262));  // calendar (every 15 minutes)
 
   // One hour later at least one full refresh against ghosting.
   rig.runUntil(3700000);
   int full = 0;
   for (const auto& update : rig.display.updates()) full += update.mode == hal::Refresh::kFull;
   TEST_ASSERT_EQUAL_INT(2, full);
-  // One request per minute.
+  // One request per minute, the calendar every 15 minutes.
   TEST_ASSERT_INT_WITHIN(1, 63, rig.source.requests);
+  TEST_ASSERT_INT_WITHIN(1, 5, rig.calendar.requests);
 }
 
 void test_short_outage_is_bridged_then_age_is_shown() {
@@ -238,12 +263,14 @@ void test_station_name_from_the_api() {
 }
 
 void test_missing_settings_and_unknown_widget() {
-  Rig rig(R"({"layout": {"slots": ["mvg", "clock", "calendar"]}, "language": "en"})", "setup");
+  Rig rig(R"({"layout": {"slots": ["mvg", "clock", "calendar"]}, "language": "en"})", "setup",
+          false);  // no iCal address in NVS
   bool unknown = false;
   for (const core::ConfigIssue& i : rig.issues) unknown = unknown || i.path == "layout.slots";
   TEST_ASSERT_TRUE(unknown);
   rig.runUntil(120000);
-  TEST_ASSERT_EQUAL_INT(0, rig.source.requests);  // no station: nothing fetched
+  TEST_ASSERT_EQUAL_INT(0, rig.source.requests);    // no station: nothing fetched
+  TEST_ASSERT_EQUAL_INT(0, rig.calendar.requests);  // no address: nothing fetched
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kNotSetUp);
   checkPanel(rig.display, "sim_not_set_up");
 }
