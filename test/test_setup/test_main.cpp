@@ -20,6 +20,7 @@ class FakeCanvas : public ui::Canvas {
  public:
   uint16_t width() const override { return 320; }
   uint16_t height() const override { return 440; }
+  void setPixel(int, int, ui::Color) override {}
 };
 
 class FakeWidget : public widgets::Widget {

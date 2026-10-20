@@ -22,3 +22,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are sorted by planned time plus delay.
 - ArduinoJson 7.4.3 (MIT) for reading API responses from a stream with a
   filter.
+- Real MVG API responses from 2026-10-19 as test fixtures.
+- Rail replacement buses without a line name are treated like those for
+  regional trains: shown as soon as any regional train is selected.
+- Due-based scheduler: intervals aligned to the wall clock (MVG at second 1
+  of every minute), retries after failures, manual refresh, age of the last
+  successful update.
+- Time helpers: 64-bit monotonic clock, POSIX time zones with syntax check,
+  local time, minutes until a departure.
+- MVG time column rules from the MVG departure display: early departures,
+  delay text, minutes mode, cancelled departures.
+- JSON configuration file in LittleFS with defaults, validation and issue
+  reports, including the MVG widget section; see `docs/configuration.md`.
+- UI layer: 1-bit bitmap and canvas with clipping, lines, rectangles,
+  triangles, rounded rectangles and UTF-8 text; text shortening (`fitText`,
+  `fitEvenly`), warning sign, line symbols, German/English texts and the
+  layouts "one_plus_two" (departures 360 px) and "three_columns".
+- Font generator (`tools/fontgen`) and Roboto Condensed in four sizes with
+  Latin characters incl. umlauts.
+- MVG departure list view: 48 px rows, minutes by default, cancellations,
+  warnings, split trains.
+- Screen previews from real MVG data, checked against reference images.
+- MVV line symbols (S-Bahn, U-Bahn, tram, night tram) from the MVG departure
+  display, drawn at double size; buses and regional trains get a generated
+  box or frame.
+
+### Changed
+
+- MVG: minutes until departure are now the default time format.

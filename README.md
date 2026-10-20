@@ -62,6 +62,11 @@ New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
 pio test -e native
 ```
 
+Some tests draw complete screens with the real UI code and compare them
+with reference images in `test/fixtures/ui/`; the images are also written to
+`.pio/preview/` for viewing. After an intended change of the appearance,
+update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`.
+
 The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
 folder on `PATH`). Test data lives in `test/fixtures/`.
@@ -76,8 +81,9 @@ core dump partition. Changing the layout requires a full reflash via USB.
 
 Nothing user-specific is compiled in. Wi-Fi credentials are entered at
 runtime (first via [Improv](https://www.improv-wifi.com/) over USB) and stored
-on the device; everything else will be set through a configuration file and
-later a settings page in the browser.
+on the device; everything else is set in a JSON file on the device, later
+through a settings page in the browser. See
+[docs/configuration.md](docs/configuration.md).
 
 ## Data sources
 
@@ -90,6 +96,12 @@ later a settings page in the browser.
 |---|---|---|---|
 | [ArduinoJson](https://arduinojson.org/) | 7.4.3 | MIT | Reading API responses |
 | [Unity](https://www.throwtheswitch.org/unity) | 2.6.1 | MIT | Unit tests only |
+| [Roboto Condensed](https://github.com/googlefonts/roboto-classic) (font) | 3.008 | SIL OFL 1.1 | Text on the display, converted by `tools/fontgen` |
+| [Pillow](https://python-pillow.org/) | 12.3.0 | MIT-CMU | Font generator only, not part of the firmware |
+
+MVV line symbols (S-Bahn, U-Bahn): from Wikimedia Commons ("München S1.svg"
+etc. by Claus Färber, marked as public domain), converted to 1 bit. They may
+be trademarks of MVV, MVG or DB. Tram and night tram symbols are our own.
 
 ## Contributing
 

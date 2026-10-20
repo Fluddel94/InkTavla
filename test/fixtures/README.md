@@ -15,8 +15,18 @@ Data from the unofficial MVG API (`https://www.mvg.de/api/bgw-pt/v3/`).
 | `rules_early_termination.json` | Hand-written: early termination (still stopping here / cancelled here / message without stop name) and a cancelled trip replaced by the real one |
 | `rules_split_trains.json` | Hand-written: split trains (S1 short form, coupled regional trains), duplicates, delays of combined trips and all cases that must not be combined |
 | `rules_sorting.json` | Hand-written: order by planned time plus delay |
+| `*_20261019.json` | Real responses captured 2026-10-19 around 22:30 local time (limit 100, all transport types) at Holzkirchen, Gmund, Schaftlach, Donnersbergerbrücke, Feldmoching and Pasing, reduced to the fields the firmware reads. RB 57 towards München Hbf only ran to Schaftlach at the time. Covers early termination (stopping here / cancelled here), a coupled train with one part cancelled, S1 split trains, coupled regional trains and replacement buses |
+| `holzkirchen_full_20261019.json` | The same Holzkirchen response, unmodified with all fields (checks the stream filter) |
 
 The hand-written files follow the structure of real responses. Their
 behaviour (message texts such as "Fährt nur bis …", cancellation flags of
-early-terminating trips) is modelled on observations of the API, not on
-captured responses. All `rules_*.json` times are on 2026-10-19 from 05:00 UTC.
+early-terminating trips) is modelled on observations of the API; the
+captures from 2026-10-19 confirm the early-termination cases. All
+`rules_*.json` times are on 2026-10-19 from 05:00 UTC.
+
+## `ui/`
+
+Reference images of the screen previews (`test/test_ui_preview`), drawn with
+the real UI and widget code from the MVG fixtures. They are compared byte by
+byte; after an intended change of the appearance, update them with
+`INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native -f test_ui_preview`.

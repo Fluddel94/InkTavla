@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "time_zone": "CET-1CEST,M3.5.0,M10.5.0/3",
+  "language": "de",
+  "ntp_server": "pool.ntp.org",
+  "display": {
+    "full_refresh_minutes": 60
+  },
+  "layout": {
+    "template": "one_plus_two",
+    "slots": ["mvg", "weather", "calendar"]
+  },
+  "widgets": {
+    "mvg": {
+      "station": "de:09162:10",
+      "name": "Pasing",
+      "transport_types": ["SBAHN", "BUS", "REGIONAL_BUS", "BAHN"],
+      "lines": ["S3:B:S", "RE80:R:Z"],
+      "direction": "all",
+      "time_format": "minutes"
+    }
+  }
+}

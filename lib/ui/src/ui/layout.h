@@ -1,0 +1,38 @@
+#pragma once
+
+// Layout templates: they divide the screen into a header and slots without
+// gaps. Widgets get a canvas for their slot; the separator lines between
+// the areas are drawn by drawSeparators().
+
+#include <string_view>
+#include <vector>
+
+#include "ui/canvas.h"
+
+namespace ui {
+
+inline constexpr int kScreenWidth = 800;
+inline constexpr int kScreenHeight = 480;
+
+struct Rect {
+  int x = 0;
+  int y = 0;
+  int w = 0;
+  int h = 0;
+};
+
+struct Layout {
+  Rect header;
+  std::vector<Rect> slots;
+  std::vector<Rect> separators;  // black lines between the areas
+};
+
+// "one_plus_two": header, a 358 px column on the left (360 px with its
+// separator) and two 440 x 218 tiles on the right.
+// "three_columns": header and columns of 358, 219 and 219 px.
+// Unknown names give "one_plus_two".
+Layout layoutFor(std::string_view name);
+
+void drawSeparators(Canvas& canvas, const Layout& layout);
+
+}  // namespace ui

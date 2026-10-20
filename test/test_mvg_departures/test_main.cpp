@@ -3,7 +3,8 @@
 //
 // Fixtures: test/fixtures/mvg/ (see the README there). parse_deps.json,
 // pasing_deps.json and hk_deps.json come from the MVG departure display
-// project; rules_*.json are hand-written cases for single rules.
+// project; rules_*.json are hand-written cases for single rules; *_20261019.json
+// are real responses captured on 2026-10-19.
 
 #include <unity.h>
 
@@ -291,7 +292,8 @@ void test_limit_applies_after_sorting() {
              parse("rules_sorting.json", "", DirectionFilter::kAll, 2));
 }
 
-// --- Real data (reduced captures 2026-10-03) ------------------------------------
+// --- Real data (reduced captures 2026-10-03, without times and platforms)
+// ------------------------------------
 
 void test_real_data_holzkirchen() {
   const std::vector<Departure> d = parse("hk_deps.json");
@@ -309,6 +311,113 @@ void test_real_data_pasing() {
   for (const Departure& d : parse("pasing_deps.json", "RE80:B:Z,RE89:B:Z")) {
     TEST_ASSERT_TRUE(d.line == "RE80" || d.line == "RE89");
     TEST_ASSERT_TRUE(d.transport == TransportType::kTrain);
+  }
+}
+
+// --- Real data (complete captures 2026-10-19, around 22:30 local time) --------
+// During the capture, RB 57 towards München Hbf only ran to Schaftlach.
+
+void test_real_early_termination_still_stopping_here() {
+  // Gmund is before Schaftlach: the train still stops here, the API marks it
+  // as not cancelled, so the new destination is shown.
+  const std::vector<Departure> d = parse("gmund_20261019.json");
+  TEST_ASSERT_EQUAL_STRING("RB57>Schaftlach!", describe({d[0]}).c_str());
+}
+
+void test_real_early_termination_cancelled_here() {
+  // Holzkirchen is after Schaftlach: cancelled here, original destination.
+  const std::vector<Departure> d = parse("holzkirchen_20261019.json");
+  TEST_ASSERT_EQUAL_STRING("RB57>M\xC3\xBCnchen Hbf!x", describe({d[0]}).c_str());
+}
+
+void test_real_coupled_train_with_one_part_cancelled() {
+  // RB 55/56/57 coupled, only the RB 57 part is cancelled: it stays a row of
+  // its own; RB 55/56 are combined (same destination -> one destination) and
+  // get the real-time delay of RB 55, as RB 56 has no real-time data.
+  const std::vector<Departure> d = parse("holzkirchen_20261019.json");
+  TEST_ASSERT_EQUAL_STRING("RB>M\xC3\xBCnchen Hbf", describe({d[2]}).c_str());
+  TEST_ASSERT_TRUE(d[2].planned == d[0].planned);
+  TEST_ASSERT_EQUAL_INT(6, d[2].delay_minutes);
+  TEST_ASSERT_TRUE(d[2].realtime);
+  TEST_ASSERT_FALSE(d[2].multi_destination);
+  TEST_ASSERT_EQUAL_INT(4, d[2].platform);
+}
+
+void test_real_s1_split_train() {
+  const std::vector<Departure> d =
+      parse("feldmoching_20261019.json", "S1:B:S", DirectionFilter::kAll, 8);
+  assertRows(
+      "S1>Leuchtenbergring | S1>Flugh./Freising! | S1>Leuchtenbergring | S1>Flugh./Freising | "
+      "S1>Leuchtenbergring | S1>Flugh./Freising | S1>Leuchtenbergring | S1>Leuchtenbergring",
+      d);
+  TEST_ASSERT_EQUAL_INT(3, d[1].delay_minutes);
+}
+
+void test_real_coupled_regional_trains() {
+  const std::vector<Departure> d = parse("schaftlach_20261019.json", "", DirectionFilter::kAll, 14);
+  TEST_ASSERT_EQUAL_STRING("RB>M\xC3\xBCnchen Hbf", describe({d[8]}).c_str());
+  TEST_ASSERT_FALSE(d[8].multi_destination);
+  TEST_ASSERT_EQUAL_STRING("RB>Lenggries/Tegernsee", describe({d[11]}).c_str());
+  TEST_ASSERT_TRUE(d[11].multi_destination);
+}
+
+void test_real_train_replacement_buses() {
+  // Replacement buses for regional trains now also come as BUS: with the
+  // line as label ("RB56", Schaftlach) or with an empty label (Pasing).
+  const std::vector<Departure> s = parse("schaftlach_20261019.json");
+  TEST_ASSERT_EQUAL_STRING("SEV>Holzkirchen", describe({s[0]}).c_str());
+  TEST_ASSERT_TRUE(s[0].replacement && s[0].bus);
+  TEST_ASSERT_TRUE(s[0].transport == TransportType::kBus);
+  // The label matches the line selection directly.
+  const std::vector<Departure> rb56 = parse("schaftlach_20261019.json", "RB56:H:Z");
+  TEST_ASSERT_EQUAL_STRING("SEV>Lenggries", describe({rb56[0]}).c_str());
+
+  bool found = false;
+  for (const Departure& d : parse("pasing_20261019.json")) {
+    if (d.replacement) {
+      TEST_ASSERT_EQUAL_STRING("SEV>Augsburg Hbf", describe({d}).c_str());
+      found = true;
+    }
+  }
+  TEST_ASSERT_TRUE(found);
+
+  // Without a label the replaced line is unknown: shown as soon as any
+  // regional train is selected, like replacement buses of type BAHN.
+  found = false;
+  for (const Departure& d : parse("pasing_20261019.json", "RE80:B:Z")) {
+    if (d.replacement) found = d.destination == "Augsburg Hbf";
+  }
+  TEST_ASSERT_TRUE(found);
+  for (const Departure& d : parse("pasing_20261019.json", "S3:B:S")) {
+    TEST_ASSERT_FALSE(d.replacement && d.destination == "Augsburg Hbf");
+  }
+}
+
+void test_real_full_response_gives_same_result_as_reduced() {
+  // holzkirchen_full_20261019.json is the unmodified response with all fields.
+  const std::vector<Departure> full = parse("holzkirchen_full_20261019.json");
+  const std::vector<Departure> reduced = parse("holzkirchen_20261019.json");
+  TEST_ASSERT_EQUAL_size_t(reduced.size(), full.size());
+  TEST_ASSERT_EQUAL_STRING(describe(reduced).c_str(), describe(full).c_str());
+  for (size_t i = 0; i < full.size(); i++) {
+    TEST_ASSERT_TRUE(full[i].expected() == reduced[i].expected());
+    TEST_ASSERT_EQUAL_INT(reduced[i].platform, full[i].platform);
+  }
+}
+
+void test_real_results_are_sorted() {
+  const char* files[] = {"gmund_20261019.json",
+                         "holzkirchen_20261019.json",
+                         "donnersbergerbruecke_20261019.json",
+                         "feldmoching_20261019.json",
+                         "schaftlach_20261019.json",
+                         "pasing_20261019.json"};
+  for (const char* file : files) {
+    const std::vector<Departure> d = parse(file);
+    TEST_ASSERT_GREATER_THAN_size_t_MESSAGE(0, d.size(), file);
+    for (size_t i = 1; i < d.size(); i++) {
+      TEST_ASSERT_TRUE_MESSAGE(d[i - 1].expected() <= d[i].expected(), file);
+    }
   }
 }
 
@@ -342,5 +451,13 @@ int main() {
   RUN_TEST(test_limit_applies_after_sorting);
   RUN_TEST(test_real_data_holzkirchen);
   RUN_TEST(test_real_data_pasing);
+  RUN_TEST(test_real_early_termination_still_stopping_here);
+  RUN_TEST(test_real_early_termination_cancelled_here);
+  RUN_TEST(test_real_coupled_train_with_one_part_cancelled);
+  RUN_TEST(test_real_s1_split_train);
+  RUN_TEST(test_real_coupled_regional_trains);
+  RUN_TEST(test_real_train_replacement_buses);
+  RUN_TEST(test_real_full_response_gives_same_result_as_reduced);
+  RUN_TEST(test_real_results_are_sorted);
   return UNITY_END();
 }

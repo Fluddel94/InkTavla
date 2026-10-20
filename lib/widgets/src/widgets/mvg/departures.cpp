@@ -134,16 +134,18 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
 
     // Line selection: only selected lines (with direction). Replacement
     // buses for S-Bahn/tram carry the replaced line as label and match
-    // directly. Replacement buses for regional trains carry a train number;
+    // directly. Replacement buses for regional trains carry a train number
+    // (type BAHN) or, since 2026-10, sometimes no label at all (type BUS);
     // the API does not say which line is replaced, so they are shown as soon
     // as any regional train is selected. Parts of coupled regional trains
     // (kSplitTrainGroups) are kept for now: if another part is selected,
     // step 4 shows the whole row, otherwise the trip is dropped in step 5.
     const std::string key = lineKey(dep["label"]);
+    const bool train_replacement = sev && (is_train || key.empty());
     bool selected = true;
     if (!lines.empty()) {
       selected = lines.matches(key, direction) ||
-                 (sev && is_train && lines.hasType(TransportType::kTrain));
+                 (train_replacement && lines.hasType(TransportType::kTrain));
       if (!selected && splitTrainGroup(key) < 0) continue;
     }
 
