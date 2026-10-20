@@ -2,6 +2,21 @@
 
 namespace ui {
 
+namespace {
+
+constexpr const char* kWeekdaysDe[] = {"Sonntag",    "Montag",  "Dienstag", "Mittwoch",
+                                       "Donnerstag", "Freitag", "Samstag"};
+constexpr const char* kWeekdaysEn[] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
+                                       "Thursday", "Friday", "Saturday"};
+constexpr const char* kMonthsDe[] = {"Januar",    "Februar", "März",     "April",
+                                     "Mai",       "Juni",    "Juli",     "August",
+                                     "September", "Oktober", "November", "Dezember"};
+constexpr const char* kMonthsEn[] = {"January",   "February", "March",    "April",
+                                     "May",       "June",     "July",     "August",
+                                     "September", "October",  "November", "December"};
+
+}  // namespace
+
 Language languageFromCode(std::string_view code) {
   return code == "en" ? Language::kEnglish : Language::kGerman;
 }
@@ -15,8 +30,48 @@ const char* text(Language language, Text id) {
       return "min";
     case Text::kNoDepartures:
       return de ? "Keine Abfahrten" : "No departures";
+    case Text::kAsOf:
+      return de ? "Stand" : "As of";
+    case Text::kNoConnection:
+      return de ? "Keine Verbindung" : "No connection";
+    case Text::kNoConnectionDetail:
+      return de ? "Daten erscheinen, sobald das WLAN verbunden ist"
+                : "Data will appear once Wi-Fi is connected";
+    case Text::kNoData:
+      return de ? "Keine Daten" : "No data";
+    case Text::kNotSetUp:
+      return de ? "Nicht eingerichtet" : "Not set up";
+    case Text::kNotAvailable:
+      return de ? "Noch nicht verfügbar" : "Not available yet";
+    case Text::kStationMissing:
+      return de ? "Haltestelle fehlt" : "Station missing";
+    case Text::kTitleDepartures:
+      return de ? "Abfahrten" : "Departures";
+    case Text::kTitleWeather:
+      return de ? "Wetter" : "Weather";
+    case Text::kTitleCalendar:
+      return de ? "Kalender" : "Calendar";
   }
   return "";
+}
+
+const char* weekdayName(Language language, int weekday) {
+  if (weekday < 0 || weekday > 6) return "";
+  return language == Language::kGerman ? kWeekdaysDe[weekday] : kWeekdaysEn[weekday];
+}
+
+const char* monthName(Language language, int month) {
+  if (month < 1 || month > 12) return "";
+  return language == Language::kGerman ? kMonthsDe[month - 1] : kMonthsEn[month - 1];
+}
+
+std::string longDate(Language language, int weekday, int day, int month) {
+  std::string out = weekdayName(language, weekday);
+  out += ", ";
+  out += std::to_string(day);
+  out += language == Language::kGerman ? ". " : " ";
+  out += monthName(language, month);
+  return out;
 }
 
 }  // namespace ui

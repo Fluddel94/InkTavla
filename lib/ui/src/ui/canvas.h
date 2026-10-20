@@ -36,6 +36,9 @@ class Canvas {
   void vLine(int x, int y, int h, Color color, int thickness = 1) {
     fillRect(x, y, thickness, h, color);
   }
+  // Dotted lines: one pixel every `step` pixels, starting at x (or y).
+  void dottedHLine(int x, int y, int w, int step, Color color = Color::kBlack);
+  void dottedVLine(int x, int y, int h, int step, Color color = Color::kBlack);
   // Outline inside the rectangle.
   void drawRect(int x, int y, int w, int h, Color color, int thickness = 1);
   // Line of one pixel width (Bresenham).

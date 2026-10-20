@@ -74,4 +74,25 @@ inline std::string encodePng(const ui::Bitmap& bitmap) {
   return png;
 }
 
+// The PNG with only its critical chunks (IHDR, IDAT, IEND, ...). Tools on
+// the PC may add ancillary chunks to a reference file (e.g. "caBX" content
+// credentials on Windows) without changing the image; comparing only the
+// critical chunks keeps the byte-for-byte check meaningful.
+inline std::string criticalChunks(const std::string& png) {
+  if (png.size() < 8) return png;
+  std::string out = png.substr(0, 8);
+  size_t pos = 8;
+  while (pos + 12 <= png.size()) {
+    const uint32_t length =
+        (static_cast<uint8_t>(png[pos]) << 24) | (static_cast<uint8_t>(png[pos + 1]) << 16) |
+        (static_cast<uint8_t>(png[pos + 2]) << 8) | static_cast<uint8_t>(png[pos + 3]);
+    const size_t total = 12 + static_cast<size_t>(length);
+    if (pos + total > png.size()) return png;          // broken file: compare as is
+    const bool critical = (png[pos + 4] & 0x20) == 0;  // upper-case first letter
+    if (critical) out += png.substr(pos, total);
+    pos += total;
+  }
+  return out;
+}
+
 }  // namespace preview

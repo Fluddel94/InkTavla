@@ -27,6 +27,8 @@ captures from 2026-10-19 confirm the early-termination cases. All
 ## `ui/`
 
 Reference images of the screen previews (`test/test_ui_preview`), drawn with
-the real UI and widget code from the MVG fixtures. They are compared byte by
-byte; after an intended change of the appearance, update them with
+the real UI and widget code from the MVG fixtures. Their image data is
+compared byte by byte (metadata chunks that tools may add are ignored); after an intended change of the appearance, update them with
 `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native -f test_ui_preview`.
+Before committing reference images, remove any metadata that tools may have
+added: `python tools/png_strip.py test/fixtures/ui`.

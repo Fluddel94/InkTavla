@@ -42,7 +42,7 @@ void test_defaults() {
   TEST_ASSERT_EQUAL_size_t(6, c.transport_types.size());
   TEST_ASSERT_TRUE(c.lines.empty());
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kAll);
-  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
+  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
   TEST_ASSERT_EQUAL_STRING("SBAHN,UBAHN,TRAM,BUS,REGIONAL_BUS,BAHN",
                            widgets::mvg::transportTypesParam(c).c_str());
 }
@@ -68,7 +68,7 @@ void test_example_file_section() {
   TEST_ASSERT_EQUAL_STRING("de:09162:10", c.station.c_str());
   TEST_ASSERT_EQUAL_STRING("Pasing", c.name.c_str());
   TEST_ASSERT_EQUAL_STRING("S3:B:S,RE80:R:Z", c.lines.toString().c_str());
-  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
+  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
   // With a line selection the request uses the types of the selected lines.
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
 }
@@ -77,13 +77,13 @@ void test_values_are_read() {
   ConfigIssues issues;
   const Config c =
       parse(R"({"station":"de:09182:43227","name":"Holzkirchen Bf",)"
-            R"("transport_types":["BAHN","SBAHN","BAHN"],"direction":"R","time_format":"clock"})",
+            R"("transport_types":["BAHN","SBAHN","BAHN"],"direction":"R","time_format":"minutes"})",
             issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_STRING("de:09182:43227", c.station.c_str());
   TEST_ASSERT_EQUAL_STRING("Holzkirchen Bf", c.name.c_str());
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kR);
-  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
+  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
   // Duplicates dropped, fixed order in the request.
   TEST_ASSERT_EQUAL_size_t(2, c.transport_types.size());
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
@@ -108,7 +108,7 @@ void test_invalid_values_fall_back_with_issues() {
   TEST_ASSERT_TRUE(c.station.empty());
   TEST_ASSERT_EQUAL_size_t(6, c.transport_types.size());
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kAll);
-  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
+  TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.station"));
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.transport_types"));
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.direction"));
@@ -148,6 +148,65 @@ void test_lines_not_a_list() {
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.lines"));
 }
 
+void test_sections_are_read() {
+  ConfigIssues issues;
+  const Config c = parse(R"({"sections":[{"name":"Stadt","lines":["S3:H:S","19:H:T"]},)"
+                         R"({"name":"Raus","lines":["S3:R:S","14:H:T","RB6:H:Z"]}]})",
+                         issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
+  TEST_ASSERT_EQUAL_STRING("Stadt", c.sections[0].name.c_str());
+  TEST_ASSERT_EQUAL_STRING("S3:H:S,19:H:T", c.sections[0].lines.toString().c_str());
+  TEST_ASSERT_EQUAL_STRING("Raus", c.sections[1].name.c_str());
+  TEST_ASSERT_EQUAL_STRING("S3:R:S,14:H:T,RB6:H:Z", c.sections[1].lines.toString().c_str());
+  // Request: types of both sections in the fixed order.
+  TEST_ASSERT_EQUAL_STRING("SBAHN,TRAM,BAHN", widgets::mvg::transportTypesParam(c).c_str());
+}
+
+void test_sections_replace_lines_and_direction() {
+  ConfigIssues issues;
+  const Config c = parse(R"({"lines":["S8:B:S"],"direction":"H","sections":[)"
+                         R"({"name":"A","lines":["S3:H:S"]},{"name":"B","lines":["S3:R:S"]}]})",
+                         issues);
+  TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.lines"));
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.direction"));
+  TEST_ASSERT_EQUAL_STRING("SBAHN", widgets::mvg::transportTypesParam(c).c_str());
+}
+
+void test_invalid_sections_give_one_list() {
+  const char* cases[][2] = {
+      {R"({"sections":{"name":"A"}})", "widgets.mvg.sections"},
+      {R"({"sections":[{"name":"A","lines":["S3:H:S"]}]})", "widgets.mvg.sections"},
+      {R"({"sections":[{"name":"A","lines":["S3:H:S"]},{"name":"B","lines":["S3:R:S"]},)"
+       R"({"name":"C","lines":["S4:R:S"]}]})",
+       "widgets.mvg.sections"},
+      {R"({"sections":[{"name":"","lines":["S3:H:S"]},{"name":"B","lines":["S3:R:S"]}]})",
+       "widgets.mvg.sections[0].name"},
+      {R"({"sections":[{"name":"A","lines":[]},{"name":"B","lines":["S3:R:S"]}]})",
+       "widgets.mvg.sections[0].lines"},
+      {R"({"sections":[{"name":"A","lines":["S3:H:S"]},{"name":"B","lines":["S3:X:S"]}]})",
+       "widgets.mvg.sections[1].lines"},
+      {R"({"sections":[{"name":"A","lines":["S3:H:S"]},"B"]})", "widgets.mvg.sections[1]"},
+      {R"({"sections":[{"name":"Sehr langer Abschnittsname!","lines":["S3:H:S"]},)"
+       R"({"name":"B","lines":["S3:R:S"]}]})",
+       "widgets.mvg.sections[0].name"},
+  };
+  for (const auto& test : cases) {
+    ConfigIssues issues;
+    const Config c = parse(test[0], issues);
+    TEST_ASSERT_TRUE_MESSAGE(c.sections.empty(), test[0]);
+    TEST_ASSERT_TRUE_MESSAGE(hasIssue(issues, test[1]), test[0]);
+  }
+  // Unknown keys inside a section are only reported.
+  ConfigIssues issues;
+  const Config c = parse(R"({"sections":[{"name":"A","lines":["S3:H:S"],"colour":1},)"
+                         R"({"name":"B","lines":["S3:R:S"]}]})",
+                         issues);
+  TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.sections[0].colour"));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_defaults);
@@ -160,5 +219,8 @@ int main() {
   RUN_TEST(test_lines_invalid_entries_are_dropped);
   RUN_TEST(test_lines_limit);
   RUN_TEST(test_lines_not_a_list);
+  RUN_TEST(test_sections_are_read);
+  RUN_TEST(test_sections_replace_lines_and_direction);
+  RUN_TEST(test_invalid_sections_give_one_list);
   return UNITY_END();
 }

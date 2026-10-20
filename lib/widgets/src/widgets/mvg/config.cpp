@@ -7,6 +7,7 @@ namespace widgets::mvg {
 namespace {
 
 constexpr char kPath[] = "widgets.mvg";
+constexpr size_t kMaxSectionName = 24;
 
 constexpr TransportType kAllTypes[] = {
     TransportType::kSBahn, TransportType::kUBahn,       TransportType::kTram,
@@ -15,6 +16,83 @@ constexpr TransportType kAllTypes[] = {
 
 void addIssue(core::ConfigIssues& issues, const char* key, const std::string& message) {
   issues.push_back(core::ConfigIssue{core::configPath(kPath, key), message});
+}
+
+// Reads a list of line entries ("S2:H:S", ...) at obj[key]; invalid entries
+// are reported under path.key and dropped.
+LineSelection readLines(JsonObjectConst obj, const char* key, const std::string& path,
+                        core::ConfigIssues& issues) {
+  LineSelection result;
+  JsonVariantConst lines = obj[key];
+  if (lines.isNull()) return result;
+  std::string text;
+  bool valid = lines.is<JsonArrayConst>();
+  int count = 0;
+  for (JsonVariantConst value : lines.as<JsonArrayConst>()) {
+    const char* entry = value.as<const char*>();
+    LineSelection single;
+    if (entry != nullptr) single.parse(entry);
+    if (single.size() != 1) {  // also catches "S3:B:S,S4:B:S"
+      valid = false;
+      continue;
+    }
+    if (!text.empty()) text += ',';
+    text += entry;
+    count++;
+  }
+  const std::string where = core::configPath(path, key);
+  if (!valid) {
+    issues.push_back(core::ConfigIssue{
+        where,
+        "must be a list of entries \"line:direction:type\" such as \"S2:H:S\"; invalid "
+        "entries are ignored"});
+  }
+  if (count > LineSelection::kMaxLines) {
+    issues.push_back(core::ConfigIssue{where, "has more than " +
+                                                  std::to_string(LineSelection::kMaxLines) +
+                                                  " entries; the rest is ignored"});
+  }
+  result.parse(text);
+  return result;
+}
+
+// Reads "sections": exactly kSectionCount objects with a name and lines.
+// Anything invalid gives no sections (one list) and an issue.
+std::vector<SectionConfig> readSections(JsonObjectConst section, core::ConfigIssues& issues) {
+  std::vector<SectionConfig> result;
+  JsonVariantConst value = section["sections"];
+  if (value.isNull()) return result;
+  JsonArrayConst list = value.as<JsonArrayConst>();
+  if (!value.is<JsonArrayConst>() || list.size() != kSectionCount) {
+    addIssue(issues, "sections",
+             "must be a list of " + std::to_string(kSectionCount) +
+                 " sections {\"name\": ..., \"lines\": [...]}; showing one list");
+    return result;
+  }
+  for (size_t i = 0; i < list.size(); i++) {
+    const std::string path = std::string(kPath) + ".sections[" + std::to_string(i) + "]";
+    JsonObjectConst obj = list[i].as<JsonObjectConst>();
+    if (obj.isNull()) {
+      issues.push_back(core::ConfigIssue{path, "must be an object; showing one list"});
+      return {};
+    }
+    core::reportUnknownKeys(obj, {"name", "lines"}, path, issues);
+    SectionConfig s;
+    s.name = core::readString(obj, "name", "", kMaxSectionName, path, issues);
+    s.lines = readLines(obj, "lines", path, issues);
+    if (s.name.empty()) {
+      issues.push_back(
+          core::ConfigIssue{core::configPath(path, "name"), "must not be empty; showing one list"});
+      return {};
+    }
+    if (s.lines.empty()) {
+      issues.push_back(core::ConfigIssue{core::configPath(path, "lines"),
+                                         "must list at least one line; showing one list"});
+      return {};
+    }
+    result.push_back(s);
+  }
+  return result;
 }
 
 bool contains(const std::vector<TransportType>& types, TransportType type) {
@@ -53,8 +131,9 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
   core::reportUnknownKeys(
-      section, {"station", "name", "transport_types", "lines", "direction", "time_format"}, kPath,
-      issues);
+      section,
+      {"station", "name", "transport_types", "lines", "direction", "sections", "time_format"},
+      kPath, issues);
 
   const std::string station = core::readString(section, "station", "", 32, kPath, issues);
   if (station.empty() || isValidStationId(station)) {
@@ -86,49 +165,40 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
     }
   }
 
-  JsonVariantConst lines = section["lines"];
-  if (!lines.isNull()) {
-    std::string text;
-    bool valid = lines.is<JsonArrayConst>();
-    int count = 0;
-    for (JsonVariantConst value : lines.as<JsonArrayConst>()) {
-      const char* entry = value.as<const char*>();
-      LineSelection single;
-      if (entry != nullptr) single.parse(entry);
-      if (single.size() != 1) {  // also catches "S3:B:S,S4:B:S"
-        valid = false;
-        continue;
-      }
-      if (!text.empty()) text += ',';
-      text += entry;
-      count++;
-    }
-    if (!valid) {
-      addIssue(issues, "lines",
-               "must be a list of entries \"line:direction:type\" such as \"S2:H:S\"; invalid "
-               "entries are ignored");
-    }
-    if (count > LineSelection::kMaxLines) {
-      addIssue(issues, "lines",
-               "has more than " + std::to_string(LineSelection::kMaxLines) +
-                   " entries; the rest is ignored");
-    }
-    c.lines.parse(text);
-  }
+  c.lines = readLines(section, "lines", kPath, issues);
 
   const int direction = core::readChoice(section, "direction", {"all", "H", "R"}, 0, kPath, issues);
   c.direction = direction == 1   ? DirectionFilter::kH
                 : direction == 2 ? DirectionFilter::kR
                                  : DirectionFilter::kAll;
 
+  c.sections = readSections(section, issues);
+  if (!c.sections.empty()) {
+    for (const char* key : {"lines", "direction"}) {
+      if (!section[key].isNull()) addIssue(issues, key, "is ignored because sections are set");
+    }
+  }
+
   c.time_format =
-      core::readChoice(section, "time_format", {"clock", "minutes"}, 1, kPath, issues) == 0
-          ? TimeFormat::kClock
-          : TimeFormat::kMinutes;
+      core::readChoice(section, "time_format", {"clock", "minutes"}, 0, kPath, issues) == 1
+          ? TimeFormat::kMinutes
+          : TimeFormat::kClock;
   return c;
 }
 
 std::string transportTypesParam(const Config& config) {
+  if (!config.sections.empty()) {
+    // Types of all sections, in the fixed order.
+    std::string types;
+    for (TransportType type : kAllTypes) {
+      bool used = false;
+      for (const SectionConfig& s : config.sections) used = used || s.lines.hasType(type);
+      if (!used) continue;
+      if (!types.empty()) types += ',';
+      types += transportTypeApiName(type);
+    }
+    return types;
+  }
   if (!config.lines.empty()) return config.lines.transportTypes();
   std::string types;
   for (TransportType type : kAllTypes) {  // fixed order

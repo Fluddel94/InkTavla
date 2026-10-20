@@ -16,6 +16,16 @@
 
 namespace widgets::mvg {
 
+// A freely named section of the departure view ("Stadt", "Raus") with the
+// lines (and their MVG direction codes) that belong to it.
+struct SectionConfig {
+  std::string name;
+  LineSelection lines;
+};
+
+// Number of named sections the view supports.
+inline constexpr size_t kSectionCount = 2;
+
 struct Config {
   // Station as MVG globalId, e.g. "de:09162:10"; "" = not set up yet.
   std::string station;
@@ -31,7 +41,13 @@ struct Config {
   LineSelection lines;
 
   DirectionFilter direction = DirectionFilter::kAll;
-  TimeFormat time_format = TimeFormat::kMinutes;
+
+  // Two named sections instead of one list; empty = one list. With sections,
+  // `lines` and `direction` are not used: only lines assigned to a section
+  // are shown.
+  std::vector<SectionConfig> sections;
+
+  TimeFormat time_format = TimeFormat::kClock;
 
   Config();
 };
@@ -40,8 +56,9 @@ struct Config {
 // reported in issues under "widgets.mvg".
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues);
 
-// Value of the API parameter "transportTypes": from the selected lines if
-// there is a selection, otherwise from transport_types. Without this
+// Value of the API parameter "transportTypes": from the lines of the
+// sections or the selected lines if there are any, otherwise from
+// transport_types. Without this
 // parameter the API leaves out regional buses and trains.
 std::string transportTypesParam(const Config& config);
 

@@ -17,7 +17,7 @@
       "transport_types": ["SBAHN", "BUS", "REGIONAL_BUS", "BAHN"],
       "lines": ["S3:B:S", "RE80:R:Z"],
       "direction": "all",
-      "time_format": "minutes"
+      "time_format": "clock"
     }
   }
 }

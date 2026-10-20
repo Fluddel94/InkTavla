@@ -31,12 +31,19 @@ SOURCE = {
     "license": "SIL Open Font License 1.1, see OFL.txt",
 }
 
-# (C++ name, output file, weight, pixel size)
+# (C++ name, output file, weight, pixel size). Sizes follow the overall UI
+# design from 2026-10-20 (style A); they are provisional until checked on the
+# panel from 2-3 m.
 FONTS = [
-    ("kRobotoCondensedMedium19", "roboto_condensed_medium_19.cpp", 500, 19),
-    ("kRobotoCondensedBold23", "roboto_condensed_bold_23.cpp", 700, 23),
-    ("kRobotoCondensedMedium27", "roboto_condensed_medium_27.cpp", 500, 27),
-    ("kRobotoCondensedBold27", "roboto_condensed_bold_27.cpp", 700, 27),
+    ("kRobotoCondensedBold16", "roboto_condensed_bold_16.cpp", 700, 16),  # section names
+    ("kRobotoCondensedMedium17", "roboto_condensed_medium_17.cpp", 500, 17),  # tile notes
+    ("kRobotoCondensedBold17", "roboto_condensed_bold_17.cpp", 700, 17),  # tile titles
+    ("kRobotoCondensedBold20", "roboto_condensed_bold_20.cpp", 700, 20),  # line symbols
+    ("kRobotoCondensedBold21", "roboto_condensed_bold_21.cpp", 700, 21),  # delays
+    ("kRobotoCondensedMedium24", "roboto_condensed_medium_24.cpp", 500, 24),  # destinations
+    ("kRobotoCondensedMedium26", "roboto_condensed_medium_26.cpp", 500, 26),  # header date
+    ("kRobotoCondensedBold26", "roboto_condensed_bold_26.cpp", 700, 26),  # departure times
+    ("kRobotoCondensedBold30", "roboto_condensed_bold_30.cpp", 700, 30),  # header time
 ]
 
 # Characters: ASCII, Latin-1 Supplement, Latin Extended-A and typographic

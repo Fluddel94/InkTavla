@@ -18,7 +18,7 @@ using ui::Color;
 
 namespace {
 
-const ui::Font& font() { return ui::fonts::kRobotoCondensedMedium27; }
+const ui::Font& font() { return ui::fonts::kRobotoCondensedMedium24; }
 
 int countBlack(const Bitmap& b) {
   int n = 0;
@@ -187,7 +187,7 @@ void test_text_width_adds_up() {
   const int b = ui::textWidth(font(), " Hbf");
   const int ab = ui::textWidth(font(), "München Hbf");
   TEST_ASSERT_INT_WITHIN(1, a + b, ab);
-  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedBold27, "München") >= a);
+  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedBold26, "München") >= a);
 }
 
 void test_draw_text_position_and_alignment() {
@@ -253,13 +253,94 @@ void test_warning_sign_size_and_mark() {
 void test_line_symbol_box_and_frame() {
   Bitmap b(60, 40);
   BitmapCanvas c(b);
-  ui::drawLineSymbol(c, ui::fonts::kRobotoCondensedBold23, 2, 3, 50, 33, "S8", false);
-  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kBlack);
-  TEST_ASSERT_TRUE(b.get(51, 35) == Color::kBlack);
+  const ui::Font& f = ui::fonts::kRobotoCondensedBold20;
+  ui::drawLineSymbol(c, f, 2, 3, 50, 26, "RB6", ui::SymbolShape::kFrame);
+  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kBlack);  // square corner
+  TEST_ASSERT_TRUE(b.get(51, 28) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(4, 16) == Color::kWhite);  // inside the 2 px frame
   b.clear(Color::kWhite);
-  ui::drawLineSymbol(c, ui::fonts::kRobotoCondensedBold23, 2, 3, 50, 33, "SEV", true);
-  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);  // rounded corner
+  ui::drawLineSymbol(c, f, 2, 3, 50, 26, "SEV", ui::SymbolShape::kRoundFrame);
+  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);  // rounded end
   TEST_ASSERT_TRUE(b.get(26, 3) == Color::kBlack);
+  b.clear(Color::kWhite);
+  ui::drawLineSymbol(c, f, 2, 3, 50, 26, "S8", ui::SymbolShape::kPill);
+  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);
+  TEST_ASSERT_TRUE(b.get(2, 16) == Color::kBlack);  // filled
+  b.clear(Color::kWhite);
+  ui::drawLineSymbol(c, f, 2, 3, 50, 26, "19", ui::SymbolShape::kBox);
+  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);  // slightly rounded corner
+  TEST_ASSERT_TRUE(b.get(3, 3) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(2, 5) == Color::kBlack);
+}
+
+void test_tracked_text_adds_spacing() {
+  const ui::Font& f = ui::fonts::kRobotoCondensedBold17;
+  const int plain = ui::textWidth(f, "WETTER");
+  TEST_ASSERT_INT_WITHIN(1, plain, ui::trackedTextWidth(f, "WETTER", 0));
+  TEST_ASSERT_INT_WITHIN(1, plain + 10, ui::trackedTextWidth(f, "WETTER", 16));  // 5 gaps of 2 px
+  TEST_ASSERT_EQUAL_INT(0, ui::trackedTextWidth(f, "", 16));
+  Bitmap b(200, 30);
+  BitmapCanvas c(b);
+  const int end = ui::drawTrackedText(c, f, 190, 20, "KW 43", 12, Color::kBlack, ui::Align::kRight);
+  TEST_ASSERT_INT_WITHIN(1, 190, end);
+  TEST_ASSERT_INT_WITHIN(2, 189, blackBox(b).x1);
+}
+
+void test_upper_case() {
+  TEST_ASSERT_EQUAL_STRING("DONNERSBERGERBRÜCKE", ui::toUpper("Donnersbergerbrücke").c_str());
+  TEST_ASSERT_EQUAL_STRING("STRASSE", ui::toUpper("Straße").c_str());
+  TEST_ASSERT_EQUAL_STRING("ÀÉÎÕØ ŁŚŻ KW 43", ui::toUpper("àéîõø łśż kw 43").c_str());
+  TEST_ASSERT_EQUAL_STRING("÷ €", ui::toUpper("÷ €").c_str());
+}
+
+void test_tile_title() {
+  Bitmap b(358, 60);
+  BitmapCanvas c(b);
+  ui::drawTileTitle(c, "Wetter", "KW 43");
+  // Hairline below the title from padding to padding.
+  TEST_ASSERT_TRUE(b.get(ui::kTilePadding, 32) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(358 - ui::kTilePadding - 1, 32) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(ui::kTilePadding - 1, 32) == Color::kWhite);
+  TEST_ASSERT_TRUE(b.get(100, 33) == Color::kWhite);
+  const Box box = blackBox(b);
+  TEST_ASSERT_INT_WITHIN(1, ui::kTilePadding, box.x0);
+  TEST_ASSERT_INT_WITHIN(1, 358 - ui::kTilePadding - 1, box.x1);
+  TEST_ASSERT_EQUAL_INT(24 - ui::fonts::kRobotoCondensedBold17.cap_height, box.y0);
+  // A long title is shortened and never runs into the note.
+  b.clear(Color::kWhite);
+  ui::drawTileTitle(c, "Sehr lange Haltestellenbezeichnung am Ort", "Stand 07:31");
+  bool gap = false;
+  for (int x = 150; x < 344 && !gap; x++) {
+    bool empty = true;
+    for (int y = 0; y < 30; y++) empty = empty && b.get(x, y) == Color::kWhite;
+    gap = empty;
+  }
+  TEST_ASSERT_TRUE(gap);
+}
+
+void test_section_title() {
+  Bitmap b(358, 30);
+  BitmapCanvas c(b);
+  ui::drawSectionTitle(c, 14, 344, 0, "Stadt");
+  TEST_ASSERT_TRUE(b.get(14, 11) == Color::kBlack);  // arrow shaft
+  // Dotted line up to x1.
+  TEST_ASSERT_TRUE(b.get(344, 11) == Color::kBlack || b.get(343, 11) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(344, 11) != b.get(343, 11));
+  TEST_ASSERT_TRUE(b.get(345, 11) == Color::kWhite);
+  TEST_ASSERT_TRUE(blackBox(b).y1 < ui::kSectionTitleHeight);
+}
+
+void test_wifi_symbol() {
+  Bitmap b(30, 30);
+  BitmapCanvas c(b);
+  ui::drawWifiSymbol(c, 4, 4, 22);
+  const Box box = blackBox(b);
+  TEST_ASSERT_TRUE(box.x0 >= 4 && box.x1 < 26 && box.y0 >= 4 && box.y1 < 26);
+  TEST_ASSERT_TRUE(b.get(4 + 11, 4 + 18) == Color::kBlack);  // dot
+  // Symmetric left/right.
+  for (int y = 0; y < 30; y++) {
+    for (int x = 0; x < 11; x++) TEST_ASSERT_TRUE(b.get(4 + x, y) == b.get(4 + 21 - x, y));
+  }
 }
 
 void test_i18n() {
@@ -268,6 +349,13 @@ void test_i18n() {
   TEST_ASSERT_TRUE(ui::languageFromCode("xx") == ui::Language::kGerman);
   TEST_ASSERT_EQUAL_STRING("jetzt", ui::text(ui::Language::kGerman, ui::Text::kNow));
   TEST_ASSERT_EQUAL_STRING("now", ui::text(ui::Language::kEnglish, ui::Text::kNow));
+  TEST_ASSERT_EQUAL_STRING("Dienstag, 20. Oktober",
+                           ui::longDate(ui::Language::kGerman, 2, 20, 10).c_str());
+  TEST_ASSERT_EQUAL_STRING("Sunday, 1 March",
+                           ui::longDate(ui::Language::kEnglish, 0, 1, 3).c_str());
+  TEST_ASSERT_EQUAL_STRING("März", ui::monthName(ui::Language::kGerman, 3));
+  TEST_ASSERT_EQUAL_STRING("", ui::monthName(ui::Language::kGerman, 13));
+  TEST_ASSERT_EQUAL_STRING("", ui::weekdayName(ui::Language::kEnglish, 7));
 }
 
 void test_layouts_cover_the_screen_without_overlap() {
@@ -313,6 +401,11 @@ int main() {
   RUN_TEST(test_fit_evenly_cuts_long_parts_first);
   RUN_TEST(test_warning_sign_size_and_mark);
   RUN_TEST(test_line_symbol_box_and_frame);
+  RUN_TEST(test_tracked_text_adds_spacing);
+  RUN_TEST(test_upper_case);
+  RUN_TEST(test_tile_title);
+  RUN_TEST(test_section_title);
+  RUN_TEST(test_wifi_symbol);
   RUN_TEST(test_i18n);
   RUN_TEST(test_layouts_cover_the_screen_without_overlap);
   return UNITY_END();

@@ -46,7 +46,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MVV line symbols (S-Bahn, U-Bahn, tram, night tram) from the MVG departure
   display, drawn at double size; buses and regional trains get a generated
   box or frame.
+- Overall UI design (style A): header widget with date, time and Wi-Fi
+  status; tile titles in spaced capitals with an optional note, or a badge
+  with a warning sign for the age of old data ("Stand 14:32"); section
+  titles; messages for tiles without data or settings ("Nicht
+  eingerichtet").
+- MVG: departures in two freely named sections (`sections`, e.g. "Stadt" /
+  "Raus"), lines assigned with their direction code; 9 rows shared evenly.
+- `tools/png_strip.py`: removes metadata chunks from PNG files, so the
+  reference images contain only image data.
+- UI building blocks: spaced text, upper case for Latin characters, dotted
+  lines, Wi-Fi symbol, generated line symbols as box, pill, frame or round
+  frame; German and English names of weekdays and months.
 
 ### Changed
 
-- MVG: minutes until departure are now the default time format.
+- MVG view after the overall UI design: rows of 39 px (list, 10
+  departures) or 38 px (sections), destination Medium 24, time Bold 26
+  right-aligned, delay Bold 21 in its own column, warning sign right after
+  the destination, dotted lines between rows.
+- MVG: planned time plus delay is the default time format again
+  (`time_format` = `"clock"`).
+- MVG line symbols: generated shapes from the UI design (S-Bahn pill, tram
+  and U-Bahn box, regional trains frame, buses round frame) until the MVV
+  symbols are made in their final size; the MVV bitmaps can still be
+  switched on in the view.
+- Fonts: Roboto Condensed in the sizes of the UI design (16, 17, 20, 21, 24,
+  26, 30 px) instead of 19, 23 and 27 px.
+- Screen previews compare only the critical PNG chunks, so reference images
+  stay valid when a tool adds metadata to them.

@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "widgets/mvg/departures.h"
+#include "widgets/mvg/sections.h"
 
 using widgets::mvg::Departure;
 using widgets::mvg::Direction;
@@ -421,6 +422,38 @@ void test_real_results_are_sorted() {
   }
 }
 
+// --- Sections (two freely named directions) ----------------------------------
+
+void test_sections_split_one_response() {
+  JsonDocument doc;
+  load("pasing_20261019.json", doc);
+  widgets::mvg::Config config;
+  config.sections.resize(2);
+  config.sections[0].name = "Stadt";
+  config.sections[0].lines.parse("S4:H:S,19:H:T");
+  config.sections[1].name = "Raus";
+  config.sections[1].lines.parse("S4:R:S,14:H:T");
+  const auto sections = widgets::mvg::departureSections(doc, config, 3);
+  TEST_ASSERT_EQUAL_size_t(2, sections.size());
+  TEST_ASSERT_EQUAL_STRING("Stadt", sections[0].name.c_str());
+  assertRows("S4>Trudering | 19>Berg am Laim Bf. | S4>Trudering", sections[0].departures);
+  TEST_ASSERT_EQUAL_STRING("Raus", sections[1].name.c_str());
+  // Tram 14 has the same direction code "H" as tram 19 but leaves the city.
+  assertRows("14>Gondrellplatz | S4>Geltendorf! | 14>Gondrellplatz", sections[1].departures);
+}
+
+void test_without_sections_one_list() {
+  JsonDocument doc;
+  load("pasing_20261019.json", doc);
+  widgets::mvg::Config config;
+  config.lines.parse("S4:B:S");
+  config.direction = DirectionFilter::kR;
+  const auto sections = widgets::mvg::departureSections(doc, config, 2);
+  TEST_ASSERT_EQUAL_size_t(1, sections.size());
+  TEST_ASSERT_TRUE(sections[0].name.empty());
+  assertRows("S4>Geltendorf! | S4>Geltendorf", sections[0].departures);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_read_keeps_only_filtered_fields);
@@ -459,5 +492,7 @@ int main() {
   RUN_TEST(test_real_train_replacement_buses);
   RUN_TEST(test_real_full_response_gives_same_result_as_reduced);
   RUN_TEST(test_real_results_are_sorted);
+  RUN_TEST(test_sections_split_one_response);
+  RUN_TEST(test_without_sections_one_list);
   return UNITY_END();
 }

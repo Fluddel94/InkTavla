@@ -30,6 +30,16 @@ void Canvas::fillRect(int x, int y, int w, int h, Color color) {
   }
 }
 
+void Canvas::dottedHLine(int x, int y, int w, int step, Color color) {
+  if (step < 1) step = 1;
+  for (int i = 0; i < w; i += step) setPixel(x + i, y, color);
+}
+
+void Canvas::dottedVLine(int x, int y, int h, int step, Color color) {
+  if (step < 1) step = 1;
+  for (int i = 0; i < h; i += step) setPixel(x, y + i, color);
+}
+
 void Canvas::drawRect(int x, int y, int w, int h, Color color, int thickness) {
   if (w <= 0 || h <= 0) return;
   const int t = std::min({thickness, (w + 1) / 2, (h + 1) / 2});

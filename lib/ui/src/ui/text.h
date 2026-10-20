@@ -28,6 +28,17 @@ enum class Align { kLeft, kCenter, kRight };
 int drawText(Canvas& canvas, const Font& font, int x, int baseline, std::string_view text,
              Color color = Color::kBlack, Align align = Align::kLeft);
 
+// Text with extra letter spacing ("tracking"), used for the spaced capitals
+// of tile titles. spacing_x8 is added after every character but the last, in
+// 1/8 pixel.
+int trackedTextWidth(const Font& font, std::string_view text, int spacing_x8);
+int drawTrackedText(Canvas& canvas, const Font& font, int x, int baseline, std::string_view text,
+                    int spacing_x8, Color color = Color::kBlack, Align align = Align::kLeft);
+
+// Upper case for the Latin characters of the fonts (ASCII, Latin-1, Latin
+// Extended-A); "ß" becomes "SS". Other characters stay unchanged.
+std::string toUpper(std::string_view text);
+
 // Shortens a text to max_width by removing characters from the end and
 // adding "." ("Petershausen" -> "Petersh."), without a space before the dot.
 std::string fitText(const Font& font, std::string_view text, int max_width);

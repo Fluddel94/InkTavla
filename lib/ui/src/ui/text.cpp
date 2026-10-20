@@ -24,6 +24,24 @@ std::string prefix(std::string_view text, size_t count) {
   return std::string(text.substr(0, pos));
 }
 
+void appendUtf8(std::string& out, uint32_t cp) {
+  if (cp < 0x80) {
+    out += static_cast<char>(cp);
+  } else if (cp < 0x800) {
+    out += static_cast<char>(0xC0 | (cp >> 6));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else if (cp < 0x10000) {
+    out += static_cast<char>(0xE0 | (cp >> 12));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  } else {
+    out += static_cast<char>(0xF0 | (cp >> 18));
+    out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+    out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    out += static_cast<char>(0x80 | (cp & 0x3F));
+  }
+}
+
 }  // namespace
 
 const Glyph& findGlyph(const Font& font, uint32_t codepoint) {
@@ -109,6 +127,57 @@ int drawText(Canvas& canvas, const Font& font, int x, int baseline, std::string_
     x8 += g.advance_x8;
   }
   return (x8 + 4) / 8;
+}
+
+int trackedTextWidth(const Font& font, std::string_view text, int spacing_x8) {
+  int x8 = 0;
+  size_t count = 0;
+  for (size_t pos = 0; pos < text.size(); count++) {
+    x8 += findGlyph(font, decodeUtf8(text, pos)).advance_x8;
+  }
+  if (count > 1) x8 += static_cast<int>(count - 1) * spacing_x8;
+  return (x8 + 4) / 8;
+}
+
+int drawTrackedText(Canvas& canvas, const Font& font, int x, int baseline, std::string_view text,
+                    int spacing_x8, Color color, Align align) {
+  if (text.empty()) return x;
+  if (align != Align::kLeft) {
+    const int w = trackedTextWidth(font, text, spacing_x8);
+    x -= align == Align::kCenter ? w / 2 : w;
+  }
+  int x8 = x * 8;
+  for (size_t pos = 0; pos < text.size();) {
+    const size_t start = pos;
+    const uint32_t cp = decodeUtf8(text, pos);
+    drawText(canvas, font, (x8 + 4) / 8, baseline, text.substr(start, pos - start), color);
+    x8 += findGlyph(font, cp).advance_x8 + spacing_x8;
+  }
+  return (x8 - spacing_x8 + 4) / 8;
+}
+
+std::string toUpper(std::string_view text) {
+  std::string out;
+  out.reserve(text.size());
+  for (size_t pos = 0; pos < text.size();) {
+    uint32_t cp = decodeUtf8(text, pos);
+    if (cp >= 'a' && cp <= 'z') {
+      cp -= 0x20;
+    } else if (cp == 0xDF) {  // ß
+      out += "SS";
+      continue;
+    } else if (cp >= 0xE0 && cp <= 0xFE && cp != 0xF7) {
+      cp -= 0x20;
+    } else if (cp == 0xFF) {
+      cp = 0x178;
+    } else if ((cp >= 0x100 && cp <= 0x137) || (cp >= 0x14A && cp <= 0x177)) {
+      cp &= ~1u;  // pairs: even = upper case
+    } else if ((cp >= 0x139 && cp <= 0x148) || (cp >= 0x179 && cp <= 0x17E)) {
+      if ((cp & 1u) == 0) cp -= 1;  // pairs: odd = upper case
+    }
+    appendUtf8(out, cp);
+  }
+  return out;
 }
 
 std::string fitText(const Font& font, std::string_view text, int max_width) {

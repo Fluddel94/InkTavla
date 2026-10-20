@@ -35,7 +35,7 @@ implemented yet.
       "transport_types": ["SBAHN", "BUS", "REGIONAL_BUS", "BAHN"],
       "lines": ["S3:B:S", "RE80:R:Z"],
       "direction": "all",
-      "time_format": "minutes"
+      "time_format": "clock"
     }
   }
 }
@@ -86,9 +86,10 @@ time.
 | `station` | text | `""` | Station as MVG `globalId`, e.g. `"de:09162:10"` (München-Pasing). Empty: widget not set up. |
 | `name` | text (≤ 64 bytes) | `""` | Name shown on the display. Empty: the name from the MVG API. |
 | `transport_types` | list | all | Means of transport to request: `"SBAHN"`, `"UBAHN"`, `"TRAM"`, `"BUS"`, `"REGIONAL_BUS"`, `"BAHN"` (regional trains). Rail replacement buses come with the means of transport they replace. Ignored when `lines` is set. |
-| `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. |
-| `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). |
-| `time_format` | `"minutes"`, `"clock"` | `"minutes"` | Departure as minutes until departure (`4 min`, from 60 minutes on as clock time) or as planned time with delay (`14:32 +3`). |
+| `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. Not used with `sections`. |
+| `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
+| `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, see below. |
+| `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
 
 Line entries (`lines`):
 
@@ -105,3 +106,35 @@ Examples: `"S3:B:S"` (S3, both directions), `"RE80:R:Z"` (RE 80, direction R).
 If any regional train is selected, rail replacement buses for regional trains
 are shown as well (also those without a line name), because the API does not
 say which line they replace.
+
+#### Two directions (`sections`)
+
+Instead of one list, the column can show two sections with names of your
+choice, for example towards the city and away from it:
+
+```json
+"mvg": {
+  "station": "de:09162:10",
+  "name": "Pasing",
+  "sections": [
+    {"name": "Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
+    {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
+  ]
+}
+```
+
+- Exactly two sections, each with a `name` (up to 24 bytes, shown in
+  capitals) and its `lines` in the same format as above (at least one).
+- Lines that are in no section are not shown; `lines` and `direction` are
+  ignored.
+- The MVG direction code is fixed per line and does not say which way a
+  line goes: at München-Pasing tram 14 "H" leaves the city while tram 19 "H"
+  goes into it, and the same code can even lead to opposite destinations on
+  one line. That is why every line is assigned with its direction.
+- The column has room for 9 departures with two sections. They are shared
+  evenly (5 + 4); rows a section cannot fill go to the other one.
+- If anything about `sections` is invalid, the departures are shown as one
+  list and the problem is reported.
+
+The same response from the API is used for both sections, so two sections do
+not cause more requests.

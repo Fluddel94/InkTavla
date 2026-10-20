@@ -65,7 +65,9 @@ pio test -e native
 Some tests draw complete screens with the real UI code and compare them
 with reference images in `test/fixtures/ui/`; the images are also written to
 `.pio/preview/` for viewing. After an intended change of the appearance,
-update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`.
+update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`
+and strip metadata from them before committing with
+`python tools/png_strip.py test/fixtures/ui`.
 
 The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
