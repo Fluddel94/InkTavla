@@ -1,0 +1,8 @@
+# Line endings: LF in the repository and in every working copy, on all
+# platforms (matches .editorconfig). Overrides core.autocrlf.
+* text=auto eol=lf
+
+# Binary files: never convert.
+*.png binary
+*.ttf binary
+*.bin binary
