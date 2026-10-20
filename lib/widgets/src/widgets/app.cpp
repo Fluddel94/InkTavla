@@ -8,14 +8,22 @@ namespace widgets {
 
 std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
                                      const Services& services, core::ConfigIssues& issues) {
-  if (id == "mvg" && services.mvg != nullptr) {
-    return std::make_unique<mvg::MvgWidget>(
-        mvg::parseConfig(core::widgetSection(root, "mvg"), issues), *services.mvg);
+  if (id == "mvg") {
+    mvg::Config config = mvg::parseConfig(core::widgetSection(root, "mvg"), issues);
+    if (services.mvg != nullptr) return std::make_unique<mvg::MvgWidget>(config, *services.mvg);
   }
   if (id != "mvg" && id != "weather" && id != "calendar") {
     issues.push_back({"layout.slots", "unknown widget \"" + id + "\""});
   }
   return std::make_unique<PlaceholderWidget>(id);
+}
+
+void validateConfig(JsonObjectConst root, core::ConfigIssues& issues) {
+  const core::CoreConfig config = core::parseCoreConfig(root, issues);
+  const ui::Layout layout = ui::layoutFor(config.layout);
+  for (size_t i = 0; i < layout.slots.size(); i++) {
+    createWidget(i < config.slots.size() ? config.slots[i] : "", root, Services{}, issues);
+  }
 }
 
 App::App(core::Clock& clock, hal::Display& display, const Services& services)

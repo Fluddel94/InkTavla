@@ -42,8 +42,15 @@ class FixtureSource : public widgets::mvg::Source {
     std::ifstream file("test/fixtures/mvg/pasing_20261019.json", std::ios::binary);
     return widgets::mvg::readDepartures(file, doc) == DeserializationError::Ok;
   }
+  bool fetchStationName(const std::string& station, std::string& name) override {
+    name_requests++;
+    if (fail || station != "de:09162:10") return false;
+    name = "München-Pasing";
+    return true;
+  }
   bool fail = false;
   int requests = 0;
+  int name_requests = 0;
   std::string last_types;
 };
 
@@ -191,6 +198,16 @@ void test_no_connection_from_the_start() {
   checkPanel(rig.display, "sim_no_connection");
 }
 
+void test_station_name_from_the_api() {
+  // Without "name" the title comes from the API, asked once.
+  Rig rig(R"({"widgets": {"mvg": {"station": "de:09162:10"}}})", "name");
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(130000);
+  TEST_ASSERT_EQUAL_INT(1, rig.source.name_requests);
+  TEST_ASSERT_TRUE(rig.source.requests >= 3);
+  checkPanel(rig.display, "sim_station_name");
+}
+
 void test_missing_settings_and_unknown_widget() {
   Rig rig(R"({"layout": {"slots": ["mvg", "clock", "calendar"]}, "language": "en"})", "setup");
   bool unknown = false;
@@ -207,6 +224,7 @@ int main() {
   RUN_TEST(test_normal_operation_and_refresh_types);
   RUN_TEST(test_short_outage_is_bridged_then_age_is_shown);
   RUN_TEST(test_no_connection_from_the_start);
+  RUN_TEST(test_station_name_from_the_api);
   RUN_TEST(test_missing_settings_and_unknown_widget);
   return UNITY_END();
 }

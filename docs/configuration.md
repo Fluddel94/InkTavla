@@ -8,8 +8,35 @@ into the firmware.
 at runtime (first via Improv over USB) and kept in the device's protected
 storage.
 
-How the file gets onto the device (settings page in the browser) is not
-implemented yet.
+## Putting the file onto the device
+
+Until the settings page exists, the file is sent over the USB cable with
+`tools/inktavla_config.py` (needs Python 3 and pyserial:
+`pip install -r tools/requirements.txt`). Close the serial monitor first;
+only one program can use the port.
+
+```sh
+python tools/inktavla_config.py put my-config.json --port COM5
+python tools/inktavla_config.py get backup.json --port COM5
+python tools/inktavla_config.py info --port COM5
+```
+
+Without a separate Python installation, the Python that comes with
+PlatformIO works as well (pyserial is included there). In a VS Code terminal
+on Windows:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\inktavla_config.py put my-config.json --port COM5
+```
+
+`put` checks the file, sends it and lists the problems the device finds in
+it. The device saves the file only if it is valid JSON (at most 16 KB); it
+writes a temporary file first and then replaces `/config.json`, so a
+broken transfer never leaves a half file. Then it restarts with the new
+settings. `get` reads the stored file back.
+
+The commands are plain text lines on the serial line, next to Improv; see
+`lib/core/src/core/config_command.h` for the protocol.
 
 ## Example
 

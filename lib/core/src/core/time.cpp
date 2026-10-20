@@ -4,6 +4,9 @@
 #include <cstdlib>
 #include <ctime>
 
+#if defined(ARDUINO)
+#include <Arduino.h>
+#endif
 #if defined(ESP_PLATFORM)
 #include <esp_timer.h>
 #else
@@ -128,5 +131,12 @@ bool toLocalTime(int64_t unix_s, LocalTime& out) {
 }
 
 int64_t minutesUntil(int64_t now_s, int64_t t_s) { return floorDiv(t_s, 60) - floorDiv(now_s, 60); }
+
+#if defined(ARDUINO)
+void startTimeSync(const char* posix_tz, const char* ntp_server) {
+  const char* tz = isValidTimeZone(posix_tz) ? posix_tz : kDefaultTimeZone;
+  configTzTime(tz, ntp_server);
+}
+#endif
 
 }  // namespace core

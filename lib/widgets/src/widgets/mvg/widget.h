@@ -22,6 +22,12 @@ class Source {
   // Reads the departures response for the configured station into doc
   // (filtered, see readDepartures()). False if the request failed.
   virtual bool fetchDepartures(const Config& config, JsonDocument& doc) = 0;
+  // Name of the station for the title (when the configuration has none).
+  virtual bool fetchStationName(const std::string& station, std::string& name) {
+    (void)station;
+    (void)name;
+    return false;
+  }
 };
 
 class MvgWidget : public Widget {
@@ -48,6 +54,7 @@ class MvgWidget : public Widget {
   Config config_;
   Source& source_;
   std::vector<Section> sections_;
+  std::string station_name_;  // from the API if the configuration has no name
 };
 
 }  // namespace widgets::mvg

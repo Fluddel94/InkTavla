@@ -1,0 +1,3 @@
+# Python packages for the tools in this folder (not for the firmware).
+# pyserial: BSD-3-Clause, https://github.com/pyserial/pyserial
+pyserial==3.5

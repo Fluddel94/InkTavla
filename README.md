@@ -87,7 +87,9 @@ with reference images in `test/fixtures/ui/`; the images are also written to
 panel refresh to `.pio/simulation/`. After an intended change of the appearance,
 update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`
 and strip metadata from them before committing with
-`python tools/png_strip.py test/fixtures/ui`.
+`python tools/png_strip.py test/fixtures/ui`. The tools in `tools/` also
+run with the Python that comes with PlatformIO, e.g. on Windows
+`& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py test\fixtures\ui`.
 
 The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
@@ -101,11 +103,31 @@ core dump partition. Changing the layout requires a full reflash via USB.
 
 ## Configuration
 
-Nothing user-specific is compiled in. Wi-Fi credentials are entered at
-runtime (first via [Improv](https://www.improv-wifi.com/) over USB) and stored
-on the device; everything else is set in a JSON file on the device, later
-through a settings page in the browser. See
-[docs/configuration.md](docs/configuration.md).
+Nothing user-specific is compiled in.
+
+- **Wi-Fi:** connect the device by USB and enter the credentials with
+  [Improv](https://www.improv-wifi.com/) ("Connect device to Wi-Fi" in a
+  browser with Web Serial, e.g. Chrome or Edge). They are stored only on the
+  device (NVS) and never printed.
+- **Everything else** is set in a JSON file on the device, for now sent over
+  USB with `tools/inktavla_config.py`, later through a settings page in the
+  browser. See [docs/configuration.md](docs/configuration.md).
+
+## Network
+
+- Services on the internet are only requested over HTTPS, and certificates
+  are checked against the certificate bundle of the ESP32 core (the common
+  root CAs, built into the framework). No certificates are kept in this
+  repository.
+- Responses are read as a stream with a filter, never held as a whole;
+  large buffers go to PSRAM. Requests time out after 10 s.
+- Wi-Fi reconnects on its own with growing pauses (2, 5, 15, 30 s) and
+  switches itself off and on after six failures in a row; power saving is
+  off and the strongest access point is used.
+- The clock is set by NTP (`ntp_server`, default `pool.ntp.org`).
+- The device only talks to the services that are configured; no telemetry.
+- Departures come from the **unofficial** MVG API, which is not endorsed by
+  MVG and may change at any time.
 
 ## Data sources
 

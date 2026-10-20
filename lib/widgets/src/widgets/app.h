@@ -30,6 +30,10 @@ struct Services {
 std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
                                      const Services& services, core::ConfigIssues& issues);
 
+// Reports all problems of a configuration (core settings and the sections of
+// the widgets in the layout), e.g. before it is saved.
+void validateConfig(JsonObjectConst root, core::ConfigIssues& issues);
+
 class App {
  public:
   App(core::Clock& clock, hal::Display& display, const Services& services);

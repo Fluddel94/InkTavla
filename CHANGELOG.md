@@ -77,6 +77,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simulation of the complete main loop on the PC (simulated clock, MVG data
   and outages).
 
+- Wi-Fi: credentials only in NVS, reconnection after the rules of the MVG
+  departure display (pauses 2/5/15/30 s, Wi-Fi off and on after six failures
+  in a row, power saving off, strongest access point).
+- Improv Serial for entering the Wi-Fi credentials over USB (own
+  implementation from the MVG departure display).
+- Time synchronisation by NTP with the configured time zone.
+- HTTPS requests with certificate check against the certificate bundle of
+  the ESP32 core; JSON read from the stream with a filter (`fetchJsonStream`,
+  body reader with chunk removal, 10 s timeout), JSON documents in PSRAM;
+  `urlEncode`.
+- MVG widget fetches departures from the MVG API every minute at second 1;
+  the station name comes from the API if the configuration has none.
+- Configuration over USB: commands `INKTAVLA CONFIG PUT/GET` and `INFO` on
+  the serial line next to Improv; a new file is checked, saved atomically and
+  the device restarts. `tools/inktavla_config.py` (pyserial 3.5,
+  BSD-3-Clause, pinned in `tools/requirements.txt`) is the PC side.
+
 ### Changed
 
 - MVG view after the overall UI design: rows of 39 px (list, 10

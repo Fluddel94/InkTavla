@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "core/psram.h"
 #include "widgets/mvg/sections.h"
 
 namespace widgets::mvg {
@@ -9,7 +10,9 @@ namespace widgets::mvg {
 MvgWidget::MvgWidget(Config config, Source& source) : config_(std::move(config)), source_(source) {}
 
 std::string MvgWidget::title(ui::Language language) const {
-  return config_.name.empty() ? ui::text(language, ui::Text::kTitleDepartures) : config_.name;
+  if (!config_.name.empty()) return config_.name;
+  if (!station_name_.empty()) return station_name_;
+  return ui::text(language, ui::Text::kTitleDepartures);
 }
 
 SetupMessage MvgWidget::setupMessage(ui::Language language) const {
@@ -18,10 +21,15 @@ SetupMessage MvgWidget::setupMessage(ui::Language language) const {
 
 bool MvgWidget::fetch(int64_t wall_s) {
   (void)wall_s;
-  JsonDocument doc;
+  JsonDocument doc(core::jsonAllocator());  // large: PSRAM on the device
   if (!source_.fetchDepartures(config_, doc)) return false;
   if (!doc.is<JsonArrayConst>()) return false;  // not a departures response
   sections_ = departureSections(doc, config_, kMaxDepartures);
+  // The station name once, after the departures (a failure here is not a
+  // failure of the update; it is tried again next time).
+  if (config_.name.empty() && station_name_.empty()) {
+    source_.fetchStationName(config_.station, station_name_);
+  }
   return true;
 }
 

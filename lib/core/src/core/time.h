@@ -51,4 +51,10 @@ bool toLocalTime(int64_t unix_s, LocalTime& out);
 // an earlier minute.
 int64_t minutesUntil(int64_t now_s, int64_t t_s);
 
+#if defined(ARDUINO)
+// Starts the time synchronisation with an NTP server (SNTP of the core, it
+// repeats by itself) and sets the time zone.
+void startTimeSync(const char* posix_tz, const char* ntp_server);
+#endif
+
 }  // namespace core
