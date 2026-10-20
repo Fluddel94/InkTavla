@@ -17,7 +17,7 @@
 #include <vector>
 
 #include "core/time.h"
-#include "png.h"
+#include "hal/png.h"
 #include "ui/bitmap.h"
 #include "ui/elements.h"
 #include "ui/i18n.h"
@@ -119,7 +119,8 @@ ui::Bitmap screen(const std::vector<Section>& sections, const char* title, TimeF
 }
 
 void check(const ui::Bitmap& bitmap, const char* name) {
-  const std::string png = preview::encodePng(bitmap);
+  const std::string png =
+      hal::png::encode(bitmap.data(), bitmap.width(), bitmap.height(), bitmap.stride());
   writeFile(std::string(".pio/preview/") + name + ".png", png);
   const std::string reference = std::string("test/fixtures/ui/") + name + ".png";
   if (std::getenv("INKTAVLA_UPDATE_PREVIEWS") != nullptr) {
@@ -128,7 +129,7 @@ void check(const ui::Bitmap& bitmap, const char* name) {
   }
   const std::string expected = readFile(reference);
   TEST_ASSERT_TRUE_MESSAGE(!expected.empty(), ("missing reference " + reference).c_str());
-  TEST_ASSERT_TRUE_MESSAGE(preview::criticalChunks(expected) == png,
+  TEST_ASSERT_TRUE_MESSAGE(hal::png::criticalChunks(expected) == png,
                            ("differs from " + reference + ", see .pio/preview/").c_str());
 }
 

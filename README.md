@@ -26,8 +26,27 @@ The firmware is split into layers; each layer only knows the ones below it.
 | Core | `lib/core` | Scheduler, display controller, configuration, cache, Wi-Fi, time, HTTPS, logging. |
 | HAL | `lib/hal` | The only layer that knows the concrete hardware (panel, buttons, battery). |
 
-`src/main.cpp` wires the layers together. Logic is kept free of hardware,
-display and network code so it can be unit-tested on the PC.
+`src/main.cpp` only provides the hardware parts; `widgets::App` builds the
+widgets, the screen and the display controller from the configuration.
+Logic is kept free of hardware, display and network code so it can be
+unit-tested on the PC.
+
+### Main loop
+
+The display controller (`core/display_controller.h`) runs the device:
+
+- It fetches each widget's data when it is due (MVG: at second 1 of every
+  minute) and redraws the screen, at the latest once a minute for the clock.
+- Short disturbances of up to 60 s are bridged silently. After that a widget
+  shows its last data with the badge "Stand 14:32"; a widget that never had
+  data shows "Keine Verbindung". A failing widget only affects its own tile.
+- It compares the new frame with the one on the panel and refreshes only the
+  changed areas; every `display.full_refresh_minutes` it does a full refresh
+  against ghosting.
+
+The whole loop also runs on the PC with a simulated clock, simulated data
+and a simulated panel that writes every refresh as a PNG file
+(`hal::PngDisplay`, see `test/test_app_simulation`).
 
 ## Building
 
@@ -64,7 +83,8 @@ pio test -e native
 
 Some tests draw complete screens with the real UI code and compare them
 with reference images in `test/fixtures/ui/`; the images are also written to
-`.pio/preview/` for viewing. After an intended change of the appearance,
+`.pio/preview/` for viewing. The simulation of the main loop writes every
+panel refresh to `.pio/simulation/`. After an intended change of the appearance,
 update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`
 and strip metadata from them before committing with
 `python tools/png_strip.py test/fixtures/ui`.

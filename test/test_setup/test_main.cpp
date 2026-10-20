@@ -26,8 +26,10 @@ class FakeCanvas : public ui::Canvas {
 class FakeWidget : public widgets::Widget {
  public:
   const char* id() const override { return "fake"; }
-  uint32_t updateIntervalSeconds() const override { return 60; }
-  void draw(ui::Canvas& canvas) override {
+  std::string title(ui::Language) const override { return "Fake"; }
+  bool fetches() const override { return true; }
+  core::Schedule schedule() const override { return {60, -1, 10}; }
+  void draw(ui::Canvas& canvas, const widgets::DrawContext&) override {
     last_width_ = canvas.width();
     last_height_ = canvas.height();
   }
@@ -66,10 +68,12 @@ void test_widget_draws_through_canvas() {
   FakeWidget widget;
   widgets::Widget& w = widget;
 
-  w.draw(canvas);
+  w.draw(canvas, widgets::DrawContext{});
 
   TEST_ASSERT_EQUAL_STRING("fake", w.id());
-  TEST_ASSERT_EQUAL_UINT32(60, w.updateIntervalSeconds());
+  TEST_ASSERT_EQUAL_UINT32(60, w.schedule().interval_s);
+  TEST_ASSERT_TRUE(w.isSetUp());
+  TEST_ASSERT_TRUE(w.fetch(0));
   TEST_ASSERT_EQUAL_UINT16(320, widget.last_width_);
   TEST_ASSERT_EQUAL_UINT16(440, widget.last_height_);
 }

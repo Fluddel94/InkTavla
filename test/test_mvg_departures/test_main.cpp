@@ -454,6 +454,26 @@ void test_without_sections_one_list() {
   assertRows("S4>Geltendorf! | S4>Geltendorf", sections[0].departures);
 }
 
+void test_departed_trips_are_dropped_before_drawing() {
+  JsonDocument doc;
+  load("pasing_20261019.json", doc);
+  widgets::mvg::Config config;
+  config.lines.parse("S4:H:S");
+  const auto sections = widgets::mvg::departureSections(doc, config, 3);
+  assertRows("S4>Trudering | S4>Trudering | S4>Ostbahnhof", sections[0].departures);
+  const int64_t first = sections[0].departures[0].expected();  // 22:27
+  const int64_t second = sections[0].departures[1].expected();
+  // Shown until one minute after the departure.
+  TEST_ASSERT_EQUAL_size_t(
+      3, widgets::mvg::withoutDeparted(sections, first + 60)[0].departures.size());
+  TEST_ASSERT_EQUAL_size_t(
+      2, widgets::mvg::withoutDeparted(sections, first + 61)[0].departures.size());
+  TEST_ASSERT_EQUAL_size_t(
+      1, widgets::mvg::withoutDeparted(sections, second + 61)[0].departures.size());
+  // Without a valid clock nothing is dropped.
+  TEST_ASSERT_EQUAL_size_t(3, widgets::mvg::withoutDeparted(sections, 0)[0].departures.size());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_read_keeps_only_filtered_fields);
@@ -494,5 +514,6 @@ int main() {
   RUN_TEST(test_real_results_are_sorted);
   RUN_TEST(test_sections_split_one_response);
   RUN_TEST(test_without_sections_one_list);
+  RUN_TEST(test_departed_trips_are_dropped_before_drawing);
   return UNITY_END();
 }

@@ -59,6 +59,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lines, Wi-Fi symbol, generated line symbols as box, pill, frame or round
   frame; German and English names of weekdays and months.
 
+- Display controller: due-based main loop that fetches the widgets' data,
+  redraws once a minute and after updates, and refreshes only the changed
+  areas of the panel, with a full refresh every `display.full_refresh_minutes`.
+- Fault tolerance: disturbances of up to 60 s are bridged silently; then old
+  data is shown with its age ("Stand 14:32"), widgets without data show "Keine
+  Verbindung" or "Keine Daten"; a failing widget only affects its own tile.
+  Departures that left more than a minute ago are no longer shown.
+- Common widget interface for the header and the MVG widget; slots without a
+  widget (weather, calendar for now) show "Nicht eingerichtet".
+- `widgets::App` builds widgets, screen and controller from the
+  configuration; `src/main.cpp` only provides clock and panel and loads
+  `/config.json` from LittleFS.
+- HAL: display interface with full and partial refresh, a simulated panel for
+  the PC that writes PNG files, and a placeholder for the TRMNL panel (driver
+  in phase B).
+- Simulation of the complete main loop on the PC (simulated clock, MVG data
+  and outages).
+
 ### Changed
 
 - MVG view after the overall UI design: rows of 39 px (list, 10

@@ -1,0 +1,212 @@
+// The complete main loop without hardware: configuration, widgets, screen
+// and display controller with a simulated clock, a simulated MVG source
+// (saved API response, failures on demand) and the PNG display. The frames
+// are written to .pio/simulation/; the panel images at important moments
+// are compared with reference images in test/fixtures/ui/ (update them with
+// INKTAVLA_UPDATE_PREVIEWS=1, see test_ui_preview).
+
+#include <unity.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
+
+#include "core/config.h"
+#include "core/time.h"
+#include "hal/png.h"
+#include "hal/png_display.h"
+#include "widgets/app.h"
+#include "widgets/mvg/departures.h"
+
+namespace {
+
+constexpr int64_t kStart = 1792441490;  // 2026-10-19 22:24:50 CEST
+
+class SimClock : public core::Clock {
+ public:
+  int64_t monotonicMs() const override { return ms; }
+  int64_t wallTime() const override { return kStart + ms / 1000; }
+  int64_t ms = 0;
+};
+
+// MVG source with a saved response; fails on demand like a lost connection.
+class FixtureSource : public widgets::mvg::Source {
+ public:
+  bool fetchDepartures(const widgets::mvg::Config& config, JsonDocument& doc) override {
+    requests++;
+    last_types = widgets::mvg::transportTypesParam(config);
+    if (fail) return false;
+    std::ifstream file("test/fixtures/mvg/pasing_20261019.json", std::ios::binary);
+    return widgets::mvg::readDepartures(file, doc) == DeserializationError::Ok;
+  }
+  bool fail = false;
+  int requests = 0;
+  std::string last_types;
+};
+
+constexpr char kConfig[] = R"({
+  "language": "de",
+  "display": {"full_refresh_minutes": 60},
+  "layout": {"template": "one_plus_two", "slots": ["mvg", "weather", "calendar"]},
+  "widgets": {"mvg": {"station": "de:09162:10", "name": "Pasing", "sections": [
+    {"name": "Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
+    {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
+  ]}}
+})";
+
+struct Rig {
+  explicit Rig(const char* config_text, const char* name)
+      : display(800, 480, std::string(".pio/simulation/") + name), app(clock, display, services()) {
+    std::filesystem::remove_all(std::string(".pio/simulation/") + name);
+    JsonDocument doc;
+    core::ConfigIssues read_issues;
+    core::readConfig(config_text, std::char_traits<char>::length(config_text), doc, read_issues);
+    app.configure(doc.as<JsonObjectConst>(), issues);
+    issues.insert(issues.end(), read_issues.begin(), read_issues.end());
+  }
+
+  widgets::Services services() {
+    widgets::Services s;
+    s.mvg = &source;
+    return s;
+  }
+
+  // Runs the loop until the given simulated time (ms since start).
+  void runUntil(int64_t end_ms) {
+    while (clock.ms <= end_ms) {
+      const int64_t wait = app.step();
+      if (clock.ms + std::max<int64_t>(wait, 1) > end_ms) {
+        clock.ms = end_ms + 1;
+        break;
+      }
+      clock.ms += std::max<int64_t>(wait, 1);
+    }
+  }
+
+  SimClock clock;
+  FixtureSource source;
+  hal::PngDisplay display;
+  widgets::App app;
+  core::ConfigIssues issues;
+};
+
+std::string readFile(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  return buffer.str();
+}
+
+void checkPanel(const hal::PngDisplay& display, const char* name) {
+  const std::string png = display.png();
+  std::filesystem::create_directories(".pio/preview");
+  std::ofstream(std::string(".pio/preview/") + name + ".png", std::ios::binary) << png;
+  const std::string reference = std::string("test/fixtures/ui/") + name + ".png";
+  if (std::getenv("INKTAVLA_UPDATE_PREVIEWS") != nullptr) {
+    std::ofstream(reference, std::ios::binary) << png;
+    return;
+  }
+  const std::string expected = readFile(reference);
+  TEST_ASSERT_TRUE_MESSAGE(!expected.empty(), ("missing reference " + reference).c_str());
+  TEST_ASSERT_TRUE_MESSAGE(hal::png::criticalChunks(expected) == png,
+                           ("differs from " + reference + ", see .pio/preview/").c_str());
+}
+
+bool contains(const std::vector<hal::Rect>& regions, int x, int y) {
+  for (const hal::Rect& r : regions) {
+    if (r.x == x && r.y == y) return true;
+  }
+  return false;
+}
+
+}  // namespace
+
+void setUp() {}
+void tearDown() {}
+
+void test_normal_operation_and_refresh_types() {
+  Rig rig(kConfig, "normal");
+  TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
+  rig.app.controller().setNetworkConnected(true);
+
+  rig.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(1, rig.source.requests);
+  TEST_ASSERT_EQUAL_STRING("SBAHN,TRAM,BAHN", rig.source.last_types.c_str());
+  TEST_ASSERT_EQUAL_size_t(1, rig.display.updates().size());
+  TEST_ASSERT_TRUE(rig.display.updates()[0].mode == hal::Refresh::kFull);
+  checkPanel(rig.display, "sim_start");
+
+  // 22:25:01: new minute in the header, MVG updated at second 1 - one
+  // partial refresh of the changed areas only (the placeholders stay).
+  rig.runUntil(11000);
+  TEST_ASSERT_EQUAL_INT(2, rig.source.requests);
+  TEST_ASSERT_EQUAL_size_t(2, rig.display.updates().size());
+  const hal::PngDisplay::Update& u = rig.display.updates()[1];
+  TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
+  TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header
+  TEST_ASSERT_FALSE(contains(u.regions, 360, 42));   // weather placeholder
+  TEST_ASSERT_FALSE(contains(u.regions, 360, 262));  // calendar placeholder
+
+  // One hour later at least one full refresh against ghosting.
+  rig.runUntil(3700000);
+  int full = 0;
+  for (const auto& update : rig.display.updates()) full += update.mode == hal::Refresh::kFull;
+  TEST_ASSERT_EQUAL_INT(2, full);
+  // One request per minute.
+  TEST_ASSERT_INT_WITHIN(1, 63, rig.source.requests);
+}
+
+void test_short_outage_is_bridged_then_age_is_shown() {
+  Rig rig(kConfig, "outage");
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(11000);  // 22:25:01, data from then
+  rig.source.fail = true;
+  rig.app.controller().setNetworkConnected(false);
+
+  // 59 s after the first failure (22:26:01) still no hint.
+  rig.runUntil(11000 + 60000 + 59000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kFresh);
+  // Then the age badge "Stand 22:25".
+  rig.runUntil(11000 + 60000 + 61000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kStale);
+  checkPanel(rig.display, "sim_stale");
+
+  // Back online: the badge disappears with the next successful update.
+  rig.source.fail = false;
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(11000 + 60000 + 75000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kFresh);
+}
+
+void test_no_connection_from_the_start() {
+  Rig rig(kConfig, "offline");
+  rig.source.fail = true;
+  rig.runUntil(30000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kWaiting);
+  rig.runUntil(75000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kNoData);
+  checkPanel(rig.display, "sim_no_connection");
+}
+
+void test_missing_settings_and_unknown_widget() {
+  Rig rig(R"({"layout": {"slots": ["mvg", "clock", "calendar"]}, "language": "en"})", "setup");
+  bool unknown = false;
+  for (const core::ConfigIssue& i : rig.issues) unknown = unknown || i.path == "layout.slots";
+  TEST_ASSERT_TRUE(unknown);
+  rig.runUntil(120000);
+  TEST_ASSERT_EQUAL_INT(0, rig.source.requests);  // no station: nothing fetched
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kNotSetUp);
+  checkPanel(rig.display, "sim_not_set_up");
+}
+
+int main() {
+  UNITY_BEGIN();
+  RUN_TEST(test_normal_operation_and_refresh_types);
+  RUN_TEST(test_short_outage_is_bridged_then_age_is_shown);
+  RUN_TEST(test_no_connection_from_the_start);
+  RUN_TEST(test_missing_settings_and_unknown_widget);
+  return UNITY_END();
+}

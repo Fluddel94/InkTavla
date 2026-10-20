@@ -35,8 +35,7 @@ const char* text(Language language, Text id) {
     case Text::kNoConnection:
       return de ? "Keine Verbindung" : "No connection";
     case Text::kNoConnectionDetail:
-      return de ? "Daten erscheinen, sobald das WLAN verbunden ist"
-                : "Data will appear once Wi-Fi is connected";
+      return de ? "Wartet auf WLAN" : "Waiting for Wi-Fi";
     case Text::kNoData:
       return de ? "Keine Daten" : "No data";
     case Text::kNotSetUp:

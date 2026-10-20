@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "widgets/mvg/config.h"
@@ -19,5 +20,13 @@ namespace widgets::mvg {
 // processed once per section). At most max_per_section departures each.
 std::vector<Section> departureSections(const JsonDocument& doc, const Config& config,
                                        size_t max_per_section);
+
+// Departures that left more than this many seconds ago are dropped before
+// drawing, even if no newer data could be fetched.
+inline constexpr int64_t kKeepDepartedS = 60;
+
+// The sections without departures whose expected departure is more than
+// kKeepDepartedS before now_s (unchanged if now_s is not a valid time).
+std::vector<Section> withoutDeparted(const std::vector<Section>& sections, int64_t now_s);
 
 }  // namespace widgets::mvg
