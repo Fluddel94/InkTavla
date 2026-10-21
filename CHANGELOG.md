@@ -135,6 +135,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Widget registry (`widgets/registry.cpp`): one entry per widget with its ID,
   the slot sizes its view is made for and how its data source and view are
   created; `deviceServices()` provides the APIs of the device.
+- Building blocks for the "Briefing" layout: word wrap (`wrapText`),
+  shortening with "…" (`fitTextEllipsis`), fill rule for lists
+  (`rowsThatFit`, `distributeRows`), screened areas (`fillDotted`), column
+  titles with arrow or location pin and a small age badge
+  (`drawColumnTitle`), line symbols with square corners for the U-Bahn and
+  chains of line symbols for journeys (`drawLineSymbolChain`).
+- Fonts: Fraunces 1.000 (SIL OFL 1.1) in 38, 34, 24, 20 and 18 px, Roboto
+  Condensed Bold 15 and Medium 13, 15 and 16; the font generator handles
+  several source fonts and their variation axes.
+- Symbols: weather symbols in 30 px, large weather pictures for the band
+  (156 x 132 px, rain as an umbrella with drops, a snowflake for snow),
+  calendar sheet (15 px) and location pin (16 px).
+- Reference sheets `briefing_symbols.png` and `briefing_parts.png` with all
+  new symbols, fonts and building blocks.
 - Slot size types in the layouts (column, tile, narrow column). A widget on
   a slot it is not made for is reported in the configuration issues and the
   slot shows "Passt hier nicht" ("Does not fit here") instead of a clipped

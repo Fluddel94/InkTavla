@@ -40,6 +40,17 @@ void Canvas::dottedVLine(int x, int y, int h, int step, Color color) {
   for (int i = 0; i < h; i += step) setPixel(x, y + i, color);
 }
 
+void Canvas::fillDotted(int x, int y, int w, int h, int step, Color color) {
+  if (step < 1) step = 1;
+  const int x0 = std::max(0, x);
+  const int y0 = std::max(0, y);
+  for (int py = y0 + (step - y0 % step) % step; py < y + h; py += step) {
+    for (int px = x0 + (step - x0 % step) % step; px < x + w; px += step) {
+      setPixel(px, py, color);
+    }
+  }
+}
+
 void Canvas::drawRect(int x, int y, int w, int h, Color color, int thickness) {
   if (w <= 0 || h <= 0) return;
   const int t = std::min({thickness, (w + 1) / 2, (h + 1) / 2});

@@ -27,4 +27,11 @@ const Icon& weatherIcon(WeatherIcon kind, int size) {
   return best->icon;
 }
 
+const Icon& bandIcon(WeatherIcon kind) {
+  for (size_t i = 0; i < kBandIconCount; i++) {
+    if (kBandIcons[i].kind == kind) return kBandIcons[i].icon;
+  }
+  return kBandIcons[0].icon;
+}
+
 }  // namespace ui

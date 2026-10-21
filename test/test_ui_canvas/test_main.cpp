@@ -4,12 +4,15 @@
 #include <unity.h>
 
 #include <string>
+#include <vector>
 
 #include "ui/bitmap.h"
 #include "ui/elements.h"
 #include "ui/fonts.h"
 #include "ui/i18n.h"
+#include "ui/icons.h"
 #include "ui/layout.h"
+#include "ui/rows.h"
 #include "ui/text.h"
 
 using ui::Bitmap;
@@ -396,6 +399,168 @@ void test_layout_slot_sizes() {
   TEST_ASSERT_EQUAL_STRING("narrow column", ui::slotSizeName(SlotSize::kNarrowColumn));
 }
 
+// --- Briefing building blocks ---------------------------------------------------
+
+void test_briefing_fonts_contain_the_needed_characters() {
+  const ui::Font* fonts[] = {&ui::fonts::kFraunces38,
+                             &ui::fonts::kFraunces34,
+                             &ui::fonts::kFraunces24Medium,
+                             &ui::fonts::kFraunces20,
+                             &ui::fonts::kFraunces20Bold,
+                             &ui::fonts::kFraunces18,
+                             &ui::fonts::kRobotoCondensedBold15,
+                             &ui::fonts::kRobotoCondensedMedium13,
+                             &ui::fonts::kRobotoCondensedMedium15,
+                             &ui::fonts::kRobotoCondensedMedium16};
+  for (const ui::Font* f : fonts) {
+    for (uint32_t cp :
+         {0xC4u, 0xD6u, 0xDCu, 0xE4u, 0xF6u, 0xFCu, 0xDFu, 0xB0u, 0x2013u, 0x2026u, 0xB7u}) {
+      TEST_ASSERT_EQUAL_HEX32_MESSAGE(cp, ui::findGlyph(*f, cp).codepoint, f->name);
+    }
+  }
+  TEST_ASSERT_EQUAL_STRING("Fraunces 420 38", ui::fonts::kFraunces38.name);
+  TEST_ASSERT_EQUAL_INT(38, ui::fonts::kFraunces38.size);
+  // The bold variant is wider.
+  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kFraunces20Bold, "Team-Standup") >
+                   ui::textWidth(ui::fonts::kFraunces20, "Team-Standup"));
+}
+
+void test_fit_text_with_ellipsis() {
+  const ui::Font& f = ui::fonts::kFraunces20;
+  TEST_ASSERT_EQUAL_STRING("Zahnarzt", ui::fitTextEllipsis(f, "Zahnarzt", 200).c_str());
+  const std::string s = ui::fitTextEllipsis(f, "Mittagessen mit Jonas", 164);
+  TEST_ASSERT_TRUE(ui::textWidth(f, s) <= 164);
+  TEST_ASSERT_TRUE(s.size() > 3 && s.substr(s.size() - 3) == "\u2026");
+  TEST_ASSERT_TRUE(s.rfind("Mittagessen", 0) == 0);
+  // No space or comma before the ellipsis.
+  const std::string t = ui::fitTextEllipsis(f, "Kino, danach Essen", ui::textWidth(f, "Kino,X"));
+  TEST_ASSERT_EQUAL_STRING("Kino\u2026", t.c_str());
+  // Nothing fits: only the ellipsis.
+  TEST_ASSERT_EQUAL_STRING("\u2026", ui::fitTextEllipsis(f, "Zahnarzt", 3).c_str());
+}
+
+void test_wrap_text_between_words() {
+  const ui::Font& f = ui::fonts::kFraunces38;
+  const char* sentence =
+      "Guten Morgen. Bis Mittag bleibt es trocken, ab 14 Uhr regnet es \u2013 Schirm mit.";
+  bool complete = false;
+  const std::vector<std::string> lines = ui::wrapText(f, sentence, 564, 3, &complete);
+  TEST_ASSERT_TRUE(complete);
+  TEST_ASSERT_EQUAL_size_t(3, lines.size());
+  std::string joined;
+  for (const std::string& l : lines) {
+    TEST_ASSERT_TRUE(ui::textWidth(f, l) <= 564);
+    TEST_ASSERT_TRUE(l.front() != ' ' && l.back() != ' ');
+    joined += (joined.empty() ? "" : " ") + l;
+  }
+  TEST_ASSERT_EQUAL_STRING(sentence, joined.c_str());
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen. Bis Mittag bleibt", lines[0].c_str());
+
+  // Too long for two lines: the second one ends with "…" after a word.
+  const std::vector<std::string> two = ui::wrapText(f, sentence, 564, 2, &complete);
+  TEST_ASSERT_FALSE(complete);
+  TEST_ASSERT_EQUAL_size_t(2, two.size());
+  TEST_ASSERT_TRUE(two[1].substr(two[1].size() - 3) == "\u2026");
+  TEST_ASSERT_TRUE(ui::textWidth(f, two[1]) <= 564);
+  TEST_ASSERT_TRUE(two[1].find(' ') != std::string::npos);
+
+  // Without a limit everything is returned; a word longer than a line is
+  // shortened.
+  const std::vector<std::string> narrow =
+      ui::wrapText(ui::fonts::kRobotoCondensedMedium17, "Signalstörung Donnersbergerbrücke", 90);
+  TEST_ASSERT_EQUAL_size_t(2, narrow.size());
+  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedMedium17, narrow[1]) <= 90);
+  TEST_ASSERT_EQUAL_size_t(0, ui::wrapText(f, "   ", 100).size());
+}
+
+void test_fill_rule_rows() {
+  // Briefing departures: 230 px below the first title, a second section
+  // title 28 px high, rows of 28 px -> 7 rows (4 + 3).
+  TEST_ASSERT_EQUAL_INT(7, ui::rowsThatFit(464 - 240, 28, 2, 28));
+  TEST_ASSERT_EQUAL_INT(8, ui::rowsThatFit(464 - 240, 28));
+  TEST_ASSERT_EQUAL_INT(0, ui::rowsThatFit(20, 28));
+  TEST_ASSERT_EQUAL_INT(0, ui::rowsThatFit(100, 0));
+  using V = std::vector<int>;
+  TEST_ASSERT_TRUE(ui::distributeRows(7, V{9, 9}) == (V{4, 3}));
+  TEST_ASSERT_TRUE(ui::distributeRows(7, V{2, 9}) == (V{2, 5}));
+  TEST_ASSERT_TRUE(ui::distributeRows(7, V{0, 9}) == (V{1, 6}));
+}
+
+void test_dotted_fill_every_second_pixel() {
+  Bitmap b(10, 10);
+  BitmapCanvas c(b);
+  c.fillDotted(1, 1, 6, 5);
+  // Pixels at even coordinates inside x 1..6, y 1..5.
+  TEST_ASSERT_EQUAL_INT(3 * 2, countBlack(b));
+  TEST_ASSERT_TRUE(b.get(2, 2) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(6, 4) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(1, 1) == Color::kWhite);
+  TEST_ASSERT_TRUE(b.get(3, 2) == Color::kWhite);
+}
+
+void test_symbol_chain_width_and_transfer() {
+  Bitmap b(300, 60);
+  BitmapCanvas c(b);
+  const ui::Font& f = ui::fonts::kRobotoCondensedBold17;
+  const ui::Font& small = ui::fonts::kRobotoCondensedMedium13;
+  std::vector<ui::ChainLink> links = {{"S4", ui::SymbolShape::kPill, 0, "9 min"},
+                                      {"RB55", ui::SymbolShape::kFrame, 0, ""}};
+  const int measured = ui::drawLineSymbolChain(c, f, small, 10, 20, 21, links, false);
+  TEST_ASSERT_EQUAL_INT(0, countBlack(b));
+  const int expected =
+      10 + ui::textWidth(f, "S4") + 16 + ui::kChainGap + ui::textWidth(f, "RB55") + 16;
+  TEST_ASSERT_EQUAL_INT(expected, measured);
+  TEST_ASSERT_EQUAL_INT(expected, ui::drawLineSymbolChain(c, f, small, 10, 20, 21, links));
+  // The joining line and the transfer time below the gap.
+  const int gap_x = 10 + ui::textWidth(f, "S4") + 16;
+  TEST_ASSERT_TRUE(b.get(gap_x + 8, 20) == Color::kBlack);
+  int below = 0;
+  for (int y = 31; y < 45; y++) {
+    for (int x = gap_x - 10; x < gap_x + 26; x++) below += b.get(x, y) == Color::kBlack;
+  }
+  TEST_ASSERT_GREATER_THAN(10, below);
+}
+
+void test_column_title_note_and_badge() {
+  Bitmap b(214, 30);
+  BitmapCanvas c(b);
+  const int end = ui::drawColumnTitle(c, 0, 214, 20, "Heute", "KW 43");
+  TEST_ASSERT_TRUE(end > 40 && end < 100);
+  Box box = blackBox(b);
+  TEST_ASSERT_EQUAL_INT(213, box.x1);  // the note ends at the right edge
+  // A note that would touch the title is left out.
+  Bitmap b2(170, 30);
+  BitmapCanvas c2(b2);
+  const int end2 =
+      ui::drawColumnTitle(c2, 0, 170, 20, "In die Stadt", "4 min zu Fuß", ui::TitleIcon::kArrow);
+  TEST_ASSERT_TRUE(blackBox(b2).x1 <= end2);
+  // A title wider than the column is shortened.
+  Bitmap b4(80, 30);
+  BitmapCanvas c4(b4);
+  TEST_ASSERT_TRUE(ui::drawColumnTitle(c4, 0, 80, 20, "Pasing Marienplatz") <= 80);
+  // Badge: black area at the right, the title shortened.
+  Bitmap b3(214, 30);
+  BitmapCanvas c3(b3);
+  ui::drawColumnTitle(c3, 0, 214, 20, "Abfahrten Pasing", "Stand 07:41", ui::TitleIcon::kPin, true);
+  TEST_ASSERT_TRUE(b3.get(212, 12) == Color::kBlack);
+  TEST_ASSERT_TRUE(b3.get(3, 10) == Color::kBlack);  // pin
+}
+
+void test_briefing_icons() {
+  for (ui::WeatherIcon kind : {ui::WeatherIcon::kSun, ui::WeatherIcon::kRain,
+                               ui::WeatherIcon::kSnow, ui::WeatherIcon::kMoon}) {
+    const ui::Icon& band = ui::bandIcon(kind);
+    TEST_ASSERT_EQUAL_INT(ui::kBandIconWidth, band.width);
+    TEST_ASSERT_EQUAL_INT(ui::kBandIconHeight, band.height);
+    TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(kind, 30).width);
+  }
+  TEST_ASSERT_TRUE(ui::bandIcon(ui::WeatherIcon::kSun).bits !=
+                   ui::bandIcon(ui::WeatherIcon::kRain).bits);
+  TEST_ASSERT_EQUAL_INT(32, ui::weatherIcon(ui::WeatherIcon::kSun, 32).width);  // unchanged
+  TEST_ASSERT_EQUAL_INT(15, ui::kCalendarIcon.width);
+  TEST_ASSERT_EQUAL_INT(16, ui::kPinIcon.height);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_bitmap_layout_msb_first_black_is_set);
@@ -422,5 +587,13 @@ int main() {
   RUN_TEST(test_i18n);
   RUN_TEST(test_layouts_cover_the_screen_without_overlap);
   RUN_TEST(test_layout_slot_sizes);
+  RUN_TEST(test_briefing_fonts_contain_the_needed_characters);
+  RUN_TEST(test_fit_text_with_ellipsis);
+  RUN_TEST(test_wrap_text_between_words);
+  RUN_TEST(test_fill_rule_rows);
+  RUN_TEST(test_dotted_fill_every_second_pixel);
+  RUN_TEST(test_symbol_chain_width_and_transfer);
+  RUN_TEST(test_column_title_note_and_badge);
+  RUN_TEST(test_briefing_icons);
   return UNITY_END();
 }

@@ -9,6 +9,7 @@
 
 #include <unity.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -20,8 +21,11 @@
 #include "hal/png.h"
 #include "ui/bitmap.h"
 #include "ui/elements.h"
+#include "ui/fonts.h"
 #include "ui/i18n.h"
+#include "ui/icons.h"
 #include "ui/layout.h"
+#include "ui/text.h"
 #include "widgets/header/header.h"
 #include "widgets/mvg/config.h"
 #include "widgets/mvg/departures.h"
@@ -228,6 +232,153 @@ void test_split_rows() {
   TEST_ASSERT_TRUE(widgets::mvg::splitRows(0, V{3}) == (V{0}));
 }
 
+// --- Briefing building blocks (sheets to look at, also reference images) -------
+
+void caption(ui::Canvas& c, int centre_x, int baseline, const char* text) {
+  ui::drawText(c, ui::fonts::kRobotoCondensedMedium13, centre_x, baseline, text, ui::Color::kBlack,
+               ui::Align::kCenter);
+}
+
+// All symbols of the Briefing design: the large weather pictures of the
+// band, the weather symbols of the columns and the small symbols.
+void test_briefing_symbols() {
+  ui::Bitmap bitmap(ui::kScreenWidth, ui::kScreenHeight);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas c(bitmap);
+  using W = ui::WeatherIcon;
+  struct Named {
+    W kind;
+    const char* name;
+  };
+  const Named band[] = {{W::kSun, "Sonne"},
+                        {W::kPartlyCloudy, "Heiter"},
+                        {W::kCloudy, "Wolken"},
+                        {W::kRain, "Regen"},
+                        {W::kFog, "Nebel"},
+                        {W::kMoon, "Klar (Nacht)"},
+                        {W::kPartlyCloudyNight, "Heiter (Nacht)"},
+                        {W::kSnow, "Schnee"},
+                        {W::kThunder, "Gewitter"}};
+  for (int i = 0; i < 9; i++) {
+    const int x = 4 + (i % 5) * 159;
+    const int y = 4 + (i / 5) * 150;
+    ui::drawIcon(c, x, y, ui::bandIcon(band[i].kind));
+    caption(c, x + ui::kBandIconWidth / 2, y + ui::kBandIconHeight + 12, band[i].name);
+  }
+  // Weather symbols of the columns, 30 px.
+  for (int i = 0; i < 9; i++) {
+    const int x = 20 + i * 44;
+    ui::drawIcon(c, x, 318, ui::weatherIcon(band[i].kind, 30));
+  }
+  caption(c, 214, 364, "Wettersymbole 30 px (Vorhersagetage)");
+
+  // Small symbols.
+  ui::drawIcon(c, 440, 330, ui::kCalendarIcon);
+  caption(c, 447, 364, "ganztägig");
+  ui::drawIcon(c, 500, 329, ui::kPinIcon);
+  caption(c, 508, 364, "Haltestelle");
+  ui::drawColumnTitle(c, 560, 600, 344, "", "", ui::TitleIcon::kArrow);
+  caption(c, 566, 364, "Richtung");
+  ui::drawWarningSign(c, 620, 345, 15);
+  ui::drawWarningSign(c, 646, 345, 18);
+  caption(c, 643, 364, "Warnung 15/18");
+
+  // Line symbols, 22 px high (Bold 17), and a chain for journeys.
+  const ui::Font& f = ui::fonts::kRobotoCondensedBold17;
+  struct Line {
+    const char* label;
+    ui::SymbolShape shape;
+    const char* name;
+  };
+  const Line lines[] = {{"S4", ui::SymbolShape::kPill, "S-Bahn"},
+                        {"U6", ui::SymbolShape::kRect, "U-Bahn"},
+                        {"19", ui::SymbolShape::kBox, "Tram"},
+                        {"RB55", ui::SymbolShape::kFrame, "Regionalzug"},
+                        {"56", ui::SymbolShape::kRoundFrame, "Bus/SEV"}};
+  int x = 20;
+  for (const Line& l : lines) {
+    const int w = std::max(44, ui::textWidth(f, l.label) + 16);
+    ui::drawLineSymbol(c, f, x, 392, w, 22, l.label, l.shape);
+    caption(c, x + w / 2, 430, l.name);
+    x += w + 36;
+  }
+  ui::drawLineSymbolChain(c, ui::fonts::kRobotoCondensedBold15, ui::fonts::kRobotoCondensedMedium13,
+                          470, 403, 20,
+                          {{"19", ui::SymbolShape::kBox, 0, "5 min"},
+                           {"U2", ui::SymbolShape::kRect, 0, "12 min"},
+                           {"RB55", ui::SymbolShape::kFrame, 0, ""}});
+  caption(c, 560, 450, "Kette (Verbindungen, später)");
+  check(bitmap, "briefing_symbols");
+}
+
+// Fonts and building blocks of the Briefing design, arranged roughly like
+// the screen (not the finished layout).
+void test_briefing_parts() {
+  ui::Bitmap bitmap(ui::kScreenWidth, ui::kScreenHeight);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas c(bitmap);
+  // Band: header, sentence (wrapped), weather picture.
+  ui::drawTrackedText(c, ui::fonts::kRobotoCondensedBold16, 28, 34,
+                      ui::toUpper("Dienstag, 20. Oktober · 07:42"), 16);
+  const std::vector<std::string> sentence = ui::wrapText(
+      ui::fonts::kFraunces38,
+      "Guten Morgen. Bis Mittag bleibt es trocken, ab 14 Uhr regnet es – Schirm mit.", 564, 3);
+  for (size_t i = 0; i < sentence.size(); i++) {
+    ui::drawText(c, ui::fonts::kFraunces38, 26, 82 + 44 * static_cast<int>(i), sentence[i]);
+  }
+  ui::drawIcon(c, 622, 18, ui::bandIcon(ui::WeatherIcon::kRain));
+  ui::drawText(c, ui::fonts::kFraunces24Medium, 630, 186, "7° bis 14°");
+  c.hLine(28, 204, 744, ui::Color::kBlack);
+
+  // Departure column: titles, disruption text.
+  ui::drawWarningSign(c, 28, 240, 18);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold17, 52, 234, "Signalstörung bei Laim");
+  const std::vector<std::string> text =
+      ui::wrapText(ui::fonts::kRobotoCondensedMedium17,
+                   "Ausfälle und Verspätungen Richtung Innenstadt", 292 - 52, 3);
+  for (size_t i = 0; i < text.size(); i++) {
+    ui::drawText(c, ui::fonts::kRobotoCondensedMedium17, 52, 254 + 20 * static_cast<int>(i),
+                 text[i]);
+  }
+  ui::drawColumnTitle(c, 28, 292, 322, "In die Stadt", "", ui::TitleIcon::kArrow);
+  ui::drawColumnTitle(c, 28, 292, 352, "Pasing", "Bahnhof", ui::TitleIcon::kPin);
+  ui::drawColumnTitle(c, 28, 292, 382, "Pasing Marienpl.", "4 min zu Fuß", ui::TitleIcon::kPin);
+  ui::drawColumnTitle(c, 28, 292, 412, "Raus", "Stand 07:41", ui::TitleIcon::kArrow, true);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold21, 262, 446, "07:47", ui::Color::kBlack,
+               ui::Align::kRight);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold15, 265, 446, "+8");
+
+  // Calendar column: Fraunces 20 (next event bold), "…", week rows in 18.
+  const int x0 = 318, x1 = 532;
+  ui::drawColumnTitle(c, x0, x1, 234, "Heute", "KW 43");
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold17, x0, 264, "08:30");
+  ui::drawText(c, ui::fonts::kFraunces20Bold, x0 + 50, 264, "Team-Standup");
+  ui::drawText(c, ui::fonts::kRobotoCondensedMedium17, x0, 291, "12:30");
+  ui::drawText(c, ui::fonts::kFraunces20, x0 + 50, 291,
+               ui::fitTextEllipsis(ui::fonts::kFraunces20, "Mittagessen mit Jonas", x1 - x0 - 50));
+  ui::drawIcon(c, x0 + 2, 304, ui::kCalendarIcon);
+  ui::drawText(c, ui::fonts::kFraunces20, x0 + 50, 318, "Papiertonne");
+  c.dottedHLine(x0, 328, x1 - x0 + 1, 2);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold16, x0, 350, "Do");
+  ui::drawText(c, ui::fonts::kFraunces18, x0 + 50, 350, "Chorprobe");
+  ui::drawText(c, ui::fonts::kRobotoCondensedMedium15, x1, 350, "19:00", ui::Color::kBlack,
+               ui::Align::kRight);
+
+  // Weather column: title, screened rain bars, day cell, credit.
+  const int w0 = 558, w1 = 772;
+  ui::drawColumnTitle(c, w0, w1, 234, "Wetter", "München");
+  for (int i = 0; i < 6; i++) c.fillDotted(w0 + 40 + i * 12, 300 - i * 5, 10, i * 5 + 4);
+  c.hLine(w0 + 6, 300, w1 - w0 - 12, ui::Color::kBlack);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold16, w0 + 35, 360, "Mi", ui::Color::kBlack,
+               ui::Align::kCenter);
+  ui::drawIcon(c, w0 + 20, 366, ui::weatherIcon(ui::WeatherIcon::kPartlyCloudy, 30));
+  const int hx = ui::drawText(c, ui::fonts::kRobotoCondensedBold17, w0 + 14, 418, "15°");
+  ui::drawText(c, ui::fonts::kRobotoCondensedMedium16, hx, 418, " 6°");
+  ui::drawText(c, ui::fonts::kRobotoCondensedMedium13, w1, 464, "Open-Meteo", ui::Color::kBlack,
+               ui::Align::kRight);
+  check(bitmap, "briefing_parts");
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_screen_pasing_sections);
@@ -242,5 +393,7 @@ int main() {
   RUN_TEST(test_not_set_up_tile);
   RUN_TEST(test_rows_that_fit);
   RUN_TEST(test_split_rows);
+  RUN_TEST(test_briefing_symbols);
+  RUN_TEST(test_briefing_parts);
   return UNITY_END();
 }

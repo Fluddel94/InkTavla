@@ -40,7 +40,14 @@ WEATHER = [
     ("kSnow", "snow"),
     ("kThunder", "thunder"),
 ]
-SIZES = [(26, 2.3), (32, 3.0), (50, None)]
+SIZES = [(26, 2.3), (30, 2.4), (32, 3.0), (50, None)]
+
+# Large weather pictures for the band of the "Briefing" layout: drawn in
+# their final size (not scaled up) into a box of BAND_W x BAND_H. Rain is an
+# umbrella with drops instead of the rain cloud.
+BAND_W, BAND_H = 156, 132
+BAND_SYMBOL = 124  # size of the weather symbols in the box
+BAND_STROKE = 8
 
 
 def mask(size, painter):
@@ -117,7 +124,7 @@ def weather(kind, size, stroke):
                     inner, outer, width = 1.75, 2.75, st
                 d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
                 for i in range(8):
-                    if n / SS < 48 and i in (1, 2, 0):
+                    if (n / SS < 48 or n / SS >= 100) and i in (1, 2, 0):
                         continue  # hidden behind the cloud anyway, only stubs would remain
                     a = i * math.pi / 4
                     rline(d, (cx + math.cos(a) * r * inner, cy + math.sin(a) * r * inner),
@@ -155,6 +162,91 @@ def drop(size):
         d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
         d.polygon([(cx - r * 0.95, cy - r * 0.3), (cx, n * 0.08), (cx + r * 0.95, cy - r * 0.3)],
                   fill=255)
+    return mask(size, painter)
+
+
+def umbrella(size):
+    """Open umbrella with a scalloped edge and a hooked handle."""
+    def painter(d, n):
+        st = n / 14
+        cx = n / 2
+        d.pieslice((n * 0.06, n * 0.12, n * 0.94, n * 0.92), 180, 360, fill=255)
+        for i in range(4):
+            x0 = n * 0.06 + i * n * 0.22
+            d.ellipse((x0, n * 0.44, x0 + n * 0.22, n * 0.60), fill=0)
+        d.rectangle((cx - st / 2, n * 0.48, cx + st / 2, n * 0.84), fill=255)
+        d.arc((cx - n * 0.14, n * 0.74, cx + st / 2, n * 0.94), 0, 180, fill=255, width=int(st))
+        d.ellipse((cx - st / 2, n * 0.06, cx + st / 2, n * 0.14), fill=255)
+    return mask(size, painter)
+
+
+def drops(size):
+    """Five falling drops."""
+    def painter(d, n):
+        for (x, y) in ((0.2, 0.15), (0.55, 0.0), (0.85, 0.3), (0.35, 0.55), (0.7, 0.7)):
+            cx, cy, r = n * x, n * y + n * 0.12, n * 0.06
+            d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+            d.polygon([(cx - r, cy - r * 0.2), (cx, cy - r * 2.6), (cx + r, cy - r * 0.2)],
+                      fill=255)
+    return mask(size, painter)
+
+
+def snowflake(size, stroke):
+    """Six arms with two pairs of branches each."""
+    def painter(d, n):
+        st = stroke * SS
+        c = n / 2
+        arm = n * 0.44
+        for i in range(6):
+            a = math.pi / 2 + i * math.pi / 3
+            ex, ey = c + math.cos(a) * arm, c - math.sin(a) * arm
+            rline(d, (c, c), (ex, ey), st)
+            for along, length in ((0.45, 0.17), (0.72, 0.13)):
+                bx, by = c + math.cos(a) * arm * along, c - math.sin(a) * arm * along
+                for side in (-1, 1):
+                    b = a + side * math.pi / 4
+                    rline(d, (bx, by), (bx + math.cos(b) * n * length,
+                                        by - math.sin(b) * n * length), st)
+    return mask(size, painter)
+
+
+def band(kind):
+    """Weather picture for the band (BAND_W x BAND_H, 1 bit)."""
+    img = Image.new("1", (BAND_W, BAND_H), 0)
+    if kind == "rain":
+        img.paste(1, (0, 0), umbrella(112))
+        img.paste(1, (108, 86), drops(46))
+        return img
+    if kind == "snow":
+        symbol = snowflake(BAND_SYMBOL - 8, BAND_STROKE * 0.85)
+        img.paste(1, ((BAND_W - symbol.width) // 2, (BAND_H - symbol.height) // 2), symbol)
+        return img
+    symbol = weather(kind, BAND_SYMBOL, BAND_STROKE)
+    img.paste(1, ((BAND_W - BAND_SYMBOL) // 2, (BAND_H - BAND_SYMBOL) // 2), symbol)
+    return img
+
+
+def calendar_icon(size):
+    """Small calendar sheet with two rings (all-day events)."""
+    def painter(d, n):
+        st = max(1.6 * SS, n / 8)
+        d.rounded_rectangle((n * 0.08, n * 0.16, n * 0.92, n * 0.94), radius=n * 0.1, outline=255,
+                            width=int(st))
+        d.rectangle((n * 0.08, n * 0.16, n * 0.92, n * 0.38), fill=255)
+        for x in (0.3, 0.7):
+            d.rectangle((n * x - st / 2, n * 0.04, n * x + st / 2, n * 0.24), fill=255)
+    return mask(size, painter)
+
+
+def pin(size):
+    """Location pin (a station in the departure column)."""
+    def painter(d, n):
+        cx, r = n / 2, n * 0.32
+        d.ellipse((cx - r, n * 0.06, cx + r, n * 0.06 + 2 * r), fill=255)
+        d.polygon([(cx - r * 0.86, n * 0.06 + r * 1.5), (cx, n * 0.98),
+                   (cx + r * 0.86, n * 0.06 + r * 1.5)], fill=255)
+        q = r * 0.42
+        d.ellipse((cx - q, n * 0.06 + r - q, cx + q, n * 0.06 + r + q), fill=0)
     return mask(size, painter)
 
 
@@ -202,20 +294,34 @@ def main():
             lines += array(name, weather(kind, size, stroke)) + [""]
             table.append((enum, size, name))
     lines += array("kDrop15", drop(15)) + [""]
+    lines += array("kCalendar15", calendar_icon(15)) + [""]
+    lines += array("kPin16", pin(16)) + [""]
+    band_table = []
+    for enum, kind in WEATHER:
+        name = f"kBand{kind.title().replace('_', '')}"
+        lines += array(name, band(kind)) + [""]
+        band_table.append((enum, name))
     lines += ["}  // namespace", "", "const WeatherIconEntry kWeatherIcons[] = {"]
     for enum, size, name in table:
         lines.append(f"    {{WeatherIcon::{enum}, {{{size}, {size}, {name}}}}},")
+    lines += ["};", f"const size_t kWeatherIconCount = {len(table)};", "",
+              "const WeatherIconEntry kBandIcons[] = {"]
+    for enum, name in band_table:
+        lines.append(f"    {{WeatherIcon::{enum}, {{{BAND_W}, {BAND_H}, {name}}}}},")
     lines += [
         "};",
-        f"const size_t kWeatherIconCount = {len(table)};",
+        f"const size_t kBandIconCount = {len(band_table)};",
         "",
         "const Icon kDropIcon = {15, 15, kDrop15};",
+        "const Icon kCalendarIcon = {15, 15, kCalendar15};",
+        "const Icon kPinIcon = {16, 16, kPin16};",
         "",
         "}  // namespace ui",
         "",
     ]
     OUT.write_text("\n".join(lines), encoding="utf-8", newline="\n")
-    print(f"{OUT.relative_to(ROOT)}: {len(table)} weather symbols + drop")
+    print(f"{OUT.relative_to(ROOT)}: {len(table)} weather symbols, {len(band_table)} band "
+          "pictures, drop, calendar, pin")
     return 0
 
 

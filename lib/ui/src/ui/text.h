@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "ui/canvas.h"
 #include "ui/font.h"
@@ -47,5 +48,18 @@ std::string fitText(const Font& font, std::string_view text, int max_width);
 // most k characters (with "."), k decreases until everything fits; short
 // parts stay complete as long as possible.
 std::string fitEvenly(const Font& font, std::string_view text, int max_width);
+
+// Shortens a text to max_width with "…" at the end ("Mittagessen mi…"), for
+// titles of events and similar. Spaces and ",.-" before the ellipsis are
+// removed. Unchanged if the text fits.
+std::string fitTextEllipsis(const Font& font, std::string_view text, int max_width);
+
+// Breaks a text into lines of at most max_width, between words (at
+// spaces). A word longer than a line is shortened with "…". With max_lines
+// > 0 at most that many lines are returned; if the text does not fit, the
+// last line ends with "…" after a whole word, and *complete (if given) is
+// set to false.
+std::vector<std::string> wrapText(const Font& font, std::string_view text, int max_width,
+                                  int max_lines = 0, bool* complete = nullptr);
 
 }  // namespace ui

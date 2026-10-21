@@ -5,6 +5,7 @@
 #include <string>
 
 #include "ui/fonts.h"
+#include "ui/icons.h"
 #include "ui/text.h"
 
 namespace ui {
@@ -187,6 +188,9 @@ void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, i
     case SymbolShape::kBox:
       canvas.fillRoundRect(x, y, width, height, 3, Color::kBlack);
       break;
+    case SymbolShape::kRect:
+      canvas.fillRect(x, y, width, height, Color::kBlack);
+      break;
     case SymbolShape::kPill:
       canvas.fillRoundRect(x, y, width, height, height / 2, Color::kBlack);
       break;
@@ -202,6 +206,80 @@ void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, i
       break;
   }
   drawText(canvas, font, centre, baseline, label, text, Align::kCenter);
+}
+
+// --- Briefing ------------------------------------------------------------------
+
+namespace {
+
+constexpr int kColumnTitleSpacing = 16;  // 2 px
+constexpr int kColumnNoteGap = 10;       // minimum space between title and note
+constexpr int kSmallBadgePadding = 5;
+constexpr int kSmallBadgeGap = 4;
+constexpr int kSmallBadgeWarningHeight = 11;
+
+const Font& columnTitleFont() { return fonts::kRobotoCondensedBold15; }
+const Font& columnNoteFont() { return fonts::kRobotoCondensedMedium15; }
+
+}  // namespace
+
+int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_view title,
+                    std::string_view note, TitleIcon icon, bool alert) {
+  int x = x0;
+  if (icon == TitleIcon::kArrow) {
+    const int centre = baseline - 5;
+    canvas.fillRect(x, centre - 1, 8, 2, Color::kBlack);
+    canvas.fillTriangle(x + 6, centre - 5, x + 12, centre, x + 6, centre + 4, Color::kBlack);
+    x += 18;
+  } else if (icon == TitleIcon::kPin) {
+    drawIcon(canvas, x, baseline - 15, kPinIcon);
+    x += 22;
+  }
+  std::string text = toUpper(title);
+  const Font& font = columnTitleFont();
+
+  if (alert && !note.empty()) {
+    // Small black badge with a warning sign and the note in white.
+    const int text_width = textWidth(font, note);
+    const int w = kSmallBadgePadding + warningSignWidth(kSmallBadgeWarningHeight) + kSmallBadgeGap +
+                  text_width + kSmallBadgePadding;
+    const int left = x1 - w;
+    canvas.fillRoundRect(left, baseline - 15, w, 19, 3, Color::kBlack);
+    drawWarningSign(canvas, left + kSmallBadgePadding, baseline - 1, kSmallBadgeWarningHeight,
+                    Color::kWhite);
+    drawText(canvas, font, x1 - kSmallBadgePadding, baseline, note, Color::kWhite, Align::kRight);
+    text = fitTracked(font, text, kColumnTitleSpacing, left - kColumnNoteGap - x);
+    return drawTrackedText(canvas, font, x, baseline, text, kColumnTitleSpacing);
+  }
+
+  text = fitTracked(font, text, kColumnTitleSpacing, x1 - x);
+  const int end = drawTrackedText(canvas, font, x, baseline, text, kColumnTitleSpacing);
+  if (!note.empty() && end + kColumnNoteGap <= x1 - textWidth(columnNoteFont(), note)) {
+    drawText(canvas, columnNoteFont(), x1, baseline, note, Color::kBlack, Align::kRight);
+  }
+  return end;
+}
+
+int drawLineSymbolChain(Canvas& canvas, const Font& font, const Font& small, int x, int centre_y,
+                        int height, const std::vector<ChainLink>& links, bool draw) {
+  for (size_t i = 0; i < links.size(); i++) {
+    const ChainLink& link = links[i];
+    const int w = link.width > 0 ? link.width : textWidth(font, link.label) + 16;
+    if (draw) {
+      drawLineSymbol(canvas, font, x, centre_y - height / 2, w, height, link.label, link.shape);
+    }
+    x += w;
+    if (i + 1 == links.size()) break;
+    if (draw) {
+      canvas.hLine(x + 3, centre_y, kChainGap - 6, Color::kBlack);
+      if (!link.transfer.empty()) {
+        drawText(canvas, small, x + kChainGap / 2, centre_y + height / 2 + 12, link.transfer,
+                 Color::kBlack, Align::kCenter);
+      }
+    }
+    x += kChainGap;
+  }
+  return x;
 }
 
 }  // namespace ui

@@ -32,12 +32,22 @@ enum class WeatherIcon {
   kThunder,
 };
 
-// Weather symbol in one of the generated sizes (26, 32 or 50 px); other
+// Weather symbol in one of the generated sizes (26, 30, 32 or 50 px); other
 // sizes give the nearest one.
 const Icon& weatherIcon(WeatherIcon kind, int size);
 
+// Large weather picture for the band of the "Briefing" layout, kBandIconWidth
+// x kBandIconHeight, drawn in this size. Rain is an umbrella with drops.
+inline constexpr int kBandIconWidth = 156;
+inline constexpr int kBandIconHeight = 132;
+const Icon& bandIcon(WeatherIcon kind);
+
 // Rain drop, 15 px.
 extern const Icon kDropIcon;
+// Calendar sheet for all-day events, 15 px.
+extern const Icon kCalendarIcon;
+// Location pin for stations, 16 px.
+extern const Icon kPinIcon;
 
 // Generated table (icons_data.cpp).
 struct WeatherIconEntry {
@@ -46,5 +56,7 @@ struct WeatherIconEntry {
 };
 extern const WeatherIconEntry kWeatherIcons[];
 extern const size_t kWeatherIconCount;
+extern const WeatherIconEntry kBandIcons[];
+extern const size_t kBandIconCount;
 
 }  // namespace ui

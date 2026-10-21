@@ -224,4 +224,84 @@ std::string fitEvenly(const Font& font, std::string_view text, int max_width) {
   return fitText(font, text, max_width);
 }
 
+namespace {
+
+constexpr char kEllipsis[] = "\u2026";
+
+// Removes spaces and ",.-" at the end (before an ellipsis).
+std::string trimmedForEllipsis(std::string text) {
+  while (!text.empty() &&
+         (text.back() == ' ' || text.back() == ',' || text.back() == '.' || text.back() == '-')) {
+    text.pop_back();
+  }
+  return text;
+}
+
+std::vector<std::string_view> words(std::string_view text) {
+  std::vector<std::string_view> result;
+  size_t pos = 0;
+  while (pos < text.size()) {
+    while (pos < text.size() && text[pos] == ' ') pos++;
+    const size_t start = pos;
+    while (pos < text.size() && text[pos] != ' ') pos++;
+    if (pos > start) result.push_back(text.substr(start, pos - start));
+  }
+  return result;
+}
+
+}  // namespace
+
+std::string fitTextEllipsis(const Font& font, std::string_view text, int max_width) {
+  if (textWidth(font, text) <= max_width) return std::string(text);
+  size_t length = utf8Length(text);
+  std::string result = trimmedForEllipsis(std::string(text));
+  while (length > 0 && textWidth(font, result + kEllipsis) > max_width) {
+    length--;
+    result = trimmedForEllipsis(prefix(text, length));
+  }
+  return result + kEllipsis;
+}
+
+std::vector<std::string> wrapText(const Font& font, std::string_view text, int max_width,
+                                  int max_lines, bool* complete) {
+  if (complete != nullptr) *complete = true;
+  const std::vector<std::string_view> list = words(text);
+  std::vector<std::string> lines;
+  std::string line;
+  size_t i = 0;
+  for (; i < list.size(); i++) {
+    const std::string candidate =
+        line.empty() ? std::string(list[i]) : line + " " + std::string(list[i]);
+    if (textWidth(font, candidate) <= max_width) {
+      line = candidate;
+      continue;
+    }
+    if (line.empty()) {  // a single word wider than the line
+      line = fitTextEllipsis(font, list[i], max_width);
+      continue;
+    }
+    if (max_lines > 0 && static_cast<int>(lines.size()) + 1 == max_lines) break;
+    lines.push_back(line);
+    line = std::string(list[i]);
+    if (textWidth(font, line) > max_width) line = fitTextEllipsis(font, line, max_width);
+  }
+  if (i < list.size()) {
+    // Text left over: the last line ends with "…" after a whole word.
+    if (complete != nullptr) *complete = false;
+    std::vector<std::string_view> last = words(line);
+    std::string shortened;
+    while (!last.empty()) {
+      shortened.clear();
+      for (std::string_view w : last) shortened += (shortened.empty() ? "" : " ") + std::string(w);
+      shortened = trimmedForEllipsis(shortened);
+      if (textWidth(font, shortened + kEllipsis) <= max_width) break;
+      last.pop_back();
+    }
+    line = last.empty() ? fitTextEllipsis(font, line + " " + std::string(list[i]), max_width)
+                        : shortened + kEllipsis;
+  }
+  if (!line.empty()) lines.push_back(line);
+  return lines;
+}
+
 }  // namespace ui

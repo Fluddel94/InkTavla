@@ -178,13 +178,16 @@ Nothing user-specific is compiled in.
 | [ArduinoJson](https://arduinojson.org/) | 7.4.3 | MIT | Reading API responses |
 | [Unity](https://www.throwtheswitch.org/unity) | 2.6.1 | MIT | Unit tests only |
 | [Roboto Condensed](https://github.com/googlefonts/roboto-classic) (font) | 3.008 | SIL OFL 1.1 | Text on the display, converted by `tools/fontgen` |
+| [Fraunces](https://github.com/undercasetype/Fraunces) (font) | 1.000 | SIL OFL 1.1 (no Reserved Font Name) | Sentence and events of the "Briefing" layout, converted by `tools/fontgen` |
 | [Pillow](https://python-pillow.org/) | 12.3.0 | MIT-CMU | Font generator only, not part of the firmware |
 
 MVV line symbols (S-Bahn, U-Bahn): from Wikimedia Commons ("München S1.svg"
 etc. by Claus Färber, marked as public domain), converted to 1 bit. They may
 be trademarks of MVV, MVG or DB. Tram and night tram symbols are our own.
 
-Weather symbols are our own, drawn by `tools/icongen` (Pillow).
+Weather symbols, the large weather pictures of the "Briefing" layout and the
+small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
+(Pillow).
 
 ## Contributing
 
