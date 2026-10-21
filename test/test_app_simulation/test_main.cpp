@@ -227,28 +227,32 @@ void test_short_outage_is_bridged_then_age_is_shown() {
   rig.source.fail = true;
   rig.app.controller().setNetworkConnected(false);
 
-  // 59 s after the first failure (22:26:01) still no hint.
+  // 59 s after the first failure (22:26:01) still no hint, and the lost
+  // connection is not shown yet either.
+  rig.runUntil(11000 + 59000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().network_connected);
   rig.runUntil(11000 + 60000 + 59000);
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kFresh);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kFresh);
+  TEST_ASSERT_FALSE(rig.app.controller().state().network_connected);
   // Then the age badge "Stand 22:25".
   rig.runUntil(11000 + 60000 + 61000);
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kStale);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kStale);
   checkPanel(rig.display, "sim_stale");
 
   // Back online: the badge disappears with the next successful update.
   rig.source.fail = false;
   rig.app.controller().setNetworkConnected(true);
   rig.runUntil(11000 + 60000 + 75000);
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kFresh);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kFresh);
 }
 
 void test_no_connection_from_the_start() {
   Rig rig(kConfig, "offline");
   rig.source.fail = true;
   rig.runUntil(30000);
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kWaiting);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kWaiting);
   rig.runUntil(75000);
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kNoData);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kNoData);
   checkPanel(rig.display, "sim_no_connection");
 }
 
@@ -271,8 +275,63 @@ void test_missing_settings_and_unknown_widget() {
   rig.runUntil(120000);
   TEST_ASSERT_EQUAL_INT(0, rig.source.requests);    // no station: nothing fetched
   TEST_ASSERT_EQUAL_INT(0, rig.calendar.requests);  // no address: nothing fetched
-  TEST_ASSERT_TRUE(rig.app.controller().state().contents[1].state == core::DataState::kNotSetUp);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kNotSetUp);
   checkPanel(rig.display, "sim_not_set_up");
+}
+
+void test_widget_on_a_slot_it_does_not_fit() {
+  // Weather and calendar are made for wide tiles, not narrow columns.
+  constexpr char kThreeColumns[] = R"({"layout": {"template": "three_columns"},
+    "widgets": {"mvg": {"station": "de:09162:10", "name": "Pasing"},
+    "weather": {"latitude": 48.137, "longitude": 11.575}}})";
+  Rig rig(kThreeColumns, "does_not_fit");
+  int misfits = 0;
+  for (const core::ConfigIssue& i : rig.issues) {
+    if (i.path == "layout.slots" && i.message.find("does not fit") != std::string::npos) misfits++;
+  }
+  TEST_ASSERT_EQUAL_INT(2, misfits);
+  TEST_ASSERT_EQUAL_STRING("widget \"weather\" does not fit slot 2 (narrow column); it fits: tile",
+                           rig.issues[0].message.c_str());
+  // Only the MVG source exists: nothing is fetched for the other two.
+  TEST_ASSERT_EQUAL_size_t(1, rig.app.sources().size());
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(0, rig.weather.requests);
+  TEST_ASSERT_EQUAL_INT(0, rig.calendar.requests);
+  checkPanel(rig.display, "sim_does_not_fit");
+
+  // The check before saving reports the same.
+  JsonDocument doc;
+  deserializeJson(doc, kThreeColumns);
+  core::ConfigIssues issues;
+  widgets::validateConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(2, issues.size());
+}
+
+void test_one_source_for_several_views() {
+  // The weather twice: one source, fetched once, drawn in both tiles.
+  Rig rig(R"({"layout": {"slots": ["mvg", "weather", "weather"]},
+    "widgets": {"weather": {"latitude": 48.137, "longitude": 11.575, "name": "München"}}})",
+          "shared");
+  TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
+  TEST_ASSERT_EQUAL_size_t(2, rig.app.sources().size());
+  TEST_ASSERT_EQUAL_STRING("mvg", rig.app.sources()[0]->id());
+  TEST_ASSERT_EQUAL_STRING("weather", rig.app.sources()[1]->id());
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(1, rig.weather.requests);
+  // Both tiles show the same picture (the second one 220 px lower).
+  const ui::Bitmap& b = rig.app.screen().bitmap();
+  int differences = 0, black = 0;
+  for (int y = 42; y < 42 + 218; y++) {
+    for (int x = 360; x < 800; x++) {
+      const bool top = b.get(x, y) == ui::Color::kBlack;
+      black += top;
+      differences += top != (b.get(x, y + 220) == ui::Color::kBlack);
+    }
+  }
+  TEST_ASSERT_GREATER_THAN(1000, black);
+  TEST_ASSERT_EQUAL_INT(0, differences);
 }
 
 int main() {
@@ -282,5 +341,7 @@ int main() {
   RUN_TEST(test_no_connection_from_the_start);
   RUN_TEST(test_station_name_from_the_api);
   RUN_TEST(test_missing_settings_and_unknown_widget);
+  RUN_TEST(test_widget_on_a_slot_it_does_not_fit);
+  RUN_TEST(test_one_source_for_several_views);
   return UNITY_END();
 }

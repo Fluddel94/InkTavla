@@ -1,10 +1,12 @@
 #pragma once
 
-// The calendar widget: reads the private iCal address of a calendar (Google
-// Calendar, Outlook, Nextcloud, iCloud) every 15 minutes and shows an agenda
-// of today, tomorrow and the rest of the week.
+// The calendar widget: a data source that reads the private iCal address of
+// a calendar (Google Calendar, Outlook, Nextcloud, iCloud) every 15 minutes
+// and a view that shows an agenda of today, tomorrow and the rest of the
+// week.
 
 #include <string>
+#include <vector>
 
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/parser.h"
@@ -28,26 +30,43 @@ class Source {
 // still there if a request fails.
 inline constexpr int kExtraDays = 2;
 
-class CalendarWidget : public Widget {
+// Data source: the occurrences of the coming days.
+class CalendarSource : public DataSource {
  public:
-  explicit CalendarWidget(Source& source);
+  // api must outlive the source.
+  explicit CalendarSource(Source& api);
 
   const char* id() const override { return "calendar"; }
-  std::string title(ui::Language language) const override;
   SetupMessage setupMessage(ui::Language language) const override;
 
   bool fetches() const override { return true; }
   // Every 15 minutes, retries every minute.
   core::Schedule schedule() const override { return {900, 0, 60}; }
-  bool isSetUp() const override { return source_.configured(); }
+  bool isSetUp() const override { return api_.configured(); }
   // Needs the time (the window starts today); false before NTP has answered.
   bool fetch(int64_t wall_s) override;
 
+  // Occurrences of today and the following kAgendaDays - 1 + kExtraDays days
+  // (as of the last successful update).
+  const Occurrences& occurrences() const { return occurrences_; }
+
+ private:
+  Source& api_;
+  Occurrences occurrences_;
+};
+
+// View in a wide tile (style A), see calendar/view.h.
+class AgendaView : public View {
+ public:
+  // source must outlive the view.
+  explicit AgendaView(const CalendarSource& source) : source_(source) {}
+
+  std::vector<const DataSource*> sources() const override { return {&source_}; }
+  std::string title(ui::Language language) const override;
   void draw(ui::Canvas& canvas, const DrawContext& context) override;
 
  private:
-  Source& source_;
-  Occurrences occurrences_;
+  const CalendarSource& source_;
 };
 
 }  // namespace widgets::calendar

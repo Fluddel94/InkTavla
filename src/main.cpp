@@ -18,9 +18,7 @@
 #include "core/wifi.h"
 #include "hal/trmnl_display.h"
 #include "widgets/app.h"
-#include "widgets/calendar/api.h"
-#include "widgets/mvg/api.h"
-#include "widgets/weather/api.h"
+#include "widgets/registry.h"
 
 namespace {
 
@@ -30,16 +28,10 @@ constexpr int64_t kMaxWaitMs = 250;
 core::SystemClock clock_source;
 hal::TrmnlDisplay display;
 core::Wifi wifi;
-widgets::mvg::ApiSource mvg_source;
-widgets::weather::ApiSource weather_source;
-widgets::calendar::ApiSource calendar_source;
-widgets::App app(clock_source, display, [] {
-  widgets::Services s;
-  s.mvg = &mvg_source;
-  s.weather = &weather_source;
-  s.calendar = &calendar_source;
-  return s;
-}());
+// The APIs of the widgets (widgets/registry.cpp) and the app; created in
+// setup(), because the calendar API reads NVS (not possible before).
+widgets::Services services;
+widgets::App* app = nullptr;
 bool time_sync_started = false;
 
 void printIssues(const core::ConfigIssues& issues) {
@@ -55,7 +47,8 @@ std::string info() {
          " psram=" + std::to_string(ESP.getFreePsram()) +
          " wifi=" + (wifi.connected() ? "connected" : "disconnected") +
          // Secrets only as "set", never their value.
-         " calendar_url=" + (calendar_source.configured() ? "set" : "unset");
+         " calendar_url=" +
+         (services.calendar != nullptr && services.calendar->configured() ? "set" : "unset");
 }
 
 }  // namespace
@@ -69,7 +62,9 @@ void setup() {
                 static_cast<unsigned long>(ESP.getFlashChipSize()),
                 static_cast<unsigned long>(ESP.getPsramSize()));
 
-  calendar_source.begin();  // before the widgets ask whether it is set up
+  services = widgets::deviceServices();
+  static widgets::App the_app(clock_source, display, services);
+  app = &the_app;
 
   core::ConfigIssues issues;
   JsonDocument config;
@@ -79,7 +74,7 @@ void setup() {
   } else {
     issues.push_back({"", "file system not available, using defaults"});
   }
-  app.configure(config.as<JsonObjectConst>(), issues);
+  app->configure(config.as<JsonObjectConst>(), issues);
   printIssues(issues);
 
   core::SerialLinkOptions link;
@@ -94,10 +89,10 @@ void loop() {
   wifi.loop();
   const bool connected = wifi.connected();
   if (connected && !time_sync_started) {
-    core::startTimeSync(app.config().time_zone.c_str(), app.config().ntp_server.c_str());
+    core::startTimeSync(app->config().time_zone.c_str(), app->config().ntp_server.c_str());
     time_sync_started = true;
   }
-  app.controller().setNetworkConnected(connected);
-  const int64_t wait = app.step();
+  app->controller().setNetworkConnected(connected);
+  const int64_t wait = app->step();
   delay(static_cast<uint32_t>(std::min<int64_t>(std::max<int64_t>(wait, 1), kMaxWaitMs)));
 }

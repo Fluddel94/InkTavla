@@ -12,6 +12,18 @@ constexpr int kColumnWidth = 358;  // departures column, 45 % with separator
 
 }  // namespace
 
+const char* slotSizeName(SlotSize size) {
+  switch (size) {
+    case SlotSize::kColumn:
+      return "column";
+    case SlotSize::kTile:
+      return "tile";
+    case SlotSize::kNarrowColumn:
+      return "narrow column";
+  }
+  return "";
+}
+
 Layout layoutFor(std::string_view name) {
   Layout l;
   l.header = {0, 0, kScreenWidth, kHeaderHeight};
@@ -23,6 +35,7 @@ Layout layoutFor(std::string_view name) {
         {0, kBodyTop, kColumnWidth, kBodyHeight},
         {right, kBodyTop, narrow, kBodyHeight},
         {right + narrow + kLine, kBodyTop, kScreenWidth - right - narrow - kLine, kBodyHeight}};
+    l.sizes = {SlotSize::kColumn, SlotSize::kNarrowColumn, SlotSize::kNarrowColumn};
     l.separators.push_back({kColumnWidth, kBodyTop, kLine, kBodyHeight});
     l.separators.push_back({right + narrow, kBodyTop, kLine, kBodyHeight});
     return l;
@@ -31,6 +44,7 @@ Layout layoutFor(std::string_view name) {
   l.slots = {{0, kBodyTop, kColumnWidth, kBodyHeight},
              {right, kBodyTop, kScreenWidth - right, tile_height},
              {right, kBodyTop + tile_height + kLine, kScreenWidth - right, tile_height}};
+  l.sizes = {SlotSize::kColumn, SlotSize::kTile, SlotSize::kTile};
   l.separators.push_back({kColumnWidth, kBodyTop, kLine, kBodyHeight});
   l.separators.push_back({right, kBodyTop + tile_height, kScreenWidth - right, kLine});
   return l;

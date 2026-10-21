@@ -7,30 +7,30 @@
 
 namespace widgets::calendar {
 
-CalendarWidget::CalendarWidget(Source& source) : source_(source) {}
+CalendarSource::CalendarSource(Source& api) : api_(api) {}
 
-std::string CalendarWidget::title(ui::Language language) const {
-  return ui::text(language, ui::Text::kTitleCalendar);
-}
-
-SetupMessage CalendarWidget::setupMessage(ui::Language language) const {
+SetupMessage CalendarSource::setupMessage(ui::Language language) const {
   return {ui::text(language, ui::Text::kCalendarAddressMissing),
           "USB: tools/inktavla_config.py calendar-url"};
 }
 
-bool CalendarWidget::fetch(int64_t wall_s) {
+bool CalendarSource::fetch(int64_t wall_s) {
   if (!core::isValidUnixTime(wall_s)) return false;
   const int64_t today = localDay(wall_s);
   const int64_t last_day = today + kAgendaDays - 1 + kExtraDays;
   Parser parser(deviceToUtc(today * kSecondsPerDay), deviceToUtc((last_day + 1) * kSecondsPerDay));
-  if (!source_.fetchCalendar(parser)) return false;
+  if (!api_.fetchCalendar(parser)) return false;
   parser.finish();
   if (!parser.valid()) return false;
   occurrences_ = expandEvents(parser, today, last_day);
   return true;
 }
 
-void CalendarWidget::draw(ui::Canvas& canvas, const DrawContext& context) {
+std::string AgendaView::title(ui::Language language) const {
+  return ui::text(language, ui::Text::kTitleCalendar);
+}
+
+void AgendaView::draw(ui::Canvas& canvas, const DrawContext& context) {
   ViewOptions options;
   options.title = title(context.language);
   options.language = context.language;
@@ -41,7 +41,8 @@ void CalendarWidget::draw(ui::Canvas& canvas, const DrawContext& context) {
     options.note = std::string(ui::text(context.language, ui::Text::kWeekShort)) + " " +
                    std::to_string(isoWeek(localDay(context.now_s)));
   }
-  drawCalendar(canvas, buildAgenda(occurrences_, context.now_s, context.language), options);
+  drawCalendar(canvas, buildAgenda(source_.occurrences(), context.now_s, context.language),
+               options);
 }
 
 }  // namespace widgets::calendar

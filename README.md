@@ -21,7 +21,7 @@ The firmware is split into layers; each layer only knows the ones below it.
 
 | Layer | Folder | Responsibility |
 |---|---|---|
-| Widgets | `lib/widgets` | *What* is shown. Each widget has a provider (data source), a data model and a view. |
+| Widgets | `lib/widgets` | *What* is shown. Each widget has a data source (fetching, data model) and one or more views. |
 | UI | `lib/ui` | *How* it looks: layout templates, canvas, building blocks, fonts, icons, i18n. |
 | Core | `lib/core` | Scheduler, display controller, configuration, cache, Wi-Fi, time, HTTPS, logging. |
 | HAL | `lib/hal` | The only layer that knows the concrete hardware (panel, buttons, battery). |
@@ -30,6 +30,24 @@ The firmware is split into layers; each layer only knows the ones below it.
 widgets, the screen and the display controller from the configuration.
 Logic is kept free of hardware, display and network code so it can be
 unit-tested on the PC.
+
+### Widgets
+
+A widget consists of two parts (`widgets/widget.h`):
+
+- a **data source** fetches and keeps its data (e.g. the departures of a
+  station). The display controller decides when it fetches and tracks how
+  fresh its data is. One source can be read by several views;
+- a **view** draws one area of the screen from the data of one or more
+  sources.
+
+All widgets are listed in `widgets/registry.cpp` with their ID, the slot
+sizes their view is made for and how their source and view are created.
+Every slot of a layout has a size type (column, tile, narrow column); a
+widget placed on a slot it is not made for is reported and the slot shows
+"Passt hier nicht" instead of a clipped view. Adding a widget means adding
+its folder and one entry in `registry.cpp` (plus its API object in
+`Services` and `deviceServices()` in the same file).
 
 ### Main loop
 
@@ -41,6 +59,9 @@ The display controller (`core/display_controller.h`) runs the device:
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
   data shows "Keine Verbindung". A failing widget only affects its own tile.
+  A lost Wi-Fi connection is likewise only shown (struck-through Wi-Fi
+  symbol) after 60 s; reconnecting (with growing pauses between attempts,
+  `core/wifi_policy.h`) goes on in the background.
 - It compares the new frame with the one on the panel and refreshes only the
   changed areas; every `display.full_refresh_minutes` it does a full refresh
   against ghosting.

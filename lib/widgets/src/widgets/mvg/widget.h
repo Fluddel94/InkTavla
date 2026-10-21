@@ -1,7 +1,8 @@
 #pragma once
 
-// The MVG departures widget: fetches the departures of one station once a
-// minute and shows them as one list or in two named sections.
+// The MVG departures widget: a data source that fetches the departures of
+// one station once a minute and a view that shows them as one list or in two
+// named sections.
 
 #include <ArduinoJson.h>
 
@@ -30,15 +31,17 @@ class Source {
   }
 };
 
-class MvgWidget : public Widget {
+// Data source: the departures of the configured station, split into the
+// configured sections.
+class MvgSource : public DataSource {
  public:
   // At most this many departures are kept per section (list: 10 rows).
   static constexpr size_t kMaxDepartures = 10;
 
-  MvgWidget(Config config, Source& source);
+  // api must outlive the source.
+  MvgSource(Config config, Source& api);
 
   const char* id() const override { return "mvg"; }
-  std::string title(ui::Language language) const override;
   SetupMessage setupMessage(ui::Language language) const override;
 
   bool fetches() const override { return true; }
@@ -48,13 +51,32 @@ class MvgWidget : public Widget {
   bool isSetUp() const override { return !config_.station.empty(); }
   bool fetch(int64_t wall_s) override;
 
-  void draw(ui::Canvas& canvas, const DrawContext& context) override;
+  const Config& config() const { return config_; }
+  const std::vector<Section>& sections() const { return sections_; }
+  // Name of the station: from the configuration, else from the API; "" if
+  // neither is known (yet).
+  const std::string& stationName() const;
 
  private:
   Config config_;
-  Source& source_;
+  Source& api_;
   std::vector<Section> sections_;
   std::string station_name_;  // from the API if the configuration has no name
+};
+
+// View in a column slot (style A): tile title with the station name and the
+// departures as one list or in two named sections.
+class DeparturesView : public View {
+ public:
+  // source must outlive the view.
+  explicit DeparturesView(const MvgSource& source) : source_(source) {}
+
+  std::vector<const DataSource*> sources() const override { return {&source_}; }
+  std::string title(ui::Language language) const override;
+  void draw(ui::Canvas& canvas, const DrawContext& context) override;
+
+ private:
+  const MvgSource& source_;
 };
 
 }  // namespace widgets::mvg

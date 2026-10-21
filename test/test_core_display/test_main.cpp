@@ -178,6 +178,7 @@ void test_controller_waits_until_second_1_and_skips_unchanged_frames() {
   core::DisplayController c(clock, display, renderer, 60);
   FakeContent a;
   c.addContent(a);
+  c.setNetworkConnected(true);  // else the offline grace period ends earlier
 
   c.step();
   // Next pass at 20:01:01 (fetch and redraw).
@@ -259,14 +260,71 @@ void test_controller_redraws_on_network_change_and_request() {
   FakeContent a;
   c.addContent(a);
   c.step();
+  // Before the first connection the network counts as connected for the
+  // grace period (no Wi-Fi symbol struck through while starting).
+  TEST_ASSERT_TRUE(renderer.states.back().network_connected);
   const size_t drawn = renderer.states.size();
   c.setNetworkConnected(true);
   c.step();
-  TEST_ASSERT_EQUAL_size_t(drawn + 1, renderer.states.size());
-  TEST_ASSERT_TRUE(renderer.states.back().network_connected);
+  TEST_ASSERT_EQUAL_size_t(drawn, renderer.states.size());  // nothing changes
   c.requestUpdate();
   c.step();
   TEST_ASSERT_EQUAL_size_t(2, a.calls.size());
+}
+
+void test_controller_shows_a_lost_connection_after_the_grace_period() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  c.setNetworkConnected(true);
+  c.step();
+  clock.advance(5000);
+  c.setNetworkConnected(false);
+  c.step();
+  TEST_ASSERT_TRUE(renderer.states.back().network_connected);  // short dropout: not shown
+  // The controller wakes up at the end of the grace period by itself.
+  const int64_t wait = c.step();
+  TEST_ASSERT_TRUE(wait <= core::DisplayController::kOfflineGraceMs);
+  clock.advance(core::DisplayController::kOfflineGraceMs - 1);
+  c.step();
+  TEST_ASSERT_TRUE(c.state().network_connected);
+  clock.advance(1);
+  const size_t drawn = renderer.states.size();
+  c.step();
+  TEST_ASSERT_EQUAL_size_t(drawn + 1, renderer.states.size());
+  TEST_ASSERT_FALSE(renderer.states.back().network_connected);
+  // A reconnection is shown at once.
+  clock.advance(1000);
+  c.setNetworkConnected(true);
+  c.step();
+  TEST_ASSERT_TRUE(renderer.states.back().network_connected);
+  // A dropout shorter than the grace period is never shown.
+  c.setNetworkConnected(false);
+  clock.advance(30000);
+  c.step();
+  c.setNetworkConnected(true);
+  clock.advance(40000);
+  c.step();
+  TEST_ASSERT_TRUE(renderer.states.back().network_connected);
+}
+
+void test_controller_counts_the_grace_period_from_the_start() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  c.step();
+  clock.advance(59000);
+  c.step();
+  TEST_ASSERT_TRUE(c.state().network_connected);
+  clock.advance(1000);
+  c.step();
+  TEST_ASSERT_FALSE(c.state().network_connected);
 }
 
 void test_controller_without_wall_clock_uses_plain_intervals() {
@@ -299,6 +357,8 @@ int main() {
   RUN_TEST(test_controller_not_set_up_is_never_fetched);
   RUN_TEST(test_controller_one_failing_content_does_not_stop_others);
   RUN_TEST(test_controller_redraws_on_network_change_and_request);
+  RUN_TEST(test_controller_shows_a_lost_connection_after_the_grace_period);
+  RUN_TEST(test_controller_counts_the_grace_period_from_the_start);
   RUN_TEST(test_controller_without_wall_clock_uses_plain_intervals);
   return UNITY_END();
 }

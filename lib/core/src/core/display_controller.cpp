@@ -36,7 +36,11 @@ void DisplayController::addContent(Content& content) {
 void DisplayController::setNetworkConnected(bool connected) {
   if (connected == network_connected_) return;
   network_connected_ = connected;
-  force_redraw_ = true;
+  network_changed_ms_ = clock_.monotonicMs();
+}
+
+bool DisplayController::networkShown(int64_t now_ms) const {
+  return network_connected_ || now_ms - network_changed_ms_ < kOfflineGraceMs;
 }
 
 void DisplayController::requestUpdate() {
@@ -79,13 +83,26 @@ int64_t DisplayController::step() {
     }
   }
 
-  if (redraw_needed) redraw(clock_.monotonicMs());
-  return scheduler_.msUntilNextDue(clock_.monotonicMs());
+  // A reconnection is shown at once, a lost connection after the grace
+  // period.
+  const int64_t end_ms = clock_.monotonicMs();
+  if (networkShown(end_ms) != network_shown_) {
+    network_shown_ = !network_shown_;
+    redraw_needed = true;
+  }
+  if (redraw_needed) redraw(end_ms);
+  int64_t wait = scheduler_.msUntilNextDue(clock_.monotonicMs());
+  if (!network_connected_ && network_shown_) {
+    // Wake up when the grace period ends.
+    const int64_t until = network_changed_ms_ + kOfflineGraceMs - clock_.monotonicMs();
+    wait = wait < 0 ? until : std::min(wait, std::max<int64_t>(until, 0));
+  }
+  return wait;
 }
 
 void DisplayController::buildState(int64_t now_ms, int64_t wall_s) {
   state_.wall_s = wall_s;
-  state_.network_connected = network_connected_;
+  state_.network_connected = network_shown_;
   state_.contents.clear();
   for (const Entry& e : entries_) {
     state_.contents.push_back({e.freshness.state(now_ms), e.freshness.lastSuccessWall()});

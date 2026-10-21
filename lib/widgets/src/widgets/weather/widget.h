@@ -1,12 +1,13 @@
 #pragma once
 
-// The weather widget: fetches the forecast for one location from Open-Meteo
-// every 30 minutes and shows the current weather, the course of the day and
-// the next three days.
+// The weather widget: a data source that fetches the forecast for one
+// location from Open-Meteo every 30 minutes and a view that shows the
+// current weather, the course of the day and the next three days.
 
 #include <ArduinoJson.h>
 
 #include <string>
+#include <vector>
 
 #include "widgets/weather/config.h"
 #include "widgets/weather/forecast.h"
@@ -24,12 +25,13 @@ class Source {
   virtual bool fetchForecast(const Config& config, JsonDocument& doc) = 0;
 };
 
-class WeatherWidget : public Widget {
+// Data source: the forecast for the configured location.
+class WeatherSource : public DataSource {
  public:
-  WeatherWidget(Config config, Source& source);
+  // api must outlive the source.
+  WeatherSource(Config config, Source& api);
 
   const char* id() const override { return "weather"; }
-  std::string title(ui::Language language) const override;
   SetupMessage setupMessage(ui::Language language) const override;
 
   bool fetches() const override { return true; }
@@ -39,12 +41,27 @@ class WeatherWidget : public Widget {
   bool isSetUp() const override { return config_.has_location; }
   bool fetch(int64_t wall_s) override;
 
-  void draw(ui::Canvas& canvas, const DrawContext& context) override;
+  const Config& config() const { return config_; }
+  const Forecast& forecast() const { return forecast_; }
 
  private:
   Config config_;
-  Source& source_;
+  Source& api_;
   Forecast forecast_;
+};
+
+// View in a wide tile (style A), see weather/view.h.
+class ForecastView : public View {
+ public:
+  // source must outlive the view.
+  explicit ForecastView(const WeatherSource& source) : source_(source) {}
+
+  std::vector<const DataSource*> sources() const override { return {&source_}; }
+  std::string title(ui::Language language) const override;
+  void draw(ui::Canvas& canvas, const DrawContext& context) override;
+
+ private:
+  const WeatherSource& source_;
 };
 
 }  // namespace widgets::weather

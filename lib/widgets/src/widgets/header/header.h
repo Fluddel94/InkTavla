@@ -21,11 +21,10 @@ struct State {
 // Draws the header into a canvas of the header's size (800 x 40).
 void draw(ui::Canvas& canvas, const State& state);
 
-// The header as a widget: no data of its own, everything comes from the
-// draw context.
-class HeaderWidget : public Widget {
+// The header as a view: no data source of its own, everything comes from
+// the draw context.
+class HeaderView : public View {
  public:
-  const char* id() const override { return "header"; }
   std::string title(ui::Language) const override { return ""; }
   void draw(ui::Canvas& canvas, const DrawContext& context) override {
     header::draw(canvas, {context.now_s, context.language, context.network_connected});

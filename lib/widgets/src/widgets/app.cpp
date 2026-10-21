@@ -1,42 +1,102 @@
 #include "widgets/app.h"
 
+#include <cstring>
+#include <string>
+
 #include "core/time.h"
-#include "widgets/calendar/config.h"
-#include "widgets/mvg/config.h"
+#include "ui/i18n.h"
+#include "ui/layout.h"
 #include "widgets/placeholder.h"
-#include "widgets/weather/config.h"
 
 namespace widgets {
 
-std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
-                                     const Services& services, core::ConfigIssues& issues) {
-  if (id == "mvg") {
-    mvg::Config config = mvg::parseConfig(core::widgetSection(root, "mvg"), issues);
-    if (services.mvg != nullptr) return std::make_unique<mvg::MvgWidget>(config, *services.mvg);
-  }
-  if (id == "weather") {
-    weather::Config config = weather::parseConfig(core::widgetSection(root, "weather"), issues);
-    if (services.weather != nullptr) {
-      return std::make_unique<weather::WeatherWidget>(config, *services.weather);
+namespace {
+
+// Builds the views of the layout's slots and the data sources they read.
+// With empty services only the configuration is checked (no sources).
+class Builder {
+ public:
+  Builder(JsonObjectConst root, const Services& services, core::ConfigIssues& issues)
+      : root_(root), services_(services), issues_(issues) {}
+
+  std::unique_ptr<View> viewFor(const std::string& id, size_t slot, ui::SlotSize size) {
+    const WidgetType* type = findWidgetType(id);
+    if (type == nullptr) {
+      issues_.push_back({"layout.slots", "unknown widget \"" + id + "\""});
+      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
     }
-  }
-  if (id == "calendar") {
-    calendar::checkConfig(core::widgetSection(root, "calendar"), issues);
-    if (services.calendar != nullptr) {
-      return std::make_unique<calendar::CalendarWidget>(*services.calendar);
+    if (!type->fits(size)) {
+      std::string fits;
+      for (ui::SlotSize s : type->sizes) {
+        fits += std::string(fits.empty() ? "" : ", ") + ui::slotSizeName(s);
+      }
+      issues_.push_back({"layout.slots", "widget \"" + id + "\" does not fit slot " +
+                                             std::to_string(slot + 1) + " (" +
+                                             ui::slotSizeName(size) + "); it fits: " + fits});
+      checkSettings(*type);  // no source (nothing to fetch), but the settings are checked
+      return std::make_unique<PlaceholderView>(PlaceholderView::doesNotFit(id));
     }
+    DataSource* source = sourceFor(*type);
+    if (source == nullptr) {
+      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
+    }
+    return type->create_view(*source);
   }
-  if (id != "mvg" && id != "weather" && id != "calendar") {
-    issues.push_back({"layout.slots", "unknown widget \"" + id + "\""});
+
+  std::vector<std::unique_ptr<DataSource>>& sources() { return sources_; }
+
+ private:
+  // One source per widget, shared by all its views; created (and its
+  // settings read) on first use.
+  DataSource* sourceFor(const WidgetType& type) {
+    for (const auto& s : sources_) {
+      if (std::strcmp(s->id(), type.id) == 0) return s.get();
+    }
+    if (contains(missing_, type.id)) return nullptr;
+    // Settings that were checked already are not reported twice.
+    core::ConfigIssues repeated;
+    const bool checked = contains(checked_, type.id);
+    std::unique_ptr<DataSource> source =
+        type.create_source(root_, services_, checked ? repeated : issues_);
+    if (!checked) checked_.push_back(type.id);
+    if (source == nullptr) {
+      missing_.push_back(type.id);  // no service for it
+      return nullptr;
+    }
+    sources_.push_back(std::move(source));
+    return sources_.back().get();
   }
-  return std::make_unique<PlaceholderWidget>(id);
-}
+
+  // Reports problems of the widget's settings without creating its source.
+  void checkSettings(const WidgetType& type) {
+    if (contains(checked_, type.id)) return;
+    checked_.push_back(type.id);
+    type.create_source(root_, Services{}, issues_);
+  }
+
+  static bool contains(const std::vector<const char*>& ids, const char* id) {
+    for (const char* i : ids) {
+      if (std::strcmp(i, id) == 0) return true;
+    }
+    return false;
+  }
+
+  JsonObjectConst root_;
+  const Services& services_;
+  core::ConfigIssues& issues_;
+  std::vector<std::unique_ptr<DataSource>> sources_;
+  std::vector<const char*> checked_;  // widgets whose settings were read
+  std::vector<const char*> missing_;  // widgets without a service
+};
+
+}  // namespace
 
 void validateConfig(JsonObjectConst root, core::ConfigIssues& issues) {
   const core::CoreConfig config = core::parseCoreConfig(root, issues);
   const ui::Layout layout = ui::layoutFor(config.layout);
+  Builder builder(root, Services{}, issues);
   for (size_t i = 0; i < layout.slots.size(); i++) {
-    createWidget(i < config.slots.size() ? config.slots[i] : "", root, Services{}, issues);
+    builder.viewFor(i < config.slots.size() ? config.slots[i] : "", i, layout.sizes[i]);
   }
 }
 
@@ -49,19 +109,26 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   const ui::Language language = ui::languageFromCode(config_.language);
   const ui::Layout layout = ui::layoutFor(config_.layout);
 
-  slots_.clear();
-  std::vector<Widget*> widgets{&header_};
+  Builder builder(root, services_, issues);
+  views_.clear();
+  std::vector<View*> views{&header_};
   for (size_t i = 0; i < layout.slots.size(); i++) {
     const std::string id = i < config_.slots.size() ? config_.slots[i] : "";
-    slots_.push_back(createWidget(id, root, services_, issues));
-    widgets.push_back(slots_.back().get());
+    views_.push_back(builder.viewFor(id, i, layout.sizes[i]));
+    views.push_back(views_.back().get());
   }
+  sources_ = std::move(builder.sources());
 
   screen_ = std::make_unique<Screen>(layout, language);
-  screen_->setWidgets(widgets);
   controller_ = std::make_unique<core::DisplayController>(clock_, display_, *screen_,
                                                           config_.full_refresh_minutes);
-  for (Widget* w : widgets) controller_->addContent(*w);
+  std::vector<const DataSource*> order;
+  for (const auto& s : sources_) {
+    controller_->addContent(*s);
+    order.push_back(s.get());
+  }
+  screen_->setSources(order);
+  screen_->setViews(views);
 }
 
 }  // namespace widgets

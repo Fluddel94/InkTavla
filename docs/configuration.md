@@ -103,7 +103,24 @@ reports are shown (serial monitor, settings page) follows later.
 | `ntp_server` | text | `"pool.ntp.org"` | Time server (host name or IP address). |
 | `display.full_refresh_minutes` | 1–1440 | `60` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
 | `layout.template` | `"one_plus_two"`, `"three_columns"` | `"one_plus_two"` | Screen layout: one column plus two wide tiles, or three columns. |
-| `layout.slots` | list of widget IDs | `["mvg", "weather", "calendar"]` | Widget for each slot of the layout, in order (3 slots for both layouts). |
+| `layout.slots` | list of widget IDs | `["mvg", "weather", "calendar"]` | Widget for each slot of the layout, in order (3 slots for both layouts). A widget may appear more than once; its data is fetched only once. |
+
+Every slot has a size type, and each widget only goes on slots of the sizes
+its view is made for. A widget on another slot is reported
+(`layout.slots: widget "weather" does not fit slot 2 (narrow column); it
+fits: tile`) and the slot shows "Passt hier nicht" instead of a clipped view;
+its data is not fetched there.
+
+| Template | Slot 1 | Slot 2 | Slot 3 |
+|---|---|---|---|
+| `one_plus_two` | column (358 × 438) | tile (440 × 218) | tile (440 × 218) |
+| `three_columns` | column (358 × 438) | narrow column (219 × 438) | narrow column (219 × 438) |
+
+| Widget | Fits |
+|---|---|
+| `mvg` | column |
+| `weather` | tile |
+| `calendar` | tile |
 
 ## Widgets
 

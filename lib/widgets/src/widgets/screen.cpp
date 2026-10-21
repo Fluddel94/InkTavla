@@ -36,40 +36,55 @@ std::vector<hal::Rect> Screen::areas() const {
 
 core::FrameView Screen::render(const core::ScreenState& state) {
   bitmap_.clear(ui::Color::kWhite);
-  // widgets_[0] is the header, widgets_[i] the widget of slot i - 1.
-  const size_t count = std::min({widgets_.size(), state.contents.size(), layout_.slots.size() + 1});
+  // views_[0] is the header, views_[i] the view of slot i - 1.
+  const size_t count = std::min(views_.size(), layout_.slots.size() + 1);
   for (size_t i = 0; i < count; i++) {
-    if (widgets_[i] == nullptr) continue;
+    if (views_[i] == nullptr) continue;
     const ui::Rect& area = i == 0 ? layout_.header : layout_.slots[i - 1];
-    drawSlot(*widgets_[i], area, state.contents[i], state);
+    drawArea(*views_[i], area, state);
   }
   ui::BitmapCanvas full(bitmap_);
   ui::drawSeparators(full, layout_);
   return {bitmap_.data(), bitmap_.width(), bitmap_.height(), bitmap_.stride()};
 }
 
-void Screen::drawSlot(Widget& widget, const ui::Rect& area, const core::ContentStatus& status,
-                      const core::ScreenState& state) {
+SourceStatus Screen::statusOf(const DataSource* source, const core::ScreenState& state) const {
+  for (size_t i = 0; i < sources_.size() && i < state.contents.size(); i++) {
+    if (sources_[i] == source) {
+      return {state.contents[i].state, state.contents[i].last_success_wall_s};
+    }
+  }
+  return {core::DataState::kWaiting, 0};  // not known to the controller
+}
+
+void Screen::drawArea(View& view, const ui::Rect& area, const core::ScreenState& state) {
   ui::BitmapCanvas canvas(bitmap_, area.x, area.y, area.w, area.h);
   DrawContext context;
   context.now_s = state.wall_s;
   context.language = language_;
   context.network_connected = state.network_connected;
+  const std::vector<const DataSource*> sources = view.sources();
+  for (const DataSource* source : sources) context.sources.push_back(statusOf(source, state));
+  if (sources.empty()) {
+    view.draw(canvas, context);
+    return;
+  }
 
-  switch (status.state) {
+  const SourceStatus& main = context.sources.front();
+  switch (main.state) {
     case core::DataState::kFresh:
-      widget.draw(canvas, context);
+      view.draw(canvas, context);
       return;
     case core::DataState::kStale:
-      context.note = ageNote(language_, status.last_success_wall_s);
+      context.note = ageNote(language_, main.last_success_wall_s);
       context.note_alert = true;
-      widget.draw(canvas, context);
+      view.draw(canvas, context);
       return;
     case core::DataState::kWaiting:
-      ui::drawTileTitle(canvas, widget.title(language_));
+      ui::drawTileTitle(canvas, view.title(language_));
       return;
     case core::DataState::kNoData:
-      ui::drawTileTitle(canvas, widget.title(language_));
+      ui::drawTileTitle(canvas, view.title(language_));
       if (state.network_connected) {
         ui::drawTileMessage(canvas, ui::text(language_, ui::Text::kNoData));
       } else {
@@ -78,8 +93,8 @@ void Screen::drawSlot(Widget& widget, const ui::Rect& area, const core::ContentS
       }
       return;
     case core::DataState::kNotSetUp: {
-      const SetupMessage m = widget.setupMessage(language_);
-      ui::drawTileTitle(canvas, widget.title(language_));
+      const SetupMessage m = sources.front()->setupMessage(language_);
+      ui::drawTileTitle(canvas, view.title(language_));
       ui::drawTileMessage(canvas, m.message, m.detail);
       return;
     }

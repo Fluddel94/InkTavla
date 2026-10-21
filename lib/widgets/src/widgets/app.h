@@ -1,9 +1,10 @@
 #pragma once
 
-// Wires everything together from the configuration: widgets for the
-// header and the slots of the layout, the screen and the display controller.
-// main.cpp only provides the hardware (clock, display, network) and calls
-// step(); the same code runs on the PC with simulated parts.
+// Wires everything together from the configuration: the data sources and
+// views of the widgets in the layout's slots (see widgets/registry.h), the
+// header, the screen and the display controller. main.cpp only provides the
+// hardware (clock, display, network) and calls step(); the same code runs on
+// the PC with simulated parts.
 
 #include <ArduinoJson.h>
 
@@ -13,29 +14,16 @@
 #include "core/config.h"
 #include "core/display_controller.h"
 #include "hal/display.h"
-#include "widgets/calendar/widget.h"
 #include "widgets/header/header.h"
-#include "widgets/mvg/widget.h"
+#include "widgets/registry.h"
 #include "widgets/screen.h"
-#include "widgets/weather/widget.h"
 #include "widgets/widget.h"
 
 namespace widgets {
 
-// Data sources of the widgets (network on the device, saved data in tests).
-struct Services {
-  mvg::Source* mvg = nullptr;
-  weather::Source* weather = nullptr;
-  calendar::Source* calendar = nullptr;
-};
-
-// Widget for an ID of layout.slots: MVG, weather, calendar, or a placeholder
-// for unknown IDs (reported).
-std::unique_ptr<Widget> createWidget(const std::string& id, JsonObjectConst root,
-                                     const Services& services, core::ConfigIssues& issues);
-
-// Reports all problems of a configuration (core settings and the sections of
-// the widgets in the layout), e.g. before it is saved.
+// Reports all problems of a configuration (core settings, the sections of
+// the widgets in the layout, unknown widgets and widgets on slots of a size
+// they are not made for), e.g. before it is saved.
 void validateConfig(JsonObjectConst root, core::ConfigIssues& issues);
 
 class App {
@@ -49,6 +37,9 @@ class App {
   core::DisplayController& controller() { return *controller_; }
   const Screen& screen() const { return *screen_; }
   const core::CoreConfig& config() const { return config_; }
+  // Data sources in the order of the controller's contents (the order the
+  // widgets first appear in layout.slots).
+  const std::vector<std::unique_ptr<DataSource>>& sources() const { return sources_; }
 
   // One pass of the main loop; returns the milliseconds to wait.
   int64_t step() { return controller_->step(); }
@@ -58,8 +49,9 @@ class App {
   hal::Display& display_;
   Services services_;
   core::CoreConfig config_;
-  header::HeaderWidget header_;
-  std::vector<std::unique_ptr<Widget>> slots_;
+  header::HeaderView header_;
+  std::vector<std::unique_ptr<DataSource>> sources_;
+  std::vector<std::unique_ptr<View>> views_;
   std::unique_ptr<Screen> screen_;
   std::unique_ptr<core::DisplayController> controller_;
 };

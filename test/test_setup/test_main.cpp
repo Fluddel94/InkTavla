@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "core/version.h"
 #include "hal/display.h"
@@ -23,12 +24,18 @@ class FakeCanvas : public ui::Canvas {
   void setPixel(int, int, ui::Color) override {}
 };
 
-class FakeWidget : public widgets::Widget {
+class FakeSource : public widgets::DataSource {
  public:
   const char* id() const override { return "fake"; }
-  std::string title(ui::Language) const override { return "Fake"; }
   bool fetches() const override { return true; }
   core::Schedule schedule() const override { return {60, -1, 10}; }
+};
+
+class FakeView : public widgets::View {
+ public:
+  explicit FakeView(const FakeSource& source) : source_(source) {}
+  std::vector<const widgets::DataSource*> sources() const override { return {&source_}; }
+  std::string title(ui::Language) const override { return "Fake"; }
   void draw(ui::Canvas& canvas, const widgets::DrawContext&) override {
     last_width_ = canvas.width();
     last_height_ = canvas.height();
@@ -36,6 +43,9 @@ class FakeWidget : public widgets::Widget {
 
   uint16_t last_width_ = 0;
   uint16_t last_height_ = 0;
+
+ private:
+  const FakeSource& source_;
 };
 
 // `pio test` runs the test program from the project directory.
@@ -65,17 +75,21 @@ void test_firmware_version_is_set() {
 
 void test_widget_draws_through_canvas() {
   FakeCanvas canvas;
-  FakeWidget widget;
-  widgets::Widget& w = widget;
+  FakeSource source;
+  FakeView view(source);
+  widgets::DataSource& s = source;
+  widgets::View& v = view;
 
-  w.draw(canvas, widgets::DrawContext{});
+  v.draw(canvas, widgets::DrawContext{});
 
-  TEST_ASSERT_EQUAL_STRING("fake", w.id());
-  TEST_ASSERT_EQUAL_UINT32(60, w.schedule().interval_s);
-  TEST_ASSERT_TRUE(w.isSetUp());
-  TEST_ASSERT_TRUE(w.fetch(0));
-  TEST_ASSERT_EQUAL_UINT16(320, widget.last_width_);
-  TEST_ASSERT_EQUAL_UINT16(440, widget.last_height_);
+  TEST_ASSERT_EQUAL_STRING("fake", s.id());
+  TEST_ASSERT_EQUAL_UINT32(60, s.schedule().interval_s);
+  TEST_ASSERT_TRUE(s.isSetUp());
+  TEST_ASSERT_TRUE(s.fetch(0));
+  TEST_ASSERT_EQUAL_size_t(1, v.sources().size());
+  TEST_ASSERT_TRUE(v.sources()[0] == &source);
+  TEST_ASSERT_EQUAL_UINT16(320, view.last_width_);
+  TEST_ASSERT_EQUAL_UINT16(440, view.last_height_);
 }
 
 void test_mvg_fixtures_are_readable() {

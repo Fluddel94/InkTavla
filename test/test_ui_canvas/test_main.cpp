@@ -362,6 +362,8 @@ void test_layouts_cover_the_screen_without_overlap() {
   for (const char* name : {"one_plus_two", "three_columns"}) {
     const ui::Layout l = ui::layoutFor(name);
     TEST_ASSERT_EQUAL_size_t(3, l.slots.size());
+    TEST_ASSERT_EQUAL_size_t(3, l.sizes.size());  // a size type for every slot
+    TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kColumn);
     TEST_ASSERT_EQUAL_INT(358, l.slots[0].w);
     Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
     std::vector<ui::Rect> areas = l.slots;
@@ -381,6 +383,17 @@ void test_layouts_cover_the_screen_without_overlap() {
   }
   TEST_ASSERT_EQUAL_INT(440, ui::layoutFor("one_plus_two").slots[1].w);
   TEST_ASSERT_EQUAL_INT(358, ui::layoutFor("unknown").slots[0].w);
+}
+
+void test_layout_slot_sizes() {
+  using ui::SlotSize;
+  const ui::Layout a = ui::layoutFor("one_plus_two");
+  TEST_ASSERT_TRUE(a.sizes ==
+                   (std::vector<SlotSize>{SlotSize::kColumn, SlotSize::kTile, SlotSize::kTile}));
+  const ui::Layout b = ui::layoutFor("three_columns");
+  TEST_ASSERT_TRUE(b.sizes == (std::vector<SlotSize>{SlotSize::kColumn, SlotSize::kNarrowColumn,
+                                                     SlotSize::kNarrowColumn}));
+  TEST_ASSERT_EQUAL_STRING("narrow column", ui::slotSizeName(SlotSize::kNarrowColumn));
 }
 
 int main() {
@@ -408,5 +421,6 @@ int main() {
   RUN_TEST(test_wifi_symbol);
   RUN_TEST(test_i18n);
   RUN_TEST(test_layouts_cover_the_screen_without_overlap);
+  RUN_TEST(test_layout_slot_sizes);
   return UNITY_END();
 }

@@ -613,34 +613,35 @@ void test_config() {
 
 void test_widget() {
   FixtureSource source;
-  cal::CalendarWidget widget(source);
-  TEST_ASSERT_TRUE(widget.isSetUp());
-  TEST_ASSERT_EQUAL_STRING("calendar", widget.id());
-  TEST_ASSERT_EQUAL_STRING("Kalender", widget.title(ui::Language::kGerman).c_str());
+  cal::CalendarSource data(source);
+  cal::AgendaView view(data);
+  TEST_ASSERT_TRUE(data.isSetUp());
+  TEST_ASSERT_EQUAL_STRING("calendar", data.id());
+  TEST_ASSERT_EQUAL_STRING("Kalender", view.title(ui::Language::kGerman).c_str());
   TEST_ASSERT_EQUAL_STRING("Kalender-Adresse fehlt",
-                           widget.setupMessage(ui::Language::kGerman).message.c_str());
+                           data.setupMessage(ui::Language::kGerman).message.c_str());
 
   // Before NTP has answered the window is unknown: no request.
-  TEST_ASSERT_FALSE(widget.fetch(1000));
+  TEST_ASSERT_FALSE(data.fetch(1000));
   TEST_ASSERT_EQUAL_INT(0, source.requests);
 
-  TEST_ASSERT_TRUE(widget.fetch(kNow));
+  TEST_ASSERT_TRUE(data.fetch(kNow));
   ui::Bitmap bitmap(440, 218);
   ui::BitmapCanvas canvas(bitmap);
   widgets::DrawContext context;
   context.now_s = kNow;
-  widget.draw(canvas, context);
+  view.draw(canvas, context);
   check(bitmap, "calendar_week_morning");  // same as the view with "KW 43"
 
   // A failed request or an incomplete file keeps the last data.
   source.fail = true;
-  TEST_ASSERT_FALSE(widget.fetch(kNow + 900));
+  TEST_ASSERT_FALSE(data.fetch(kNow + 900));
   source.fail = false;
   source.text = source.text.substr(0, source.text.size() / 2);
-  TEST_ASSERT_FALSE(widget.fetch(kNow + 1800));
+  TEST_ASSERT_FALSE(data.fetch(kNow + 1800));
   ui::Bitmap again(440, 218);
   ui::BitmapCanvas canvas2(again);
-  widget.draw(canvas2, context);
+  view.draw(canvas2, context);
   check(again, "calendar_week_morning");
 }
 

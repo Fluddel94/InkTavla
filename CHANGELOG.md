@@ -132,8 +132,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Font: Roboto Condensed Medium 22 (calendar entries).
 - Hand-written calendar files as test fixtures; the simulation of the main
   loop includes the calendar.
+- Widget registry (`widgets/registry.cpp`): one entry per widget with its ID,
+  the slot sizes its view is made for and how its data source and view are
+  created; `deviceServices()` provides the APIs of the device.
+- Slot size types in the layouts (column, tile, narrow column). A widget on
+  a slot it is not made for is reported in the configuration issues and the
+  slot shows "Passt hier nicht" ("Does not fit here") instead of a clipped
+  view.
 
 ### Changed
+
+- Widgets are split into a data source (fetching, data, freshness) and views
+  (drawing an area of the screen). A view may read several sources, and a
+  widget used in several slots fetches its data only once.
+- A lost Wi-Fi connection is shown (struck-through Wi-Fi symbol, "Keine
+  Verbindung") only after 60 s, like failing updates; a reconnection is
+  shown at once.
 
 - MVG view after the overall UI design: rows of 39 px (list, 10
   departures) or 38 px (sections), destination Medium 24, time Bold 26

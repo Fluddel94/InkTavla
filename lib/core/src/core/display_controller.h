@@ -61,6 +61,8 @@ struct ContentStatus {
 
 struct ScreenState {
   int64_t wall_s = 0;
+  // Network as shown: a lost connection only counts as offline after
+  // DisplayController::kOfflineGraceMs, like a failing data source.
   bool network_connected = false;
   std::vector<ContentStatus> contents;  // in the order of addContent()
 };
@@ -79,6 +81,11 @@ class DisplayController {
   // Redraw at this second of every minute (clock in the header), aligned
   // with the MVG update so that both change in one refresh.
   static constexpr int32_t kRedrawSecond = 1;
+  // A connection lost for less than this is not shown (Wi-Fi symbol,
+  // "Keine Verbindung"): short dropouts are bridged like failing updates.
+  // The time counts from the loss, or from the start before the first
+  // connection.
+  static constexpr int64_t kOfflineGraceMs = Freshness::kGraceMs;
 
   DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                     int full_refresh_minutes);
@@ -86,6 +93,8 @@ class DisplayController {
   // Adds the content of the next slot (order = order in ScreenState).
   void addContent(Content& content);
 
+  // Current state of the network; the screen shows it after the grace
+  // period (see kOfflineGraceMs).
   void setNetworkConnected(bool connected);
 
   // Fetches everything now (e.g. a button press).
@@ -107,6 +116,8 @@ class DisplayController {
   };
 
   void buildState(int64_t now_ms, int64_t wall_s);
+  // Whether the network is shown as connected at this time.
+  bool networkShown(int64_t now_ms) const;
   void redraw(int64_t now_ms);
 
   Clock& clock_;
@@ -120,6 +131,8 @@ class DisplayController {
   std::vector<uint8_t> shown_;  // frame on the panel; large, ends up in PSRAM
   FrameView shown_view_;
   bool network_connected_ = false;
+  int64_t network_changed_ms_ = 0;  // last change of network_connected_
+  bool network_shown_ = true;       // network as shown in the last frame
   bool force_redraw_ = true;
   bool wall_valid_ = false;
 };

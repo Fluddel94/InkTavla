@@ -40,6 +40,7 @@ enum class Text {
   kMoreEvents,              // events that do not fit: "+3 weitere"
   kWeekShort,               // week number in the tile title: "KW 43"
   kCalendarAddressMissing,  // calendar widget without an iCal address
+  kDoesNotFit,              // a widget on a slot of a size it is not made for
 };
 
 const char* text(Language language, Text id);

@@ -88,6 +88,8 @@ const char* text(Language language, Text id) {
       return de ? "KW" : "Wk";
     case Text::kCalendarAddressMissing:
       return de ? "Kalender-Adresse fehlt" : "Calendar address missing";
+    case Text::kDoesNotFit:
+      return de ? "Passt hier nicht" : "Does not fit here";
   }
   return "";
 }
