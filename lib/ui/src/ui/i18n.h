@@ -19,15 +19,12 @@ enum class Text {
   kNoConnection,  // a widget has never received data
   kNoConnectionDetail,
   kNoData,          // a widget's data could not be read
-  kNotSetUp,        // a slot or widget without the settings it needs
+  kNotSetUp,        // a column or widget without the settings it needs
   kNotAvailable,    // a widget that does not exist (yet)
   kStationMissing,  // MVG widget without a station
   kTitleDepartures,
   kTitleWeather,
   kTitleCalendar,
-  kFeelsLike,               // "gefühlt 5°"
-  kClockSuffix,             // after a time range: "14–18 Uhr"
-  kNoRain,                  // rain outlook without rain
   kLocationMissing,         // weather widget without coordinates
   kToday,                   // agenda: "Heute"
   kTomorrow,                // agenda: "Morgen"
@@ -37,10 +34,10 @@ enum class Text {
   kUntil,                   // end of a multi-day event: "bis Fr"
   kIn,                      // countdown: "in 48 min"
   kHoursUnit,               // after a number of hours: "in 2 h"
-  kMoreEvents,              // events that do not fit: "+3 weitere"
-  kWeekShort,               // week number in the tile title: "KW 43"
+  kWeekShort,               // week number in the column title: "KW 43"
   kCalendarAddressMissing,  // calendar widget without an iCal address
-  kDoesNotFit,              // a widget on a slot of a size it is not made for
+  kDoesNotFit,              // a widget in a column of a size it is not made for
+  kDisruption,              // heading of disruption messages: "Störung S3, S4"
 };
 
 const char* text(Language language, Text id);

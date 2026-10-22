@@ -53,35 +53,6 @@ Condition conditionFromWmo(int code) {
   }
 }
 
-const char* conditionText(Condition condition, bool day, ui::Language language) {
-  const bool de = language == ui::Language::kGerman;
-  switch (condition) {
-    case Condition::kClear:
-      return day ? (de ? "Sonnig" : "Sunny") : (de ? "Klar" : "Clear");
-    case Condition::kMainlyClear:
-      return day ? (de ? "Heiter" : "Mostly sunny") : (de ? "Leicht bewölkt" : "Mostly clear");
-    case Condition::kPartlyCloudy:
-      return de ? "Wolkig" : "Partly cloudy";
-    case Condition::kOvercast:
-      return de ? "Bedeckt" : "Overcast";
-    case Condition::kFog:
-      return de ? "Nebel" : "Fog";
-    case Condition::kDrizzle:
-      return de ? "Nieselregen" : "Drizzle";
-    case Condition::kRain:
-      return de ? "Regen" : "Rain";
-    case Condition::kSnow:
-      return de ? "Schnee" : "Snow";
-    case Condition::kShowers:
-      return de ? "Schauer" : "Showers";
-    case Condition::kThunder:
-      return de ? "Gewitter" : "Thunderstorm";
-    case Condition::kUnknown:
-      break;
-  }
-  return "";
-}
-
 ui::WeatherIcon conditionIcon(Condition condition, bool day) {
   switch (condition) {
     case Condition::kClear:
@@ -108,10 +79,11 @@ ui::WeatherIcon conditionIcon(Condition condition, bool day) {
 
 JsonDocument forecastFilter() {
   JsonDocument filter;
-  for (const char* key :
-       {"time", "temperature_2m", "apparent_temperature", "weather_code", "is_day"}) {
+  for (const char* key : {"time", "temperature_2m", "weather_code", "is_day"}) {
     filter["current"][key] = true;
   }
+  filter["minutely_15"]["time"] = true;
+  filter["minutely_15"]["temperature_2m"] = true;
   for (const char* key :
        {"time", "temperature_2m", "precipitation_probability", "weather_code", "is_day"}) {
     filter["hourly"][key] = true;
@@ -132,7 +104,6 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
   Forecast result;
   result.current.time = current["time"].as<int64_t>();
   result.current.temperature = current["temperature_2m"].as<float>();
-  result.current.feels_like = current["apparent_temperature"] | result.current.temperature;
   result.current.condition = conditionFromWmo(current["weather_code"] | -1);
   result.current.day = (current["is_day"] | 1) != 0;
 
@@ -170,37 +141,22 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
     result.days.push_back(d);
   }
   if (result.hours.empty() || result.days.empty()) return false;
+
+  JsonArrayConst quarter_times = doc["minutely_15"]["time"];
+  JsonArrayConst quarter_temps = doc["minutely_15"]["temperature_2m"];
+  if (!quarter_times.isNull() && quarter_temps.size() == quarter_times.size() &&
+      quarter_times.size() > 0) {
+    Quarters q;
+    q.start = quarter_times[0].as<int64_t>();
+    bool even = true;
+    for (size_t i = 0; i < quarter_times.size() && even; i++) {
+      even = quarter_times[i].as<int64_t>() == q.start + static_cast<int64_t>(i) * kQuarterSeconds;
+      q.temperatures.push_back(quarter_temps[i].is<float>() ? quarter_temps[i].as<float>() : NAN);
+    }
+    if (even) result.quarters = std::move(q);
+  }
   f = std::move(result);
   return true;
-}
-
-RainOutlook rainOutlook(const Forecast& f, int64_t now_s) {
-  RainOutlook o;
-  // Hours from the current one on, kOutlookHours ahead.
-  std::vector<const Hour*> ahead;
-  for (const Hour& h : f.hours) {
-    if (h.time + 3600 > now_s && h.time < now_s + kOutlookHours * 3600) ahead.push_back(&h);
-  }
-  size_t peak = 0;
-  for (size_t i = 0; i < ahead.size(); i++) {
-    if (ahead[i]->rain_probability > ahead[peak]->rain_probability) peak = i;
-  }
-  if (ahead.empty() || ahead[peak]->rain_probability < kRainThreshold) return o;
-  const int max = ahead[peak]->rain_probability;
-  const int limit = std::max(kRainThreshold, max - kRangeTolerance);
-  size_t first = peak;
-  size_t last = peak;
-  while (first > 0 && ahead[first - 1]->rain_probability >= limit) first--;
-  while (last + 1 < ahead.size() && ahead[last + 1]->rain_probability >= limit) last++;
-  core::LocalTime from, to;
-  core::toLocalTime(ahead[first]->time, from);
-  core::toLocalTime(ahead[last]->time + 3600, to);
-  o.rain = true;
-  o.probability = max;
-  o.from_hour = from.hour;
-  // A range up to midnight ends at "24", not "0" ("21–24 Uhr").
-  o.to_hour = to.hour == 0 && from.hour > 0 ? 24 : to.hour;
-  return o;
 }
 
 int displayTemperature(float t) {

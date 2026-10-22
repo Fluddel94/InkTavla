@@ -30,15 +30,11 @@ enum class Condition {
 };
 
 Condition conditionFromWmo(int code);
-// Text for the current weather, e.g. "Heiter", "Bedeckt" (day/night matter
-// for clear skies: "Sonnig" / "Klar").
-const char* conditionText(Condition condition, bool day, ui::Language language);
 ui::WeatherIcon conditionIcon(Condition condition, bool day);
 
 struct Current {
   int64_t time = 0;  // Unix seconds
   float temperature = 0;
-  float feels_like = 0;
   Condition condition = Condition::kUnknown;
   bool day = true;
 };
@@ -58,36 +54,30 @@ struct Day {
   Condition condition = Condition::kUnknown;
 };
 
+// Temperatures every 15 minutes ("minutely_15"; computed by models with 15
+// minute steps in Central Europe and North America, interpolated from hourly
+// values elsewhere), for the curve of the day.
+inline constexpr int64_t kQuarterSeconds = 900;
+struct Quarters {
+  int64_t start = 0;                // time of the first value, Unix seconds
+  std::vector<float> temperatures;  // one every kQuarterSeconds, NaN if missing
+};
+
 struct Forecast {
   Current current;
   std::vector<Hour> hours;
   std::vector<Day> days;
+  Quarters quarters;  // empty if the response has none
 };
 
 // ArduinoJson filter: only the fields read below.
 JsonDocument forecastFilter();
 
 // Reads a response requested with forecastUrl(). False if fields are
-// missing or the hourly/daily lists do not fit together.
+// missing or the hourly/daily lists do not fit together. The 15 minute values
+// are optional: without them, or if their times are not evenly spaced,
+// quarters stays empty.
 bool parseForecast(JsonDocument& doc, Forecast& forecast);
-
-// Rain in the coming hours: the highest probability and when.
-struct RainOutlook {
-  bool rain = false;  // a probability of at least kRainThreshold
-  int probability = 0;
-  int from_hour = 0;  // local hours of the time range ("14–18 Uhr")
-  int to_hour = 0;    // end of the range (hour after the last one)
-};
-
-// Probabilities below this count as "no rain" in the outlook.
-inline constexpr int kRainThreshold = 20;
-// Hours ahead looked at for the outlook.
-inline constexpr int kOutlookHours = 12;
-// Hours belong to the range around the highest value while they are at most
-// this many percentage points below it.
-inline constexpr int kRangeTolerance = 15;
-
-RainOutlook rainOutlook(const Forecast& forecast, int64_t now_s);
 
 // Temperature as shown: rounded, without "-0".
 int displayTemperature(float t);

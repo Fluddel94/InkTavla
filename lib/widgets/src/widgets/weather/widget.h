@@ -50,18 +50,4 @@ class WeatherSource : public DataSource {
   Forecast forecast_;
 };
 
-// View in a wide tile (style A), see weather/view.h.
-class ForecastView : public View {
- public:
-  // source must outlive the view.
-  explicit ForecastView(const WeatherSource& source) : source_(source) {}
-
-  std::vector<const DataSource*> sources() const override { return {&source_}; }
-  std::string title(ui::Language language) const override;
-  void draw(ui::Canvas& canvas, const DrawContext& context) override;
-
- private:
-  const WeatherSource& source_;
-};
-
 }  // namespace widgets::weather

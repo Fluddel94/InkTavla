@@ -33,22 +33,36 @@ overall UI design, 07:42 CEST).
 | File | Content |
 |---|---|
 | `week.ics` | Structured like an export of Google Calendar: a VTIMEZONE for Europe/Berlin, a weekly series with a long folded description and an alarm, single events in local time and UTC, an all-day series every four weeks, a series with UNTIL and EXDATE, a cancelled event, a yearly all-day event since 1950, an ended series and an old single event |
-| `busy.ics` | More events than fit into the tile, long titles and multi-day events (all-day and timed) |
+| `busy.ics` | More events than fit into the column, long titles and multi-day events (all-day and timed) |
 
 More cases (recurrence rules, moved and cancelled occurrences, other time
 zones, folding inside UTF-8 characters) are written directly into
 `test/test_calendar`.
 
+## `weather/`
+
+Responses of the Open-Meteo forecast API for München with the fields the
+firmware requests.
+
+| File | Content |
+|---|---|
+| `muenchen_20261020.json` | Response of 2026-10-20 18:30 (hourly and daily values, no 15 minute values): rain the next afternoon |
+| `muenchen_20261022.json` | Response of 2026-10-22 07:30 as the firmware requests it now, with temperatures every 15 minutes from 24 hours back (here 20) to ahead |
+
 ## `ui/`
 
-Reference images of the screen previews (`test/test_ui_preview`), drawn with
-the real UI and widget code from the MVG fixtures. `briefing_symbols.png` and
+Reference images drawn with the real UI and widget code from the fixtures:
+`mvg_columns.png` shows departures from real MVG responses
+(`test/test_ui_preview`). `briefing_symbols.png` and
 `briefing_parts.png` are sheets with the symbols, fonts and building blocks
 of the "Briefing" layout; `briefing_*_columns.png`, `briefing_bands.png` and
 `briefing_weather_extremes.png` show its columns, bands and the weather
-chart with extreme values (`test/test_briefing`), `sim_briefing_*.png` the
-whole screen in the simulation. Their image data is
-compared byte by byte (metadata chunks that tools may add are ignored); after an intended change of the appearance, update them with
-`INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native -f test_ui_preview`.
+chart with extreme values, `briefing_departure_incidents.png` disruption
+messages and two stations, `briefing_band_topics.png` sentences on
+departures, events and tomorrow's temperature (`test/test_briefing`),
+`sim_*.png` the whole screen in the simulation (`test/test_app_simulation`). Their image data is
+compared byte by byte (metadata chunks that tools may add are ignored);
+after an intended change of the appearance, update them with
+`INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`.
 Before committing reference images, remove any metadata that tools may have
 added: `python tools/png_strip.py test/fixtures/ui`.

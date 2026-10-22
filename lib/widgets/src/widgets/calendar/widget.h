@@ -55,18 +55,4 @@ class CalendarSource : public DataSource {
   Occurrences occurrences_;
 };
 
-// View in a wide tile (style A), see calendar/view.h.
-class AgendaView : public View {
- public:
-  // source must outlive the view.
-  explicit AgendaView(const CalendarSource& source) : source_(source) {}
-
-  std::vector<const DataSource*> sources() const override { return {&source_}; }
-  std::string title(ui::Language language) const override;
-  void draw(ui::Canvas& canvas, const DrawContext& context) override;
-
- private:
-  const CalendarSource& source_;
-};
-
 }  // namespace widgets::calendar

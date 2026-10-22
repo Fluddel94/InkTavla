@@ -61,4 +61,25 @@ DeserializationError readDepartures(TInput& input, JsonDocument& doc) {
 std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter filter,
                                        const LineSelection& lines, size_t max_results);
 
+// At most this many different disruption messages are kept, each shortened
+// to kMaxIncidentLength bytes and with at most kMaxIncidentLines lines.
+inline constexpr size_t kMaxIncidents = 4;
+inline constexpr size_t kMaxIncidentLength = 160;
+inline constexpr size_t kMaxIncidentLines = 8;
+
+// The disruption messages ("INCIDENT") of the trips that parseDepartures()
+// would show with the same filter and line selection: every text once, with
+// the lines it was reported for, in the order of the response. Other message
+// types are left out (EARLY_TERMINATION is shown in the row, INFO are fare
+// notes).
+std::vector<Incident> parseIncidents(const JsonDocument& doc, DirectionFilter filter,
+                                     const LineSelection& lines);
+
+// Adds the messages of `more` to `into`: the same text once, lines merged.
+void mergeIncidents(std::vector<Incident>& into, const std::vector<Incident>& more);
+
+// All lines of the messages, each once, sorted for display: lines with a
+// letter prefix first ("S3", "S8", "U6", "RB6"), then numbers ("19", "54").
+std::vector<std::string> incidentLines(const std::vector<Incident>& incidents);
+
 }  // namespace widgets::mvg

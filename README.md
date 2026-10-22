@@ -41,14 +41,13 @@ A widget consists of two parts (`widgets/widget.h`):
 - a **view** draws one area of the screen from the data of one or more
   sources.
 
-All widgets are listed in `widgets/registry.cpp` with their ID, the slot
+All widgets are listed in `widgets/registry.cpp` with their ID, the column
 sizes their view is made for and how their source and view are created.
-The layout templates are "one_plus_two" (style A), "three_columns" and
-"briefing" (a band with a sentence and the weather at the top, three
-columns below). Every slot of a layout has a size type (column, tile,
-narrow column, briefing wide column, briefing column); a
-widget placed on a slot it is not made for is reported and the slot shows
-"Passt hier nicht" instead of a clipped view. Adding a widget means adding
+The screen follows the "Briefing" design: a band with the date, the time, a
+sentence and the weather at the top, three columns below (departures in the
+wide one, calendar and weather in the narrow ones). A widget placed in a
+column it is not made for is reported and the column shows "Passt hier
+nicht" instead of a clipped view. Adding a widget means adding
 its folder and one entry in `registry.cpp` (plus its API object in
 `Services` and `deviceServices()` in the same file).
 
@@ -61,7 +60,7 @@ The display controller (`core/display_controller.h`) runs the device:
   the screen, at the latest once a minute for the clock.
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
-  data shows "Keine Verbindung". A failing widget only affects its own tile.
+  data shows "Keine Verbindung". A failing widget only affects its own column.
   A lost Wi-Fi connection is likewise only shown (struck-through Wi-Fi
   symbol) after 60 s; reconnecting (with growing pauses between attempts,
   `core/wifi_policy.h`) goes on in the background.
@@ -171,8 +170,8 @@ Nothing user-specific is compiled in.
   service that publishes it.
 - **Weather data by [Open-Meteo.com](https://open-meteo.com/)**, licensed
   under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The free
-  API is for non-commercial use only; the source is named in the title of
-  the weather tile.
+  API is for non-commercial use only; the source is named under the
+  weather column.
 
 ## Third-party libraries
 

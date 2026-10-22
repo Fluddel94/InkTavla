@@ -1,6 +1,7 @@
 #include "widgets/mvg/departures.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <string>
 
@@ -350,6 +351,116 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
     return a.expected() < b.expected();
   });
   if (result.size() > max_results) result.resize(max_results);
+  return result;
+}
+
+namespace {
+
+void addLine(std::vector<std::string>& lines, const std::string& line) {
+  if (line.empty() || lines.size() >= kMaxIncidentLines) return;
+  if (std::find(lines.begin(), lines.end(), line) != lines.end()) return;
+  lines.push_back(line);
+}
+
+void addIncident(std::vector<Incident>& incidents, std::string message,
+                 const std::vector<std::string>& lines) {
+  // Trailing spaces and dots of the API text are dropped; the view adds
+  // the punctuation.
+  while (!message.empty() && (message.back() == ' ' || message.back() == '.')) message.pop_back();
+  if (message.empty()) return;
+  if (message.length() > kMaxIncidentLength) {
+    size_t cut = kMaxIncidentLength;
+    while (cut > 0 && (static_cast<unsigned char>(message[cut]) & 0xC0) == 0x80) cut--;
+    message.resize(cut);
+  }
+  for (Incident& i : incidents) {
+    if (i.message != message) continue;
+    for (const std::string& l : lines) addLine(i.lines, l);
+    return;
+  }
+  if (incidents.size() >= kMaxIncidents) return;
+  Incident i;
+  i.message = std::move(message);
+  for (const std::string& l : lines) addLine(i.lines, l);
+  incidents.push_back(std::move(i));
+}
+
+// Sort key of a line label: letter prefix, number, rest.
+struct LineOrder {
+  std::string prefix;
+  long number = 0;
+  std::string rest;
+};
+
+LineOrder lineOrder(const std::string& line) {
+  LineOrder o;
+  size_t i = 0;
+  while (i < line.length() && std::isalpha(static_cast<unsigned char>(line[i]))) i++;
+  o.prefix = line.substr(0, i);
+  size_t j = i;
+  while (j < line.length() && std::isdigit(static_cast<unsigned char>(line[j]))) {
+    o.number = o.number * 10 + (line[j] - '0');
+    j++;
+  }
+  o.rest = line.substr(j);
+  return o;
+}
+
+}  // namespace
+
+std::vector<Incident> parseIncidents(const JsonDocument& doc, DirectionFilter filter,
+                                     const LineSelection& lines) {
+  std::vector<Incident> incidents;
+  size_t records = 0;
+  for (JsonObjectConst dep : doc.as<JsonArrayConst>()) {
+    if (records++ >= kMaxRawEntries) break;
+    // The same selection as step 1 of parseDepartures(); parts of coupled
+    // regional trains that are not selected themselves are left out.
+    const Direction direction = lineDirection(dep["lineId"]);
+    if (filter == DirectionFilter::kH && direction != Direction::kH) continue;
+    if (filter == DirectionFilter::kR && direction != Direction::kR) continue;
+    const char* transport_type = dep["transportType"];
+    if (transport_type == nullptr) transport_type = dep["product"];
+    const bool sev = dep["sev"] | false;
+    const bool is_train = transport_type != nullptr && std::strcmp(transport_type, "BAHN") == 0;
+    const std::string key = lineKey(dep["label"]);
+    const bool train_replacement = sev && (is_train || key.empty());
+    if (!lines.empty() && !lines.matches(key, direction) &&
+        !(train_replacement && lines.hasType(TransportType::kTrain))) {
+      continue;
+    }
+    std::string label = dep["label"] | "";
+    if (is_train) removeSpaces(label);
+    if (sev) label = "SEV";
+    for (JsonObjectConst info : dep["infos"].as<JsonArrayConst>()) {
+      const char* type = info["type"];
+      const char* message = info["message"];
+      if (type == nullptr || message == nullptr || std::strcmp(type, "INCIDENT") != 0) continue;
+      addIncident(incidents, message, {label});
+    }
+  }
+  return incidents;
+}
+
+void mergeIncidents(std::vector<Incident>& into, const std::vector<Incident>& more) {
+  for (const Incident& i : more) addIncident(into, i.message, i.lines);
+}
+
+std::vector<std::string> incidentLines(const std::vector<Incident>& incidents) {
+  std::vector<std::string> result;
+  for (const Incident& i : incidents) {
+    for (const std::string& l : i.lines) {
+      if (std::find(result.begin(), result.end(), l) == result.end()) result.push_back(l);
+    }
+  }
+  std::stable_sort(result.begin(), result.end(), [](const std::string& a, const std::string& b) {
+    const LineOrder x = lineOrder(a);
+    const LineOrder y = lineOrder(b);
+    if (x.prefix.empty() != y.prefix.empty()) return !x.prefix.empty();
+    if (x.prefix != y.prefix) return x.prefix < y.prefix;
+    if (x.number != y.number) return x.number < y.number;
+    return x.rest < y.rest;
+  });
   return result;
 }
 

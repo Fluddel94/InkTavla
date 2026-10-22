@@ -7,6 +7,7 @@
 #include "ui/fonts.h"
 #include "ui/rows.h"
 #include "ui/text.h"
+#include "widgets/mvg/departures.h"
 #include "widgets/mvg/sections.h"
 
 namespace widgets::mvg {
@@ -25,14 +26,58 @@ constexpr int kTimeGap = 10;          // between destination and time
 constexpr int kDelayGap = 3;          // between time and delay
 constexpr int kWarningHeight = 15;
 
+// Disruption messages (design D, stoerung.py).
+constexpr int kIncidentSignHeight = 18;
+constexpr int kIncidentHeadingX = 24;
+constexpr int kIncidentLineStep = 20;
+constexpr int kIncidentTitleGap = 28;  // last text line to the first title
+
 const ui::Font& symbolFont() { return ui::fonts::kRobotoCondensedBold17; }
 const ui::Font& symbolMeasureFont() { return ui::fonts::kRobotoCondensedBold20; }
 const ui::Font& destinationFont() { return ui::fonts::kRobotoCondensedMedium20; }
 const ui::Font& timeFont() { return ui::fonts::kRobotoCondensedBold21; }
 const ui::Font& delayFont() { return ui::fonts::kRobotoCondensedBold15; }
+const ui::Font& incidentHeadingFont() { return ui::fonts::kRobotoCondensedBold17; }
+const ui::Font& incidentTextFont() { return ui::fonts::kRobotoCondensedMedium17; }
+
+std::string joinLines(const std::vector<std::string>& lines) {
+  std::string text;
+  for (const std::string& l : lines) {
+    if (!text.empty()) text += ", ";
+    text += l;
+  }
+  return text;
+}
+
+// Draws the disruption messages from the top of the column; returns the
+// baseline of the first title below them.
+int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int sections,
+                  ui::Language language) {
+  const int baseline = ui::kColumnTitleBaseline;
+  ui::drawWarningSign(c, 0, baseline, kIncidentSignHeight);
+  ui::drawText(c, incidentHeadingFont(), kIncidentHeadingX, baseline,
+               ui::fitTextEllipsis(incidentHeadingFont(), incidentHeading(incidents, language),
+                                   c.width() - kIncidentHeadingX));
+  // As many lines as leave every section at least one row; with sections
+  // at most kIncidentMaxLinesSections.
+  int max_lines = sections > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
+  while (max_lines > 1 &&
+         columnRowsThatFit(c.height() - kIncidentLineStep * max_lines - kIncidentTitleGap,
+                           sections) < sections) {
+    max_lines--;
+  }
+  const std::vector<std::string> lines =
+      ui::wrapText(incidentTextFont(), incidentText(incidents), c.width(), max_lines);
+  int y = baseline;
+  for (const std::string& line : lines) {
+    y += kIncidentLineStep;
+    ui::drawText(c, incidentTextFont(), 0, y, line);
+  }
+  return y + kIncidentTitleGap;
+}
 
 ui::SymbolShape shapeFor(const Departure& d) {
-  if (d.bus) return ui::SymbolShape::kRoundFrame;  // buses and replacement services
+  if (d.bus) return ui::SymbolShape::kFrame;  // buses and replacement services
   switch (d.transport) {
     case TransportType::kTrain:
       return ui::SymbolShape::kFrame;
@@ -104,20 +149,43 @@ int columnRowsThatFit(int canvas_height, int sections) {
                          kColumnSectionGap + 6);
 }
 
+std::string incidentHeading(const std::vector<Incident>& incidents, ui::Language language) {
+  std::string heading = ui::text(language, ui::Text::kDisruption);
+  const std::string lines = joinLines(incidentLines(incidents));
+  if (!lines.empty()) heading += " " + lines;
+  return heading;
+}
+
+std::string incidentText(const std::vector<Incident>& incidents) {
+  std::string text;
+  for (const Incident& i : incidents) {
+    if (!text.empty()) text += " ";
+    if (incidents.size() > 1 && !i.lines.empty()) text += joinLines(incidentLines({i})) + ": ";
+    text += i.message;
+    const char last = i.message.empty() ? '.' : i.message.back();
+    if (last != '.' && last != '!' && last != '?') text += ".";
+  }
+  return text;
+}
+
 int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& sections,
                          const ColumnOptions& options) {
   const bool list = sections.size() == 1 && sections[0].name.empty();
+  const int n = std::max(1, static_cast<int>(sections.size()));
+  int first_title = ui::kColumnTitleBaseline;
+  if (!options.incidents.empty()) {
+    first_title = drawIncidents(canvas, options.incidents, n, options.language);
+  }
   if (sections.empty() || list) {
-    ui::drawColumnTitle(canvas, 0, canvas.width(), ui::kColumnTitleBaseline, options.station,
-                        options.note, ui::TitleIcon::kPin, options.note_alert);
+    ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station, options.note,
+                        ui::TitleIcon::kPin, options.note_alert);
   }
   if (sections.empty()) return 0;
 
-  const int n = static_cast<int>(sections.size());
   std::vector<int> available;
   for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
-  const std::vector<int> rows =
-      ui::distributeRows(columnRowsThatFit(canvas.height(), n), available);
+  const std::vector<int> rows = ui::distributeRows(
+      columnRowsThatFit(canvas.height() - (first_title - ui::kColumnTitleBaseline), n), available);
 
   // Common symbol width of all visible rows, so the destinations line up.
   int symbol_width = ui::textWidth(symbolMeasureFont(), "S8") + kSymbolPadding;
@@ -138,12 +206,15 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   }
 
   int drawn = 0;
-  int title = ui::kColumnTitleBaseline;
+  int title = first_title;
   for (int s = 0; s < n; s++) {
     if (!list) {
+      // The age hint of the data replaces the note of the first section.
+      const bool age = s == 0 && !options.note.empty();
       ui::drawColumnTitle(canvas, 0, canvas.width(), title, sections[s].name,
-                          s == 0 ? options.note : "", ui::TitleIcon::kArrow,
-                          s == 0 && options.note_alert);
+                          age ? options.note : sections[s].note,
+                          sections[s].own_station ? ui::TitleIcon::kPin : ui::TitleIcon::kArrow,
+                          age && options.note_alert);
     }
     int top = title + 6;
     const std::vector<Departure>& deps = sections[s].departures;
@@ -181,6 +252,7 @@ void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) 
   options.time_format = source_.config().time_format;
   options.language = context.language;
   options.now_s = context.now_s;
+  options.incidents = source_.incidents();
   drawDeparturesColumn(canvas, withoutDeparted(source_.sections(), context.now_s), options);
 }
 

@@ -58,12 +58,6 @@ const char* text(Language language, Text id) {
       return de ? "Wetter" : "Weather";
     case Text::kTitleCalendar:
       return de ? "Kalender" : "Calendar";
-    case Text::kFeelsLike:
-      return de ? "gefühlt" : "feels";
-    case Text::kClockSuffix:
-      return de ? " Uhr" : " h";
-    case Text::kNoRain:
-      return de ? "Kein Regen" : "No rain";
     case Text::kLocationMissing:
       return de ? "Standort fehlt" : "Location missing";
     case Text::kToday:
@@ -82,14 +76,14 @@ const char* text(Language language, Text id) {
       return "in";
     case Text::kHoursUnit:
       return "h";
-    case Text::kMoreEvents:
-      return de ? "weitere" : "more";
     case Text::kWeekShort:
       return de ? "KW" : "Wk";
     case Text::kCalendarAddressMissing:
       return de ? "Kalender-Adresse fehlt" : "Calendar address missing";
     case Text::kDoesNotFit:
       return de ? "Passt hier nicht" : "Does not fit here";
+    case Text::kDisruption:
+      return de ? "Störung" : "Disruption";
   }
   return "";
 }

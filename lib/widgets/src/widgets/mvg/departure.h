@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace widgets::mvg {
 
@@ -68,6 +69,27 @@ struct Departure {
 
   // Expected departure (planned + delay), seconds since 1970-01-01 UTC.
   int64_t expected() const { return planned + static_cast<int64_t>(delay_minutes) * 60; }
+};
+
+// Departures of one section. A single section without a name is drawn as
+// one list.
+struct Section {
+  std::string name;
+  std::vector<Departure> departures;
+  // Free text on the right of the section title ("4 min zu Fuß").
+  std::string note;
+  // The widget shows two stations: title with a location pin instead of
+  // the arrow of a direction.
+  bool own_station = false;
+};
+
+// A disruption message ("INCIDENT" in the MVG API) and the lines it is
+// reported for. The API gives only a short text per trip ("Verspätung eines
+// vorausfahrenden Zuges") without a heading; the same text usually comes
+// with several lines.
+struct Incident {
+  std::string message;
+  std::vector<std::string> lines;  // as shown: "S3", "RB6", "SEV"
 };
 
 }  // namespace widgets::mvg

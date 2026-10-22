@@ -5,7 +5,6 @@
 
 #include <string>
 
-#include "widgets/mvg/line_icons.h"
 #include "widgets/mvg/line_selection.h"
 
 using widgets::mvg::Direction;
@@ -84,19 +83,6 @@ void test_selection_empty() {
   TEST_ASSERT_EQUAL_STRING("", s.toString().c_str());
 }
 
-void test_line_icons_from_the_departure_display() {
-  const widgets::mvg::LineIcon* s1 = widgets::mvg::findLineIcon("S1");
-  TEST_ASSERT_NOT_NULL(s1);
-  TEST_ASSERT_EQUAL_UINT8(36, s1->width);
-  TEST_ASSERT_EQUAL_UINT8(28, widgets::mvg::findLineIcon("U6")->width);
-  TEST_ASSERT_EQUAL_UINT8(30, widgets::mvg::findLineIcon("19")->width);  // tram
-  TEST_ASSERT_NOT_NULL(widgets::mvg::findLineIcon("N17"));               // night tram
-  TEST_ASSERT_NOT_NULL(widgets::mvg::findLineIcon("S20"));
-  TEST_ASSERT_NULL(widgets::mvg::findLineIcon("RB55"));  // generated frame
-  TEST_ASSERT_NULL(widgets::mvg::findLineIcon("SEV"));
-  TEST_ASSERT_NULL(widgets::mvg::findLineIcon("s1"));
-}
-
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_line_key_removes_spaces_and_upper_cases);
@@ -107,6 +93,5 @@ int main() {
   RUN_TEST(test_selection_transport_types_in_fixed_order);
   RUN_TEST(test_selection_is_limited);
   RUN_TEST(test_selection_empty);
-  RUN_TEST(test_line_icons_from_the_departure_display);
   return UNITY_END();
 }

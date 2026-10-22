@@ -8,7 +8,6 @@
 #include "ui/icons.h"
 #include "ui/text.h"
 #include "widgets/calendar/datetime.h"
-#include "widgets/calendar/view.h"
 
 namespace widgets::calendar {
 
@@ -73,6 +72,16 @@ std::vector<const Entry*> visibleToday(const AgendaDay& day, int rows) {
 }
 
 }  // namespace
+
+std::string shortDate(int64_t day, ui::Language language) {
+  int y, m, d;
+  civilFromDays(day, y, m, d);
+  std::string out = ui::weekdayShort(language, weekdayFromDays(day));
+  out += ' ';
+  out += std::to_string(d);
+  if (language == ui::Language::kGerman) out += '.';
+  return out;
+}
 
 void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
                       const ColumnOptions& options) {

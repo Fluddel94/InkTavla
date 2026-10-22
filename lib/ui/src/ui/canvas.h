@@ -1,12 +1,20 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace ui {
 
 enum class Color : uint8_t {
   kWhite = 0,
   kBlack = 1,
+};
+
+// Point with fractions of a pixel. Pixel (x, y) covers the square from
+// (x, y) to (x + 1, y + 1); its centre is (x + 0.5, y + 0.5).
+struct PointF {
+  double x = 0;
+  double y = 0;
 };
 
 // Drawing surface handed to a widget for its slot.
@@ -47,8 +55,10 @@ class Canvas {
   // Line of one pixel width (Bresenham).
   void drawLine(int x0, int y0, int x1, int y1, Color color);
   void fillTriangle(int x0, int y0, int x1, int y1, int x2, int y2, Color color);
-  // Line of the given width (round ends), e.g. for curves in charts.
-  void drawThickLine(int x0, int y0, int x1, int y1, int width, Color color);
+  // Line through the points with the given width, round ends and joins,
+  // e.g. for curves in charts. The points are not rounded: a pixel is set
+  // when its centre is at most width / 2 from the line.
+  void drawPolyline(const std::vector<PointF>& points, double width, Color color);
   // Circle around (cx, cy): filled, or as a ring of the given thickness.
   void fillCircle(int cx, int cy, int radius, Color color);
   void drawCircle(int cx, int cy, int radius, int thickness, Color color);

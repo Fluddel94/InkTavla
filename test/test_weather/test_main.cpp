@@ -1,26 +1,18 @@
 // Weather widget: configuration, reading an Open-Meteo response, the rules
-// for what is shown (rain outlook, weather texts and symbols) and preview
-// images of the tile (compared with the references in test/fixtures/ui/,
-// update them with INKTAVLA_UPDATE_PREVIEWS=1).
+// for what is shown (conditions and symbols). The pictures of the column
+// are in test_briefing.
 
 #include <unity.h>
 
-#include <cstdlib>
-#include <filesystem>
+#include <cmath>
 #include <fstream>
-#include <sstream>
 #include <string>
 
 #include "core/time.h"
-#include "hal/png.h"
-#include "ui/bitmap.h"
-#include "ui/elements.h"
 #include "ui/icons.h"
-#include "ui/layout.h"
 #include "widgets/weather/api.h"
 #include "widgets/weather/config.h"
 #include "widgets/weather/forecast.h"
-#include "widgets/weather/view.h"
 
 namespace {
 
@@ -45,46 +37,6 @@ widgets::weather::Config config(const char* json, core::ConfigIssues& issues) {
   JsonDocument doc;
   deserializeJson(doc, json);
   return widgets::weather::parseConfig(doc.as<JsonObjectConst>(), issues);
-}
-
-std::string readFile(const std::string& path) {
-  std::ifstream file(path, std::ios::binary);
-  std::stringstream buffer;
-  buffer << file.rdbuf();
-  return buffer.str();
-}
-
-void writeFile(const std::string& path, const std::string& data) {
-  std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-  std::ofstream(path, std::ios::binary) << data;
-}
-
-void check(const ui::Bitmap& bitmap, const char* name) {
-  const std::string png =
-      hal::png::encode(bitmap.data(), bitmap.width(), bitmap.height(), bitmap.stride());
-  writeFile(std::string(".pio/preview/") + name + ".png", png);
-  const std::string reference = std::string("test/fixtures/ui/") + name + ".png";
-  if (std::getenv("INKTAVLA_UPDATE_PREVIEWS") != nullptr) {
-    writeFile(reference, png);
-    return;
-  }
-  const std::string expected = readFile(reference);
-  TEST_ASSERT_TRUE_MESSAGE(!expected.empty(), ("missing reference " + reference).c_str());
-  TEST_ASSERT_TRUE_MESSAGE(hal::png::criticalChunks(expected) == png,
-                           ("differs from " + reference + ", see .pio/preview/").c_str());
-}
-
-ui::Bitmap tile(const Forecast& forecast, int64_t now, const char* note = "München",
-                bool alert = false) {
-  ui::Bitmap bitmap(440, 218);
-  ui::BitmapCanvas canvas(bitmap);
-  widgets::weather::ViewOptions options;
-  options.title = "Wetter";
-  options.note = note;
-  options.note_alert = alert;
-  options.now_s = now;
-  widgets::weather::drawWeather(canvas, forecast, options);
-  return bitmap;
 }
 
 }  // namespace
@@ -130,8 +82,9 @@ void test_url() {
   const auto c = config(R"({"latitude": 48.13743, "longitude": -11.5})", issues);
   TEST_ASSERT_EQUAL_STRING(
       "https://api.open-meteo.com/v1/forecast?latitude=48.1374&longitude=-11.5000"
-      "&current=temperature_2m,apparent_temperature,weather_code,is_day"
+      "&current=temperature_2m,weather_code,is_day"
       "&hourly=temperature_2m,precipitation_probability,weather_code,is_day"
+      "&minutely_15=temperature_2m&past_minutely_15=96&forecast_minutely_15=96"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
       "&timezone=auto&timeformat=unixtime&forecast_days=4",
       widgets::weather::forecastUrl(c).c_str());
@@ -145,6 +98,33 @@ void test_parse() {
   TEST_ASSERT_EQUAL_INT64(1792447200, f.hours[0].time);
   TEST_ASSERT_EQUAL_INT64(1792533600, f.days[1].time);
   TEST_ASSERT_FALSE(f.current.day);
+  TEST_ASSERT_TRUE(f.quarters.temperatures.empty());  // saved before they were requested
+}
+
+void test_parse_quarters() {
+  // Response of 2026-10-22 07:30 with 15 minute values from 24 hours back
+  // (here 20) to ahead.
+  const Forecast f = load("muenchen_20261022.json");
+  TEST_ASSERT_EQUAL_INT64(1792575000, f.quarters.start);
+  TEST_ASSERT_EQUAL_size_t(160, f.quarters.temperatures.size());
+  // On the full hour the same value as the hourly list: 07:00 = 6.7 degrees.
+  const size_t i = (f.hours[7].time - f.quarters.start) / widgets::weather::kQuarterSeconds;
+  TEST_ASSERT_EQUAL_FLOAT(f.hours[7].temperature, f.quarters.temperatures[i]);
+  TEST_ASSERT_EQUAL_FLOAT(6.7f, f.quarters.temperatures[i]);
+
+  // Gaps become NaN; times that are not evenly spaced are not used.
+  JsonDocument doc;
+  deserializeJson(doc, R"({"current": {"time": 1, "temperature_2m": 5},
+      "hourly": {"time": [0], "temperature_2m": [5], "weather_code": [0]},
+      "daily": {"time": [0], "temperature_2m_max": [6], "temperature_2m_min": [4]},
+      "minutely_15": {"time": [0, 900, 1800], "temperature_2m": [5, null, 6]}})");
+  Forecast g;
+  TEST_ASSERT_TRUE(widgets::weather::parseForecast(doc, g));
+  TEST_ASSERT_EQUAL_size_t(3, g.quarters.temperatures.size());
+  TEST_ASSERT_TRUE(std::isnan(g.quarters.temperatures[1]));
+  doc["minutely_15"]["time"][2] = 2000;
+  TEST_ASSERT_TRUE(widgets::weather::parseForecast(doc, g));
+  TEST_ASSERT_TRUE(g.quarters.temperatures.empty());
 }
 
 void test_parse_rejects_broken() {
@@ -168,9 +148,6 @@ void test_conditions() {
   TEST_ASSERT_TRUE(conditionFromWmo(81) == Condition::kShowers);
   TEST_ASSERT_TRUE(conditionFromWmo(96) == Condition::kThunder);
   TEST_ASSERT_TRUE(conditionFromWmo(42) == Condition::kUnknown);
-  const ui::Language de = ui::Language::kGerman;
-  TEST_ASSERT_EQUAL_STRING("Sonnig", widgets::weather::conditionText(Condition::kClear, true, de));
-  TEST_ASSERT_EQUAL_STRING("Klar", widgets::weather::conditionText(Condition::kClear, false, de));
   TEST_ASSERT_TRUE(widgets::weather::conditionIcon(Condition::kClear, false) ==
                    ui::WeatherIcon::kMoon);
 }
@@ -181,77 +158,14 @@ void test_temperature() {
   TEST_ASSERT_EQUAL_INT(13, widgets::weather::displayTemperature(12.5f));
 }
 
-void test_rain_outlook() {
-  Forecast f;
-  // Hourly from 2026-10-21 00:00 CEST with 0 % except 40/65/60/55/30 from
-  // 14:00 on.
-  const int64_t midnight = 1792533600;
-  for (int h = 0; h < 24; h++) {
-    widgets::weather::Hour hour;
-    hour.time = midnight + h * 3600;
-    const int p[] = {40, 65, 60, 55, 30};
-    hour.rain_probability = h >= 14 && h < 19 ? p[h - 14] : 0;
-    f.hours.push_back(hour);
-  }
-  auto r = widgets::weather::rainOutlook(f, midnight + 9 * 3600 + 1800);  // 09:30
-  TEST_ASSERT_TRUE(r.rain);
-  TEST_ASSERT_EQUAL_INT(65, r.probability);
-  TEST_ASSERT_EQUAL_INT(15, r.from_hour);  // 65, 60, 55 within 15 points
-  TEST_ASSERT_EQUAL_INT(18, r.to_hour);
-  // A range up to midnight ends at 24.
-  f.hours[22].rain_probability = 70;
-  f.hours[23].rain_probability = 70;
-  r = widgets::weather::rainOutlook(f, midnight + 20 * 3600);
-  TEST_ASSERT_EQUAL_INT(22, r.from_hour);
-  TEST_ASSERT_EQUAL_INT(24, r.to_hour);
-  f.hours[22].rain_probability = 0;
-  f.hours[23].rain_probability = 0;
-  // Only values below the threshold ahead: no rain.
-  r = widgets::weather::rainOutlook(f, midnight + 18 * 3600 + 1800);  // 18:30, 30 % left
-  TEST_ASSERT_TRUE(r.rain);
-  f.hours[18].rain_probability = 19;
-  r = widgets::weather::rainOutlook(f, midnight + 18 * 3600 + 1800);
-  TEST_ASSERT_FALSE(r.rain);
-  // 01:00: 14:00 is more than 12 hours ahead.
-  r = widgets::weather::rainOutlook(f, midnight + 3600);
-  TEST_ASSERT_FALSE(r.rain);
-}
-
-void test_tile_evening() { check(tile(load(), kNow), "weather_muenchen_evening"); }
-
-void test_tile_stale() { check(tile(load(), kNow, "Stand 18:30", true), "weather_muenchen_stale"); }
-
-void test_tile_rainy_morning() {
-  // 2026-10-21 08:15 from the same response: rain bars, dashed line up to
-  // now, only two days left in the response.
-  check(tile(load(), 1792533600 + 8 * 3600 + 15 * 60), "weather_muenchen_morning");
-}
-
-void test_icons() {
-  // All weather symbols in the three sizes (32, 26, 50 px).
-  ui::Bitmap bitmap(440, 124);
-  ui::BitmapCanvas canvas(bitmap);
-  for (int i = 0; i < 9; i++) {
-    const auto kind = static_cast<ui::WeatherIcon>(i);
-    ui::drawIcon(canvas, 8 + i * 48, 4, ui::weatherIcon(kind, 32));
-    ui::drawIcon(canvas, 8 + i * 48, 44, ui::weatherIcon(kind, 26));
-    ui::drawIcon(canvas, 8 + i * 48, 72, ui::weatherIcon(kind, 50));
-  }
-  check(bitmap, "weather_icons");
-}
-
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_config);
   RUN_TEST(test_url);
   RUN_TEST(test_parse);
+  RUN_TEST(test_parse_quarters);
   RUN_TEST(test_parse_rejects_broken);
   RUN_TEST(test_conditions);
   RUN_TEST(test_temperature);
-  RUN_TEST(test_rain_outlook);
-  RUN_TEST(test_tile_evening);
-  RUN_TEST(test_tile_stale);
-  RUN_TEST(test_tile_rainy_morning);
-  RUN_TEST(test_icons);
   return UNITY_END();
 }

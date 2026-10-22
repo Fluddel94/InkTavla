@@ -30,8 +30,8 @@ int drawText(Canvas& canvas, const Font& font, int x, int baseline, std::string_
              Color color = Color::kBlack, Align align = Align::kLeft);
 
 // Text with extra letter spacing ("tracking"), used for the spaced capitals
-// of tile titles. spacing_x8 is added after every character but the last, in
-// 1/8 pixel.
+// of column titles. spacing_x8 is added after every character but the last,
+// in 1/8 pixel.
 int trackedTextWidth(const Font& font, std::string_view text, int spacing_x8);
 int drawTrackedText(Canvas& canvas, const Font& font, int x, int baseline, std::string_view text,
                     int spacing_x8, Color color = Color::kBlack, Align align = Align::kLeft);

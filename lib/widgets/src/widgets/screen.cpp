@@ -30,7 +30,6 @@ Screen::Screen(const ui::Layout& layout, ui::Language language)
 
 std::vector<hal::Rect> Screen::areas() const {
   std::vector<hal::Rect> result;
-  if (layout_.header_areas.empty()) result.push_back(toHal(layout_.header));
   for (const ui::Rect& r : layout_.header_areas) result.push_back(toHal(r));
   for (const ui::Rect& r : layout_.slots) result.push_back(toHal(r));
   return result;
@@ -38,15 +37,17 @@ std::vector<hal::Rect> Screen::areas() const {
 
 core::FrameView Screen::render(const core::ScreenState& state) {
   bitmap_.clear(ui::Color::kWhite);
-  // views_[0] is the header, views_[i] the view of slot i - 1.
+  // views_[0] is the band, views_[i] the view of column i - 1.
   const size_t count = std::min(views_.size(), layout_.slots.size() + 1);
   for (size_t i = 0; i < count; i++) {
     if (views_[i] == nullptr) continue;
     const ui::Rect area = i == 0 ? layout_.header : ui::contentOf(layout_, i - 1);
     drawArea(*views_[i], area, state);
   }
-  ui::BitmapCanvas full(bitmap_);
-  ui::drawSeparators(full, layout_);
+  for (const ui::Rect& d : layout_.dividers) {
+    ui::BitmapCanvas canvas(bitmap_, 0, 0, ui::kScreenWidth, ui::kScreenHeight);
+    canvas.dottedVLine(d.x, d.y, d.h, 2);
+  }
   return {bitmap_.data(), bitmap_.width(), bitmap_.height(), bitmap_.stride()};
 }
 

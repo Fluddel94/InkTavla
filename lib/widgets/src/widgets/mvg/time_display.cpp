@@ -16,7 +16,7 @@ TimeDisplay timeDisplay(const Departure& departure, TimeFormat format, int64_t n
   const int delay = effectiveDelay(departure.delay_minutes);
 
   // Minutes until the expected departure (planned + delay), counted as the
-  // difference of the minute values like the clock in the header
+  // difference of the minute values like the clock in the band
   // (14:07 -> 14:09 = "2 min"). From kMinutesModeLimit on the clock time.
   bool as_minutes = false;
   if (format == TimeFormat::kMinutes && core::isValidUnixTime(now_s)) {

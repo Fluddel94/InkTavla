@@ -1,14 +1,13 @@
 #pragma once
 
-// Layout templates: they divide the screen into a header and slots without
-// gaps. Views get a canvas for their slot; the separator lines between the
-// areas are drawn by drawSeparators().
+// Layout of the screen ("Briefing" design): a band at the top (header line
+// with date and clock, a sentence and a weather picture) and three columns
+// below it, without frames. Views get a canvas for their area.
 //
-// Every slot has a size type. A widget's view is made for certain size
-// types and is only placed on slots of those (see widgets/registry.h);
-// otherwise the slot shows a message instead of a clipped view.
+// Every column has a size type. A widget's view is made for certain size
+// types and is only placed in columns of those (see widgets/registry.h);
+// otherwise the column shows a message instead of a clipped view.
 
-#include <string_view>
 #include <vector>
 
 #include "ui/canvas.h"
@@ -18,9 +17,9 @@ namespace ui {
 inline constexpr int kScreenWidth = 800;
 inline constexpr int kScreenHeight = 480;
 
-// "briefing": height of the band (the rule is its last row), of its header
-// line and width of the part of the header line with date and clock; bottom
-// edge of the column contents.
+// Height of the band (the rule is its last row), of its header line and
+// width of the part of the header line with date and clock; bottom edge of
+// the column contents.
 inline constexpr int kBriefingBandHeight = 205;
 inline constexpr int kBriefingHeaderHeight = 44;
 inline constexpr int kBriefingClockAreaWidth = 600;
@@ -33,47 +32,53 @@ struct Rect {
   int h = 0;
 };
 
+// Content sizes of the columns.
 enum class SlotSize {
-  kColumn,        // full-height column, 358 x 438
-  kTile,          // wide tile, 440 x 218
-  kNarrowColumn,  // narrow full-height column, 219 x 438
-  // "briefing": columns without frames below the band (content sizes).
-  kBriefingWide,    // departures, 264 x 259
-  kBriefingColumn,  // calendar and weather, 214 x 259
+  kBriefingWide,    // departures, 264 x 259 (232 x 259 in the equal grid)
+  kBriefingColumn,  // calendar and weather, 214 x 259 (232 x 259 in the equal grid)
 };
 
-// Name of a size type for messages: "column", "tile", "narrow column".
+// Name of a size type for messages: "wide column", "column".
 const char* slotSizeName(SlotSize size);
 
 struct Layout {
-  Rect header;  // for "briefing": the band (header line, sentence, picture)
+  Rect header;  // the band (header line, sentence, picture)
+  // The columns ("slots"): they cover the screen below the band without gaps
+  // and are what the display refreshes.
   std::vector<Rect> slots;
-  std::vector<SlotSize> sizes;   // size type of every slot
-  std::vector<Rect> separators;  // black lines between the areas
-  // Area of every slot the view draws into, if smaller than the slot (the
-  // margins of "briefing"); empty = the slots themselves.
+  std::vector<SlotSize> sizes;  // size type of every column
+  // Area of every column the view draws into (without the margins).
   std::vector<Rect> content;
-  // Areas of the header checked separately for changes (partial refresh),
-  // e.g. the line with the clock; empty = the header as one area.
+  // Areas of the band checked separately for changes (partial refresh): the
+  // line with the clock, the rest of the header line, the rest of the band.
   std::vector<Rect> header_areas;
-  // The "Briefing" design: band instead of a header, columns without frames.
-  bool briefing = false;
+  // Dotted vertical lines between the columns (width 1), drawn by the
+  // screen; they lie in the first pixel column of a slot.
+  std::vector<Rect> dividers;
 };
 
-// Content area of slot i (see Layout::content).
+// Variants of the layout (configuration "layout.grid" and
+// "layout.dividers"), off by default.
+struct LayoutOptions {
+  // Three columns of 232 px with gaps of 24 px instead of 264/214/214.
+  bool equal_columns = false;
+  // Dotted vertical lines between the columns.
+  bool dividers = false;
+};
+
+// Content area of column i (see Layout::content).
 Rect contentOf(const Layout& layout, size_t i);
 
-// "one_plus_two": header, a 358 px column on the left (360 px with its
-// separator) and two 440 x 218 tiles on the right.
-// "three_columns": header and columns of 358, 219 and 219 px (column and
-// two narrow columns).
-// "briefing": band of 800 x 205 (header line, sentence, weather picture,
-// rule at y 204) and three columns with margins of 28 px at the edges and 26
-// px between them: departures 264 px, calendar and weather 214 px each, from
-// y 205 to the bottom edge of the content at y 464.
-// Unknown names give "one_plus_two".
-Layout layoutFor(std::string_view name);
+// The band of 800 x 205 (header line, sentence, weather picture, rule at y
+// 204) and three columns with margins of 28 px at the edges and 26 px
+// between them: departures 264 px, calendar and weather 214 px each, from y
+// 205 to the bottom edge of the content at y 464. With equal_columns all
+// three are 232 px wide (24 px between them); the first one stays the "wide
+// column" for the departures.
+Layout screenLayout(const LayoutOptions& options = {});
 
-void drawSeparators(Canvas& canvas, const Layout& layout);
+// Top of the dotted lines between the columns (at the cap height of the
+// first column title).
+inline constexpr int kDividerTop = 222;
 
 }  // namespace ui

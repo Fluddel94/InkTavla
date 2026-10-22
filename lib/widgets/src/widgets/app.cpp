@@ -13,7 +13,7 @@ namespace widgets {
 
 namespace {
 
-// Builds the views of the layout's slots and the data sources they read.
+// Builds the views of the layout's columns and the data sources they read.
 // With empty services only the configuration is checked (no sources).
 class Builder {
  public:
@@ -21,12 +21,10 @@ class Builder {
       : root_(root), services_(services), issues_(issues) {}
 
   std::unique_ptr<View> viewFor(const std::string& id, size_t slot, ui::SlotSize size) {
-    const bool columns =
-        size == ui::SlotSize::kBriefingWide || size == ui::SlotSize::kBriefingColumn;
     const WidgetType* type = findWidgetType(id);
     if (type == nullptr) {
       issues_.push_back({"layout.slots", "unknown widget \"" + id + "\""});
-      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id, columns));
+      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
     }
     if (!type->fits(size)) {
       std::string fits;
@@ -37,20 +35,28 @@ class Builder {
                                              std::to_string(slot + 1) + " (" +
                                              ui::slotSizeName(size) + "); it fits: " + fits});
       checkSettings(*type);  // no source (nothing to fetch), but the settings are checked
-      return std::make_unique<PlaceholderView>(PlaceholderView::doesNotFit(id, columns));
+      return std::make_unique<PlaceholderView>(PlaceholderView::doesNotFit(id));
     }
     DataSource* source = sourceFor(*type);
     if (source == nullptr) {
-      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id, columns));
+      return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
     }
     return type->create_view(*source, size);
   }
 
-  // The data source of a widget for the band ("briefing"), nullptr if it
-  // cannot be created.
+  // The data source of a widget for the band, nullptr if it cannot be
+  // created.
   const DataSource* sourceById(const char* id) {
     const WidgetType* type = findWidgetType(id);
     return type == nullptr ? nullptr : sourceFor(*type);
+  }
+
+  // The data source of a widget if one of the columns uses it already.
+  const DataSource* existingSource(const char* id) const {
+    for (const auto& s : sources_) {
+      if (std::strcmp(s->id(), id) == 0) return s.get();
+    }
+    return nullptr;
   }
 
   std::vector<std::unique_ptr<DataSource>>& sources() { return sources_; }
@@ -103,12 +109,12 @@ class Builder {
 
 void validateConfig(JsonObjectConst root, core::ConfigIssues& issues) {
   const core::CoreConfig config = core::parseCoreConfig(root, issues);
-  const ui::Layout layout = ui::layoutFor(config.layout);
+  const ui::Layout layout = ui::screenLayout();
   Builder builder(root, Services{}, issues);
   for (size_t i = 0; i < layout.slots.size(); i++) {
     builder.viewFor(i < config.slots.size() ? config.slots[i] : "", i, layout.sizes[i]);
   }
-  if (layout.briefing) builder.sourceById("weather");  // the band reads the weather
+  builder.sourceById("weather");  // the band reads the weather
 }
 
 App::App(core::Clock& clock, hal::Display& display, const Services& services)
@@ -118,23 +124,28 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   config_ = core::parseCoreConfig(root, issues);
   core::setTimeZone(config_.time_zone.c_str());
   const ui::Language language = ui::languageFromCode(config_.language);
-  const ui::Layout layout = ui::layoutFor(config_.layout);
+  ui::LayoutOptions options;
+  options.equal_columns = config_.equal_columns;
+  options.dividers = config_.dividers;
+  const ui::Layout layout = ui::screenLayout(options);
 
   Builder builder(root, services_, issues);
   views_.clear();
-  std::vector<View*> views{&header_};
+  std::vector<View*> views{nullptr};  // the band, see below
   for (size_t i = 0; i < layout.slots.size(); i++) {
     const std::string id = i < config_.slots.size() ? config_.slots[i] : "";
     views_.push_back(builder.viewFor(id, i, layout.sizes[i]));
     views.push_back(views_.back().get());
   }
-  if (layout.briefing) {
-    // The band instead of the header; it reads the weather even if the
-    // weather column is not on the screen.
-    const auto* weather = static_cast<const weather::WeatherSource*>(builder.sourceById("weather"));
-    views_.push_back(std::make_unique<briefing::BandView>(weather));
-    views[0] = views_.back().get();
-  }
+  // The band reads the weather even if the weather column is not on the
+  // screen; departures and calendar only if they are (nothing is fetched
+  // just for the sentence).
+  const auto* weather = static_cast<const weather::WeatherSource*>(builder.sourceById("weather"));
+  const auto* departures = static_cast<const mvg::MvgSource*>(builder.existingSource("mvg"));
+  const auto* calendar =
+      static_cast<const calendar::CalendarSource*>(builder.existingSource("calendar"));
+  views_.push_back(std::make_unique<briefing::BandView>(weather, departures, calendar));
+  views[0] = views_.back().get();
   sources_ = std::move(builder.sources());
 
   screen_ = std::make_unique<Screen>(layout, language);

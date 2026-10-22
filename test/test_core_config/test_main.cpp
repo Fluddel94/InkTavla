@@ -41,9 +41,10 @@ void assertDefaults(const CoreConfig& c) {
   TEST_ASSERT_EQUAL_STRING("de", c.language.c_str());
   TEST_ASSERT_EQUAL_STRING("pool.ntp.org", c.ntp_server.c_str());
   TEST_ASSERT_EQUAL_INT(60, c.full_refresh_minutes);
-  TEST_ASSERT_EQUAL_STRING("one_plus_two", c.layout.c_str());
   TEST_ASSERT_EQUAL_size_t(3, c.slots.size());
   TEST_ASSERT_EQUAL_STRING("mvg", c.slots[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("calendar", c.slots[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("weather", c.slots[2].c_str());
 }
 
 }  // namespace
@@ -74,17 +75,15 @@ void test_example_file_is_valid() {
 
 void test_values_are_read() {
   ConfigIssues issues;
-  const CoreConfig c =
-      parse(R"({"time_zone":"UTC0","language":"en","ntp_server":"192.168.1.1",)"
-            R"("display":{"full_refresh_minutes":30},)"
-            R"("layout":{"template":"three_columns","slots":["weather","mvg","calendar"]}})",
-            issues);
+  const CoreConfig c = parse(R"({"time_zone":"UTC0","language":"en","ntp_server":"192.168.1.1",)"
+                             R"("display":{"full_refresh_minutes":30},)"
+                             R"("layout":{"slots":["weather","mvg","calendar"]}})",
+                             issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_STRING("UTC0", c.time_zone.c_str());
   TEST_ASSERT_EQUAL_STRING("en", c.language.c_str());
   TEST_ASSERT_EQUAL_STRING("192.168.1.1", c.ntp_server.c_str());
   TEST_ASSERT_EQUAL_INT(30, c.full_refresh_minutes);
-  TEST_ASSERT_EQUAL_STRING("three_columns", c.layout.c_str());
   TEST_ASSERT_EQUAL_STRING("weather", c.slots[0].c_str());
 }
 
@@ -176,21 +175,40 @@ void test_helpers() {
   TEST_ASSERT_EQUAL_STRING("w.a", issues[0].path.c_str());
 }
 
-void test_briefing_template_orders_the_columns() {
+void test_removed_templates_are_reported() {
   JsonDocument doc;
-  deserializeJson(doc, R"({"layout": {"template": "briefing"}})");
   core::ConfigIssues issues;
-  const core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  // "briefing" (the only layout) is accepted as it is.
+  deserializeJson(doc, R"({"layout": {"template": "briefing"}})");
+  core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
-  TEST_ASSERT_EQUAL_STRING("briefing", c.layout.c_str());
-  TEST_ASSERT_EQUAL_STRING("mvg", c.slots[0].c_str());
   TEST_ASSERT_EQUAL_STRING("calendar", c.slots[1].c_str());
-  TEST_ASSERT_EQUAL_STRING("weather", c.slots[2].c_str());
-  // Own slots are kept.
-  deserializeJson(doc, R"({"layout": {"template": "briefing",
+  // A removed layout gives a hint; the columns are read as usual.
+  deserializeJson(doc, R"({"layout": {"template": "one_plus_two",
                            "slots": ["mvg", "weather", "calendar"]}})");
-  const core::CoreConfig d = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_EQUAL_STRING("weather", d.slots[1].c_str());
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(1, issues.size());
+  TEST_ASSERT_EQUAL_STRING("layout.template", issues[0].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("weather", c.slots[1].c_str());
+}
+
+void test_layout_variants() {
+  JsonDocument doc;
+  core::ConfigIssues issues;
+  core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_FALSE(c.equal_columns);  // off by default
+  TEST_ASSERT_FALSE(c.dividers);
+  deserializeJson(doc, R"({"layout": {"grid": "equal", "dividers": true}})");
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_TRUE(c.equal_columns);
+  TEST_ASSERT_TRUE(c.dividers);
+  deserializeJson(doc, R"({"layout": {"grid": "wide", "dividers": "yes"}})");
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(2, issues.size());
+  TEST_ASSERT_EQUAL_STRING("layout.grid", issues[0].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("layout.dividers", issues[1].path.c_str());
+  TEST_ASSERT_FALSE(c.equal_columns);
 }
 
 int main() {
@@ -206,6 +224,7 @@ int main() {
   RUN_TEST(test_unknown_keys_are_reported);
   RUN_TEST(test_newer_version_is_reported);
   RUN_TEST(test_helpers);
-  RUN_TEST(test_briefing_template_orders_the_columns);
+  RUN_TEST(test_removed_templates_are_reported);
+  RUN_TEST(test_layout_variants);
   return UNITY_END();
 }

@@ -168,9 +168,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a slot it is not made for is reported in the configuration issues and the
   slot shows "Passt hier nicht" ("Does not fit here") instead of a clipped
   view.
+- MVG: disruption messages of the shown lines above the departures, with a
+  warning sign, a heading such as "Störung S3, S4" and the texts of the API
+  (every text once, wrapped, at most three lines, two with sections).
+- MVG: two stations. A section may have a `station` of its own (then its
+  `lines` are optional) and a free `note` on the right of its title; the
+  section titles get the location pin. Each station is requested once a
+  minute.
+- Sentence rules for the band, ranked: no connection, a cancelled departure
+  of the shown lines in the next hour, disruptions, rain/snow/thunderstorms/
+  heat, in the evening a big change of tomorrow's high, the next event
+  (in the evening tomorrow's first), the calm weather part. In German and
+  English; a part that does not fit into three lines is left out, a shorter
+  one of a lower rank may still be taken.
+- Layout variants for the display test, off by default: three columns of
+  the same width (`layout.grid` = `"equal"`) and dotted lines between the
+  columns (`layout.dividers`).
+
+### Removed
+
+- Style A and the layouts "one_plus_two" and "three_columns" with their
+  header, tile views and tile building blocks; MVV line bitmaps; chains of
+  line symbols; rain outlook and weather texts of the tile; weather symbols
+  in 26, 30, 32 and 50 px; unused fonts (Roboto Condensed Bold 18, 22, 26,
+  30, 56 and Medium 18, 22, 24, 26); the felt temperature in the request.
 
 ### Changed
 
+- "Briefing" is the only layout. The setting `layout.template` is no longer
+  needed (other values are reported); `layout.slots` still orders the three
+  columns (default: departures, calendar, weather).
+- Weather curve from the values every 15 minutes (Open-Meteo
+  `minutely_15`, 24 hours back and ahead; hourly values if they are
+  missing), drawn with sub-pixel precision instead of rounded to whole
+  pixels (`Canvas::drawPolyline`). The five labelled hours stay.
+- Buses and rail replacement services: square frame like regional trains.
+- The band also reads the departures and the calendar if they are on the
+  screen; in the evening its picture follows the current weather instead of
+  the weather of the whole day.
 - The sun is filled in every weather symbol.
 - Views draw their own title and messages (no data, settings missing); the
   views of style A keep the tile look.

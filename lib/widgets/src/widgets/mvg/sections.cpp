@@ -15,8 +15,21 @@ std::vector<Section> departureSections(const JsonDocument& doc, const Config& co
     return result;
   }
   for (const SectionConfig& s : config.sections) {
-    result.push_back(
-        {s.name, parseDepartures(doc, DirectionFilter::kAll, s.lines, max_per_section)});
+    Section section;
+    section.name = s.name;
+    section.departures = parseDepartures(doc, DirectionFilter::kAll, s.lines, max_per_section);
+    section.note = s.note;
+    section.own_station = !s.station.empty();
+    result.push_back(std::move(section));
+  }
+  return result;
+}
+
+std::vector<Incident> departureIncidents(const JsonDocument& doc, const Config& config) {
+  if (config.sections.empty()) return parseIncidents(doc, config.direction, config.lines);
+  std::vector<Incident> result;
+  for (const SectionConfig& s : config.sections) {
+    mergeIncidents(result, parseIncidents(doc, DirectionFilter::kAll, s.lines));
   }
   return result;
 }
@@ -25,7 +38,8 @@ std::vector<Section> withoutDeparted(const std::vector<Section>& sections, int64
   if (!core::isValidUnixTime(now_s)) return sections;
   std::vector<Section> result;
   for (const Section& s : sections) {
-    Section kept{s.name, {}};
+    Section kept = s;
+    kept.departures.clear();
     for (const Departure& d : s.departures) {
       if (d.expected() >= now_s - kKeepDepartedS) kept.departures.push_back(d);
     }

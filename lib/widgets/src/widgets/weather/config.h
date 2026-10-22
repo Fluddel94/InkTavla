@@ -18,7 +18,7 @@ struct Config {
   double longitude = 0;
   bool has_location = false;
 
-  // Shown on the right of the tile title, e.g. "München"; "" for none.
+  // Shown on the right of the column title, e.g. "München"; "" for none.
   std::string name;
 };
 

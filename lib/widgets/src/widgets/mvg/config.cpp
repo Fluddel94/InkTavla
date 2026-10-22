@@ -8,6 +8,7 @@ namespace {
 
 constexpr char kPath[] = "widgets.mvg";
 constexpr size_t kMaxSectionName = 24;
+constexpr size_t kMaxSectionNote = 24;
 
 constexpr TransportType kAllTypes[] = {
     TransportType::kSBahn, TransportType::kUBahn,       TransportType::kTram,
@@ -76,18 +77,30 @@ std::vector<SectionConfig> readSections(JsonObjectConst section, core::ConfigIss
       issues.push_back(core::ConfigIssue{path, "must be an object; showing one list"});
       return {};
     }
-    core::reportUnknownKeys(obj, {"name", "lines"}, path, issues);
+    core::reportUnknownKeys(obj, {"name", "lines", "station", "note"}, path, issues);
     SectionConfig s;
     s.name = core::readString(obj, "name", "", kMaxSectionName, path, issues);
     s.lines = readLines(obj, "lines", path, issues);
+    s.note = core::readString(obj, "note", "", kMaxSectionNote, path, issues);
+    const std::string station = core::readString(obj, "station", "", 32, path, issues);
+    if (!station.empty() && !isValidStationId(station)) {
+      issues.push_back(core::ConfigIssue{core::configPath(path, "station"),
+                                         "must be an MVG station ID such as \"de:09162:10\"; "
+                                         "showing one list"});
+      return {};
+    }
+    s.station = station;
     if (s.name.empty()) {
       issues.push_back(
           core::ConfigIssue{core::configPath(path, "name"), "must not be empty; showing one list"});
       return {};
     }
-    if (s.lines.empty()) {
+    // A section of the widget's station needs lines; one with a station of
+    // its own shows all its lines without.
+    if (s.lines.empty() && s.station.empty()) {
       issues.push_back(core::ConfigIssue{core::configPath(path, "lines"),
-                                         "must list at least one line; showing one list"});
+                                         "must list at least one line (or the section needs a "
+                                         "station of its own); showing one list"});
       return {};
     }
     result.push_back(s);
@@ -105,6 +118,26 @@ bool contains(const std::vector<TransportType>& types, TransportType type) {
 }  // namespace
 
 Config::Config() : transport_types(std::begin(kAllTypes), std::end(kAllTypes)) {}
+
+const std::string& Config::sectionStation(size_t i) const {
+  if (i < sections.size() && !sections[i].station.empty()) return sections[i].station;
+  return station;
+}
+
+bool Config::hasStation() const {
+  if (sections.empty()) return !station.empty();
+  for (size_t i = 0; i < sections.size(); i++) {
+    if (sectionStation(i).empty()) return false;
+  }
+  return true;
+}
+
+bool Config::hasOwnStations() const {
+  for (const SectionConfig& s : sections) {
+    if (!s.station.empty()) return true;
+  }
+  return false;
+}
 
 bool isValidStationId(const std::string& id) {
   if (id.length() < 4 || id.length() > 32) return false;
@@ -187,7 +220,9 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
 }
 
 std::string transportTypesParam(const Config& config) {
-  if (!config.sections.empty()) {
+  bool all_lines = false;  // a section without lines shows all of its station
+  for (const SectionConfig& s : config.sections) all_lines = all_lines || s.lines.empty();
+  if (!config.sections.empty() && !all_lines) {
     // Types of all sections, in the fixed order.
     std::string types;
     for (TransportType type : kAllTypes) {
@@ -199,7 +234,7 @@ std::string transportTypesParam(const Config& config) {
     }
     return types;
   }
-  if (!config.lines.empty()) return config.lines.transportTypes();
+  if (config.sections.empty() && !config.lines.empty()) return config.lines.transportTypes();
   std::string types;
   for (TransportType type : kAllTypes) {  // fixed order
     if (!contains(config.transport_types, type)) continue;

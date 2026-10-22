@@ -3,7 +3,7 @@
 
 The symbols are own drawings (no third-party icons): simple shapes drawn
 with Pillow at four times the size, scaled down and turned into black and
-white, exactly like the drawings of the overall UI design (2026-10-20). The
+white, like the drawings of the UI designs (2026-10-20 and 2026-10-21). The
 result is a C++ source file in lib/ui/src/ui/ with all symbols in the
 sizes the UI uses (see lib/ui/src/ui/icons.h).
 
@@ -27,8 +27,7 @@ OUT = ROOT / "lib" / "ui" / "src" / "ui" / "icons_data.cpp"
 
 SS = 4  # supersampling factor
 
-# Weather symbols: (C++ enum name, kind). Sizes: (pixel size, stroke or None
-# for the default stroke of size / 11).
+# Weather symbols: (C++ enum name, kind).
 WEATHER = [
     ("kSun", "sun"),
     ("kPartlyCloudy", "partly"),
@@ -40,9 +39,8 @@ WEATHER = [
     ("kSnow", "snow"),
     ("kThunder", "thunder"),
 ]
-SIZES = [(26, 2.3), (30, 2.4), (32, 3.0), (50, None)]
-# Symbols that fill their square (the drawing scaled up until it touches the
-# edges, same stroke): the days of the Briefing weather column.
+# Sizes: (pixel size, stroke). The symbols fill their square (the drawing
+# scaled up until it touches the edges): the days of the weather column.
 TIGHT_SIZES = [(38, 2.6)]
 
 # Large weather pictures for the band of the "Briefing" layout: drawn in
@@ -157,15 +155,6 @@ def weather(kind, size, stroke):
             cloud(d, n * 0.06, n * 0.60, n * 0.88, st)
             for y, (a, b) in ((0.74, (0.12, 0.88)), (0.88, (0.24, 0.76))):
                 rline(d, (n * a, n * y), (n * b, n * y), st)
-    return mask(size, painter)
-
-
-def drop(size):
-    def painter(d, n):
-        cx, cy, r = n / 2, n * 0.62, n * 0.26
-        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
-        d.polygon([(cx - r * 0.95, cy - r * 0.3), (cx, n * 0.08), (cx + r * 0.95, cy - r * 0.3)],
-                  fill=255)
     return mask(size, painter)
 
 
@@ -309,15 +298,10 @@ def main():
     ]
     table = []
     for enum, kind in WEATHER:
-        for size, stroke in SIZES:
-            name = f"k{kind.title().replace('_', '')}{size}"
-            lines += array(name, weather(kind, size, stroke)) + [""]
-            table.append((enum, size, name))
         for size, stroke in TIGHT_SIZES:
             name = f"k{kind.title().replace('_', '')}{size}Tight"
             lines += array(name, tight(kind, size, stroke)) + [""]
             table.append((enum, size, name))
-    lines += array("kDrop15", drop(15)) + [""]
     lines += array("kCalendar15", calendar_icon(15)) + [""]
     lines += array("kPin16", pin(16)) + [""]
     band_table = []
@@ -336,7 +320,6 @@ def main():
         "};",
         f"const size_t kBandIconCount = {len(band_table)};",
         "",
-        "const Icon kDropIcon = {15, 15, kDrop15};",
         "const Icon kCalendarIcon = {15, 15, kCalendar15};",
         "const Icon kPinIcon = {16, 16, kPin16};",
         "",
@@ -345,7 +328,7 @@ def main():
     ]
     OUT.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     print(f"{OUT.relative_to(ROOT)}: {len(table)} weather symbols, {len(band_table)} band "
-          "pictures, drop, calendar, pin")
+          "pictures, calendar, pin")
     return 0
 
 

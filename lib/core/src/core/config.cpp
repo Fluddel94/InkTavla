@@ -38,16 +38,8 @@ bool isWidgetId(const char* text) {
   return true;
 }
 
-struct LayoutTemplate {
-  const char* name;
-  size_t slots;
-};
-// Layout templates and their number of slots (see the architecture).
-constexpr LayoutTemplate kLayouts[] = {
-    {"one_plus_two", 3},  // column + two wide tiles
-    {"three_columns", 3},
-    {"briefing", 3},  // band with a sentence + three columns
-};
+// Columns of the layout (see ui/layout.h).
+constexpr size_t kSlots = 3;
 
 }  // namespace
 
@@ -199,12 +191,14 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
 
   JsonObjectConst layout = root["layout"];
   if (!layout.isNull()) {
-    reportUnknownKeys(layout, {"template", "slots"}, "layout", issues);
-    const int t =
-        readChoice(layout, "template", {kLayouts[0].name, kLayouts[1].name, kLayouts[2].name}, 0,
-                   "layout", issues);
-    c.layout = kLayouts[t].name;
-    if (c.layout == "briefing") c.slots = {"mvg", "calendar", "weather"};  // order of the design
+    reportUnknownKeys(layout, {"template", "slots", "grid", "dividers"}, "layout", issues);
+    // There is only one layout now; files from older versions may still
+    // name one of the removed templates.
+    JsonVariantConst name = layout["template"];
+    if (!name.isNull() &&
+        !(name.is<const char*>() && std::strcmp(name.as<const char*>(), "briefing") == 0)) {
+      addIssue(issues, "layout.template", "the other layouts were removed, \"briefing\" is used");
+    }
 
     JsonVariantConst slots = layout["slots"];
     if (!slots.isNull()) {
@@ -216,14 +210,16 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
       }
       if (!valid) {
         addIssue(issues, "layout.slots", "must be a list of widget IDs such as \"mvg\"");
-      } else if (ids.size() != kLayouts[t].slots) {
-        addIssue(
-            issues, "layout.slots",
-            "must have " + std::to_string(kLayouts[t].slots) + " entries for \"" + c.layout + "\"");
+      } else if (ids.size() != kSlots) {
+        addIssue(issues, "layout.slots", "must have " + std::to_string(kSlots) + " entries");
       } else {
         c.slots = ids;
       }
     }
+
+    // Variants for trying out on the display (off by default).
+    c.equal_columns = readChoice(layout, "grid", {"standard", "equal"}, 0, "layout", issues) == 1;
+    c.dividers = readBool(layout, "dividers", c.dividers, "layout", issues);
   }
   return c;
 }

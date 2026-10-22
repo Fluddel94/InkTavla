@@ -9,7 +9,6 @@
 #include "ui/fonts.h"
 #include "ui/icons.h"
 #include "ui/text.h"
-#include "widgets/weather/view.h"
 
 namespace widgets::weather {
 
@@ -27,6 +26,11 @@ constexpr int kChartMargin = 6;
 constexpr int kDaysTop = kBase + 34;
 constexpr int kDayTemperatures = kDaysTop + 85;
 constexpr int kLabelHours[] = {8, 11, 14, 17, 20};
+constexpr double kCurveWidth = 2;
+// Points of the spline between two values: hourly values are far apart,
+// 15 minute values only need a little rounding.
+constexpr int kStepsBetweenHours = 10;
+constexpr int kStepsBetweenQuarters = 3;
 
 int roundToInt(double v) { return static_cast<int>(std::lround(v)); }
 
@@ -66,11 +70,7 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
     c.fillDotted(b.x0, chart.base - b.height, b.x1 - b.x0 + 1, b.height);
   }
   c.hLine(kChartMargin, chart.base, c.width() - 2 * kChartMargin, Color::kBlack);
-  for (size_t i = 0; i + 1 < chart.curve.size(); i++) {
-    c.drawThickLine(roundToInt(chart.curve[i].x), roundToInt(chart.curve[i].y),
-                    roundToInt(chart.curve[i + 1].x), roundToInt(chart.curve[i + 1].y), 2,
-                    Color::kBlack);
-  }
+  c.drawPolyline(chart.curve, kCurveWidth, Color::kBlack);
   for (const ColumnChart::Label& l : chart.labels) {
     char t[12];
     std::snprintf(t, sizeof(t), "%d°", l.temperature);
@@ -161,10 +161,45 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
       highest_bar > 0 ? std::min(kCurveBottomWithoutRain, kBase - highest_bar - kCurveGapAboveBars)
                       : kCurveBottomWithoutRain;
 
-  float tmin = items[0].data->temperature, tmax = tmin;
-  for (const Item& i : items) {
-    tmin = std::min(tmin, i.data->temperature);
-    tmax = std::max(tmax, i.data->temperature);
+  // The temperatures of the curve: every 15 minutes if the forecast has
+  // them for the whole time of the hourly values, else hourly.
+  struct Value {
+    double hour;  // local hour with fractions
+    float temperature;
+  };
+  std::vector<Value> values;
+  const int64_t first = items.front().data->time;
+  const int64_t last = items.back().data->time;
+  const Quarters& q = forecast.quarters;
+  if (!q.temperatures.empty() && first >= q.start) {
+    const size_t from = static_cast<size_t>((first - q.start) / kQuarterSeconds);
+    const size_t to = static_cast<size_t>((last - q.start) / kQuarterSeconds);
+    for (size_t i = from; i <= to && i < q.temperatures.size(); i++) {
+      core::LocalTime t;
+      if (std::isnan(q.temperatures[i]) ||
+          !core::toLocalTime(q.start + static_cast<int64_t>(i) * kQuarterSeconds, t)) {
+        break;
+      }
+      values.push_back({t.hour + t.minute / 60.0, q.temperatures[i]});
+    }
+    if (values.size() != to - from + 1) values.clear();  // gaps: hourly instead
+  }
+  const bool quarters = !values.empty();
+  if (!quarters) {
+    for (const Item& i : items)
+      values.push_back({static_cast<double>(i.hour), i.data->temperature});
+  }
+  auto valueAt = [&](int hour) {
+    for (const Value& v : values) {
+      if (v.hour == hour) return v.temperature;
+    }
+    return values.front().temperature;  // not reached: every hour has a value
+  };
+
+  float tmin = values[0].temperature, tmax = tmin;
+  for (const Value& v : values) {
+    tmin = std::min(tmin, v.temperature);
+    tmax = std::max(tmax, v.temperature);
   }
   const double span = std::max<double>(tmax - tmin, kColumnMinSpan);
   const double low = (tmin + tmax) / 2.0 - span / 2.0;
@@ -173,8 +208,8 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
   };
 
   std::vector<ColumnChart::Point> raw;
-  for (const Item& i : items) raw.push_back({px(i.hour), py(i.data->temperature)});
-  chart.curve = smooth(raw, 10);
+  for (const Value& v : values) raw.push_back({px(v.hour), py(v.temperature)});
+  chart.curve = smooth(raw, quarters ? kStepsBetweenQuarters : kStepsBetweenHours);
   // The spline may swing a little beyond the points: keep it inside.
   for (ColumnChart::Point& p : chart.curve) {
     p.y = std::clamp<double>(p.y, chart.curve_top, chart.curve_bottom);
@@ -184,8 +219,9 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
         std::end(kLabelHours)) {
       continue;
     }
-    chart.labels.push_back({i.hour, roundToInt(px(i.hour)), roundToInt(py(i.data->temperature)),
-                            displayTemperature(i.data->temperature)});
+    const float t = valueAt(i.hour);
+    chart.labels.push_back(
+        {i.hour, roundToInt(px(i.hour)), roundToInt(py(t)), displayTemperature(t)});
   }
   return chart;
 }

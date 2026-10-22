@@ -1,8 +1,10 @@
 #include "widgets/mvg/widget.h"
 
+#include <algorithm>
 #include <utility>
 
 #include "core/psram.h"
+#include "widgets/mvg/departures.h"
 #include "widgets/mvg/sections.h"
 
 namespace widgets::mvg {
@@ -19,33 +21,54 @@ const std::string& MvgSource::stationName() const {
 
 bool MvgSource::fetch(int64_t wall_s) {
   (void)wall_s;
-  JsonDocument doc(core::jsonAllocator());  // large: PSRAM on the device
-  if (!api_.fetchDepartures(config_, doc)) return false;
-  if (!doc.is<JsonArrayConst>()) return false;  // not a departures response
-  sections_ = departureSections(doc, config_, kMaxDepartures);
+  // One request per station: the list or the sections of the widget's
+  // station, then a section with a station of its own (two requests a minute
+  // for two stations). If one fails, the old data stays.
+  std::vector<Section> sections(config_.sections.empty() ? 1 : config_.sections.size());
+  std::vector<Incident> incidents;
+  std::vector<std::string> done;
+  const size_t count = config_.sections.empty() ? 1 : config_.sections.size();
+  for (size_t i = 0; i < count; i++) {
+    const std::string& station =
+        config_.sections.empty() ? config_.station : config_.sectionStation(i);
+    if (std::find(done.begin(), done.end(), station) != done.end()) continue;
+    done.push_back(station);
+    Config part = config_;
+    part.station = station;
+    std::vector<size_t> index;  // configured position of every section of part
+    if (!config_.sections.empty()) {
+      part.sections.clear();
+      for (size_t j = 0; j < config_.sections.size(); j++) {
+        if (config_.sectionStation(j) != station) continue;
+        part.sections.push_back(config_.sections[j]);
+        index.push_back(j);
+      }
+    }
+    JsonDocument doc(core::jsonAllocator());  // large: PSRAM on the device
+    if (!api_.fetchDepartures(part, doc)) return false;
+    if (!doc.is<JsonArrayConst>()) return false;  // not a departures response
+    std::vector<Section> result = departureSections(doc, part, kMaxDepartures);
+    if (index.empty()) {
+      sections = std::move(result);
+    } else {
+      for (size_t j = 0; j < index.size() && j < result.size(); j++) {
+        sections[index[j]] = std::move(result[j]);
+      }
+    }
+    mergeIncidents(incidents, departureIncidents(doc, part));
+  }
+  // Two stations: every section title gets the location pin.
+  if (config_.hasOwnStations()) {
+    for (Section& s : sections) s.own_station = true;
+  }
+  sections_ = std::move(sections);
+  incidents_ = std::move(incidents);
   // The station name once, after the departures (a failure here is not a
   // failure of the update; it is tried again next time).
-  if (config_.name.empty() && station_name_.empty()) {
+  if (config_.name.empty() && station_name_.empty() && !config_.station.empty()) {
     api_.fetchStationName(config_.station, station_name_);
   }
   return true;
-}
-
-std::string DeparturesView::title(ui::Language language) const {
-  const std::string& name = source_.stationName();
-  return name.empty() ? std::string(ui::text(language, ui::Text::kTitleDepartures)) : name;
-}
-
-void DeparturesView::draw(ui::Canvas& canvas, const DrawContext& context) {
-  const std::vector<Section> visible = withoutDeparted(source_.sections(), context.now_s);
-  ViewOptions options;
-  options.title = title(context.language);
-  options.note = context.note;
-  options.note_alert = context.note_alert;
-  options.time_format = source_.config().time_format;
-  options.language = context.language;
-  options.now_s = context.now_s;
-  drawDepartures(canvas, visible, options);
 }
 
 }  // namespace widgets::mvg

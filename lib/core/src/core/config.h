@@ -34,11 +34,13 @@ struct CoreConfig {
   std::string time_zone;  // POSIX TZ, default kDefaultTimeZone
   std::string language = "de";
   std::string ntp_server = "pool.ntp.org";
-  int full_refresh_minutes = 60;        // full refresh against ghosting
-  std::string layout = "one_plus_two";  // "one_plus_two", "three_columns" or "briefing"
-  // Default {"mvg", "weather", "calendar"}; for "briefing" {"mvg", "calendar",
-  // "weather"}.
-  std::vector<std::string> slots = {"mvg", "weather", "calendar"};
+  int full_refresh_minutes = 60;  // full refresh against ghosting
+  // Widgets of the three columns from left to right.
+  std::vector<std::string> slots = {"mvg", "calendar", "weather"};
+  // Layout variants to try out on the display: three columns of the same
+  // width ("grid": "equal") and dotted lines between the columns.
+  bool equal_columns = false;
+  bool dividers = false;
 
   CoreConfig();
 };

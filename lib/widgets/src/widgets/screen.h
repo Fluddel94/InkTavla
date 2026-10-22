@@ -1,7 +1,7 @@
 #pragma once
 
-// The screen: composes the frame from the views of the header and the
-// layout's slots (the "where" of the display controller, see
+// The screen: composes the frame from the views of the band and the
+// layout's columns (the "where" of the display controller, see
 // core/display_controller.h).
 //
 // Per area it decides between the view's own drawing and a message, from
@@ -10,7 +10,7 @@
 //  - fresh: the view draws itself
 //  - stale (updates failing for 60 s or more): the view draws the last data
 //    with the badge "Stand 14:32" in its title
-//  - waiting for the first data: only the tile title
+//  - waiting for the first data: only the column title
 //  - no data for 60 s or more: "Keine Verbindung" (no Wi-Fi) or "Keine Daten"
 //  - not set up: the source's setup message
 // Views without sources are always drawn.
@@ -38,7 +38,7 @@ class Screen : public core::ScreenRenderer {
   // The data sources in the order they were added to the display
   // controller, i.e. the order of ScreenState::contents.
   void setSources(std::vector<const DataSource*> sources) { sources_ = std::move(sources); }
-  // The header view first, then one view per slot of the layout. Sources
+  // The band view first, then one view per column of the layout. Sources
   // and views must outlive the screen.
   void setViews(std::vector<View*> views) { views_ = std::move(views); }
 

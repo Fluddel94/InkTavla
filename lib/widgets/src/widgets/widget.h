@@ -6,7 +6,7 @@
 //   a forecast or a calendar. The display controller sees it as
 //   core::Content: it decides when the source fetches and tracks how fresh
 //   its data is. One source can be read by several views.
-// - A view draws one area of the screen (the header or a slot of the
+// - A view draws one area of the screen (the band or a column of the
 //   layout) from the data of one or more sources. A view that reads several
 //   sources (e.g. a summary of weather, calendar and departures) gets the
 //   state of each of them.
@@ -53,7 +53,7 @@ struct DrawContext {
   // Network as shown: offline only after a grace period (see
   // core::DisplayController::kOfflineGraceMs).
   bool network_connected = false;
-  // Right part of the tile title; with note_alert shown as a badge (age
+  // Right part of the column title; with note_alert shown as a badge (age
   // hint "Stand 14:32" for old data of the view's main source).
   std::string note;
   bool note_alert = false;
@@ -67,18 +67,17 @@ class View {
   // Data sources the view reads. The first one is its main source: while it
   // has no data or lacks settings, the screen shows a message instead of
   // calling draw(), and old data gets the age badge. A view without sources
-  // (e.g. the header) is always drawn.
+  // (e.g. a placeholder) is always drawn.
   virtual std::vector<const DataSource*> sources() const { return {}; }
   // True if the view handles the states of its sources itself (e.g. the
-  // band of "briefing", which always shows the clock): then draw() is always
-  // called.
+  // band, which always shows the clock): then draw() is always called.
   virtual bool handlesStates() const { return false; }
-  // Tile title, also used for messages when the view cannot be drawn.
+  // Column title, also used for messages when the view cannot be drawn.
   virtual std::string title(ui::Language language) const = 0;
   // Draws the current data into the area.
   virtual void draw(ui::Canvas& canvas, const DrawContext& context) = 0;
   // Only the title (waiting for the first data), and the title with a
-  // message (no data, settings missing). By default in the style of tiles.
+  // message below it (no data, settings missing).
   virtual void drawTitle(ui::Canvas& canvas, ui::Language language);
   virtual void drawMessage(ui::Canvas& canvas, ui::Language language, std::string_view message,
                            std::string_view detail);

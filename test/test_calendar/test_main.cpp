@@ -1,30 +1,28 @@
 // Calendar widget: dates, recurrence rules, time zones, the streaming iCal
-// reader, the expansion into occurrences, the agenda and preview images of
-// the tile (compared with the references in test/fixtures/ui/, update them
-// with INKTAVLA_UPDATE_PREVIEWS=1). All calendar files are hand-written;
+// reader, the expansion into occurrences, the agenda and the widget (the
+// pictures of the column are in test_briefing). All calendar files are
+// hand-written;
 // the expected dates of the recurrence rules were cross-checked with
 // python-dateutil.
 
 #include <unity.h>
 
-#include <cstdlib>
-#include <filesystem>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "core/time.h"
-#include "hal/png.h"
 #include "ui/bitmap.h"
 #include "widgets/app.h"
 #include "widgets/calendar/agenda.h"
+#include "widgets/calendar/column_view.h"
 #include "widgets/calendar/config.h"
 #include "widgets/calendar/datetime.h"
 #include "widgets/calendar/parser.h"
 #include "widgets/calendar/rrule.h"
 #include "widgets/calendar/timezone.h"
-#include "widgets/calendar/view.h"
 #include "widgets/calendar/widget.h"
 
 namespace {
@@ -40,26 +38,6 @@ std::string readFile(const std::string& path) {
   std::stringstream buffer;
   buffer << file.rdbuf();
   return buffer.str();
-}
-
-void writeFile(const std::string& path, const std::string& data) {
-  std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-  std::ofstream(path, std::ios::binary) << data;
-}
-
-void check(const ui::Bitmap& bitmap, const char* name) {
-  const std::string png =
-      hal::png::encode(bitmap.data(), bitmap.width(), bitmap.height(), bitmap.stride());
-  writeFile(std::string(".pio/preview/") + name + ".png", png);
-  const std::string reference = std::string("test/fixtures/ui/") + name + ".png";
-  if (std::getenv("INKTAVLA_UPDATE_PREVIEWS") != nullptr) {
-    writeFile(reference, png);
-    return;
-  }
-  const std::string expected = readFile(reference);
-  TEST_ASSERT_TRUE_MESSAGE(!expected.empty(), ("missing reference " + reference).c_str());
-  TEST_ASSERT_TRUE_MESSAGE(hal::png::criticalChunks(expected) == png,
-                           ("differs from " + reference + ", see .pio/preview/").c_str());
 }
 
 std::string dayText(int64_t day) {
@@ -153,19 +131,6 @@ std::vector<cal::AgendaDay> weekAgenda(int64_t now, ui::Language language = ui::
   TEST_ASSERT_TRUE(parser.valid());
   const int64_t today = cal::localDay(now);
   return cal::buildAgenda(cal::expandEvents(parser, today, today + 7), now, language);
-}
-
-ui::Bitmap tile(const std::vector<cal::AgendaDay>& agenda, const char* note = "KW 43",
-                bool alert = false, ui::Language language = ui::Language::kGerman) {
-  ui::Bitmap bitmap(440, 218);
-  ui::BitmapCanvas canvas(bitmap);
-  cal::ViewOptions options;
-  options.title = language == ui::Language::kGerman ? "Kalender" : "Calendar";
-  options.note = note;
-  options.note_alert = alert;
-  options.language = language;
-  cal::drawCalendar(canvas, agenda, options);
-  return bitmap;
 }
 
 // "kind:time title suffix note" of the entries of one agenda day.
@@ -562,33 +527,6 @@ void test_agenda_multi_day() {
   TEST_ASSERT_EQUAL_STRING("[Urlaub] bis Fr", entries(agenda[6]).c_str());
 }
 
-// --- Previews ------------------------------------------------------------------------
-
-void test_preview_week() {
-  check(tile(weekAgenda(kNow)), "calendar_week_morning");
-  check(tile(weekAgenda(kNow + 308 * 60)), "calendar_week_noon");
-  check(tile(weekAgenda(kNow + 648 * 60)), "calendar_week_evening");
-}
-
-void test_preview_busy() {
-  // Many events, long titles and multi-day events: lines are cut, the rest is
-  // counted ("+3 weitere").
-  const cal::Parser parser = parse(readFile("test/fixtures/calendar/busy.ics"));
-  const int64_t today = cal::localDay(kNow);
-  const auto agenda =
-      cal::buildAgenda(cal::expandEvents(parser, today, today + 7), kNow, ui::Language::kGerman);
-  check(tile(agenda), "calendar_busy");
-  check(tile(weekAgenda(kNow), "Stand 07:12", true), "calendar_stale");
-}
-
-void test_preview_empty() {
-  const cal::Parser parser = parse(calendar(""));
-  const int64_t today = cal::localDay(kNow);
-  check(tile(cal::buildAgenda(cal::expandEvents(parser, today, today + 7), kNow,
-                              ui::Language::kGerman)),
-        "calendar_empty");
-}
-
 // --- Widget ------------------------------------------------------------------------
 
 void test_config() {
@@ -614,7 +552,7 @@ void test_config() {
 void test_widget() {
   FixtureSource source;
   cal::CalendarSource data(source);
-  cal::AgendaView view(data);
+  cal::AgendaColumnView view(data);
   TEST_ASSERT_TRUE(data.isSetUp());
   TEST_ASSERT_EQUAL_STRING("calendar", data.id());
   TEST_ASSERT_EQUAL_STRING("Kalender", view.title(ui::Language::kGerman).c_str());
@@ -626,12 +564,16 @@ void test_widget() {
   TEST_ASSERT_EQUAL_INT(0, source.requests);
 
   TEST_ASSERT_TRUE(data.fetch(kNow));
-  ui::Bitmap bitmap(440, 218);
+  ui::Bitmap bitmap(214, 259);
   ui::BitmapCanvas canvas(bitmap);
   widgets::DrawContext context;
   context.now_s = kNow;
   view.draw(canvas, context);
-  check(bitmap, "calendar_week_morning");  // same as the view with "KW 43"
+  int black = 0;
+  for (int y = 0; y < bitmap.height(); y++) {
+    for (int x = 0; x < bitmap.width(); x++) black += bitmap.get(x, y) == ui::Color::kBlack;
+  }
+  TEST_ASSERT_GREATER_THAN(1000, black);
 
   // A failed request or an incomplete file keeps the last data.
   source.fail = true;
@@ -639,10 +581,10 @@ void test_widget() {
   source.fail = false;
   source.text = source.text.substr(0, source.text.size() / 2);
   TEST_ASSERT_FALSE(data.fetch(kNow + 1800));
-  ui::Bitmap again(440, 218);
+  ui::Bitmap again(214, 259);
   ui::BitmapCanvas canvas2(again);
   view.draw(canvas2, context);
-  check(again, "calendar_week_morning");
+  TEST_ASSERT_TRUE(std::equal(bitmap.data(), bitmap.data() + bitmap.size(), again.data()));
 }
 
 int main(int, char**) {
@@ -661,9 +603,6 @@ int main(int, char**) {
   RUN_TEST(test_agenda_morning);
   RUN_TEST(test_agenda_during_the_day);
   RUN_TEST(test_agenda_multi_day);
-  RUN_TEST(test_preview_week);
-  RUN_TEST(test_preview_busy);
-  RUN_TEST(test_preview_empty);
   RUN_TEST(test_config);
   RUN_TEST(test_widget);
   return UNITY_END();

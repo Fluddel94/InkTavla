@@ -48,34 +48,25 @@ bool WidgetType::fits(ui::SlotSize size) const {
 const std::vector<WidgetType>& widgetTypes() {
   static const std::vector<WidgetType> types = {
       {"mvg",
-       {ui::SlotSize::kColumn, ui::SlotSize::kBriefingWide},
+       {ui::SlotSize::kBriefingWide},
        createMvg,
-       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
          const auto& source = static_cast<const mvg::MvgSource&>(s);
-         if (size == ui::SlotSize::kBriefingWide) {
-           return std::make_unique<mvg::DeparturesColumnView>(source);
-         }
-         return std::make_unique<mvg::DeparturesView>(source);
+         return std::make_unique<mvg::DeparturesColumnView>(source);
        }},
       {"weather",
-       {ui::SlotSize::kTile, ui::SlotSize::kBriefingColumn},
+       {ui::SlotSize::kBriefingColumn},
        createWeather,
-       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
          const auto& source = static_cast<const weather::WeatherSource&>(s);
-         if (size == ui::SlotSize::kBriefingColumn) {
-           return std::make_unique<weather::ForecastColumnView>(source);
-         }
-         return std::make_unique<weather::ForecastView>(source);
+         return std::make_unique<weather::ForecastColumnView>(source);
        }},
       {"calendar",
-       {ui::SlotSize::kTile, ui::SlotSize::kBriefingColumn},
+       {ui::SlotSize::kBriefingColumn},
        createCalendar,
-       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
          const auto& source = static_cast<const calendar::CalendarSource&>(s);
-         if (size == ui::SlotSize::kBriefingColumn) {
-           return std::make_unique<calendar::AgendaColumnView>(source);
-         }
-         return std::make_unique<calendar::AgendaView>(source);
+         return std::make_unique<calendar::AgendaColumnView>(source);
        }},
   };
   return types;

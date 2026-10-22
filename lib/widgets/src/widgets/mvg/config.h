@@ -17,10 +17,14 @@
 namespace widgets::mvg {
 
 // A freely named section of the departure view ("Stadt", "Raus") with the
-// lines (and their MVG direction codes) that belong to it.
+// lines (and their MVG direction codes) that belong to it. A section can
+// show a station of its own ("two stations"); then its lines may be empty
+// (all lines of that station).
 struct SectionConfig {
   std::string name;
   LineSelection lines;
+  std::string station;  // "" = the station of the widget
+  std::string note;     // free text on the right of the title, "" = none
 };
 
 // Number of named sections the view supports.
@@ -30,7 +34,7 @@ struct Config {
   // Station as MVG globalId, e.g. "de:09162:10"; "" = not set up yet.
   std::string station;
 
-  // Name shown in the header; "" = the name from the MVG API.
+  // Name shown in the column title; "" = the name from the MVG API.
   std::string name;
 
   // Means of transport to request; default all. Replacement buses come with
@@ -50,6 +54,13 @@ struct Config {
   TimeFormat time_format = TimeFormat::kClock;
 
   Config();
+
+  // Station of section i (its own or the widget's).
+  const std::string& sectionStation(size_t i) const;
+  // A station is known for everything shown (the list or every section).
+  bool hasStation() const;
+  // At least one section has a station of its own.
+  bool hasOwnStations() const;
 };
 
 // Reads the section; invalid values fall back to the defaults and are
@@ -58,7 +69,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues);
 
 // Value of the API parameter "transportTypes": from the lines of the
 // sections or the selected lines if there are any, otherwise from
-// transport_types. Without this
+// transport_types (also if a section has no lines). Without this
 // parameter the API leaves out regional buses and trains.
 std::string transportTypesParam(const Config& config);
 

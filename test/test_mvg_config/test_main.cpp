@@ -91,7 +91,7 @@ void test_values_are_read() {
 
 void test_station_id_format() {
   TEST_ASSERT_TRUE(widgets::mvg::isValidStationId("de:09162:10"));
-  TEST_ASSERT_TRUE(widgets::mvg::isValidStationId("de:09162:6"));
+  TEST_ASSERT_TRUE(widgets::mvg::isValidStationId("de:09162:5"));
   TEST_ASSERT_FALSE(widgets::mvg::isValidStationId("Pasing"));
   TEST_ASSERT_FALSE(widgets::mvg::isValidStationId("de:09162:"));
   TEST_ASSERT_FALSE(widgets::mvg::isValidStationId("de::10"));
@@ -174,6 +174,54 @@ void test_sections_replace_lines_and_direction() {
   TEST_ASSERT_EQUAL_STRING("SBAHN", widgets::mvg::transportTypesParam(c).c_str());
 }
 
+void test_sections_with_stations_of_their_own() {
+  ConfigIssues issues;
+  const Config c = parse(R"({"station":"de:09162:5","sections":[)"
+                         R"({"name":"Ostbahnhof","lines":["S3:H:S"],"note":"Bahnhof"},)"
+                         R"({"name":"Leuchtenbergring","station":"de:09162:900",)"
+                         R"("note":"4 min zu Fuß"}]})",
+                         issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
+  TEST_ASSERT_EQUAL_STRING("Bahnhof", c.sections[0].note.c_str());
+  TEST_ASSERT_EQUAL_STRING("", c.sections[0].station.c_str());
+  TEST_ASSERT_EQUAL_STRING("de:09162:5", c.sectionStation(0).c_str());
+  TEST_ASSERT_EQUAL_STRING("de:09162:900", c.sectionStation(1).c_str());
+  TEST_ASSERT_TRUE(c.sections[1].lines.empty());  // all lines of that station
+  TEST_ASSERT_TRUE(c.hasStation());
+  TEST_ASSERT_TRUE(c.hasOwnStations());
+  // A section without lines needs all means of transport.
+  TEST_ASSERT_EQUAL_STRING("SBAHN,UBAHN,TRAM,BUS,REGIONAL_BUS,BAHN",
+                           widgets::mvg::transportTypesParam(c).c_str());
+
+  // Without the widget's station every section needs one of its own.
+  ConfigIssues more;
+  const Config d = parse(R"({"sections":[{"name":"A","station":"de:09162:5"},)"
+                         R"({"name":"B","station":"de:09162:900"}]})",
+                         more);
+  TEST_ASSERT_EQUAL_size_t(0, more.size());
+  TEST_ASSERT_TRUE(d.hasStation());
+  const Config e = parse(R"({"sections":[{"name":"A","station":"de:09162:5"},)"
+                         R"({"name":"B","lines":["S3:R:S"]}]})",
+                         more);
+  TEST_ASSERT_FALSE(e.hasStation());
+  TEST_ASSERT_FALSE(Config().hasStation());
+}
+
+void test_invalid_section_station_gives_one_list() {
+  ConfigIssues issues;
+  const Config c = parse(R"({"station":"de:09162:5","sections":[{"name":"A","station":"Pasing"},)"
+                         R"({"name":"B","lines":["S3:R:S"]}]})",
+                         issues);
+  TEST_ASSERT_TRUE(c.sections.empty());
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.sections[0].station"));
+  ConfigIssues long_note;
+  parse(R"({"station":"de:09162:5","sections":[{"name":"A","lines":["S3:H:S"],)"
+        R"("note":"Ein viel zu langer Zusatztext"},{"name":"B","lines":["S3:R:S"]}]})",
+        long_note);
+  TEST_ASSERT_TRUE(hasIssue(long_note, "widgets.mvg.sections[0].note"));
+}
+
 void test_invalid_sections_give_one_list() {
   const char* cases[][2] = {
       {R"({"sections":{"name":"A"}})", "widgets.mvg.sections"},
@@ -222,5 +270,7 @@ int main() {
   RUN_TEST(test_sections_are_read);
   RUN_TEST(test_sections_replace_lines_and_direction);
   RUN_TEST(test_invalid_sections_give_one_list);
+  RUN_TEST(test_sections_with_stations_of_their_own);
+  RUN_TEST(test_invalid_section_station_gives_one_list);
   return UNITY_END();
 }

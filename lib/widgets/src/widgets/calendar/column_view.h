@@ -17,7 +17,7 @@
 #include "ui/i18n.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/widget.h"
-#include "widgets/column_view.h"
+#include "widgets/widget.h"
 
 namespace widgets::calendar {
 
@@ -35,7 +35,10 @@ inline constexpr int kColumnWeekRowHeight = 22;
 void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
                       const ColumnOptions& options);
 
-class AgendaColumnView : public ColumnView {
+// Short date of a day: "Di 20." / "Tue 20".
+std::string shortDate(int64_t day, ui::Language language);
+
+class AgendaColumnView : public View {
  public:
   // source must outlive the view.
   explicit AgendaColumnView(const CalendarSource& source) : source_(source) {}

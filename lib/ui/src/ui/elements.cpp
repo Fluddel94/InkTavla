@@ -12,32 +12,6 @@ namespace ui {
 
 namespace {
 
-// Tile title (sizes from the overall UI design).
-constexpr int kTitleBaseline = 24;
-constexpr int kTitleRule = 32;
-constexpr int kTitleSpacing = 16;  // 2 px, in 1/8 px
-constexpr int kNoteSpacing = 12;   // 1.5 px
-constexpr int kNoteGap = 16;       // minimum space between title and note
-
-// Badge of an alert note.
-constexpr int kBadgeTop = 6;
-constexpr int kBadgeHeight = 24;
-constexpr int kBadgeRadius = 4;
-constexpr int kBadgePadding = 7;
-constexpr int kBadgeGap = 6;
-constexpr int kBadgeWarningHeight = 13;
-
-// Tile message.
-constexpr int kMessageWarningHeight = 28;
-
-// Section title.
-constexpr int kSectionSpacing = 13;  // 1.6 px
-constexpr int kArrowWidth = 12;
-
-const Font& titleFont() { return fonts::kRobotoCondensedBold17; }
-const Font& noteFont() { return fonts::kRobotoCondensedMedium17; }
-const Font& sectionFont() { return fonts::kRobotoCondensedBold16; }
-
 // Shortens a spaced text like fitText() does for normal text.
 std::string fitTracked(const Font& font, const std::string& text, int spacing_x8, int max_width) {
   if (trackedTextWidth(font, text, spacing_x8) <= max_width) return text;
@@ -54,61 +28,6 @@ std::string fitTracked(const Font& font, const std::string& text, int spacing_x8
 }
 
 }  // namespace
-
-void drawTileTitle(Canvas& canvas, std::string_view title, std::string_view note, bool alert) {
-  const int x0 = kTilePadding;
-  const int x1 = canvas.width() - kTilePadding;
-  int note_width = 0;
-  if (!note.empty() && alert) {
-    // Black badge: warning sign and text in white.
-    const int text_width = textWidth(titleFont(), note);
-    const int w = kBadgePadding + warningSignWidth(kBadgeWarningHeight) + kBadgeGap + text_width +
-                  kBadgePadding;
-    canvas.fillRoundRect(x1 - w, kBadgeTop, w, kBadgeHeight, kBadgeRadius, Color::kBlack);
-    drawWarningSign(canvas, x1 - w + kBadgePadding, kTitleBaseline, kBadgeWarningHeight,
-                    Color::kWhite);
-    drawText(canvas, titleFont(), x1 - kBadgePadding, kTitleBaseline, note, Color::kWhite,
-             Align::kRight);
-    note_width = w + kNoteGap;
-  } else if (!note.empty()) {
-    const std::string upper = toUpper(note);
-    drawTrackedText(canvas, noteFont(), x1, kTitleBaseline, upper, kNoteSpacing, Color::kBlack,
-                    Align::kRight);
-    note_width = trackedTextWidth(noteFont(), upper, kNoteSpacing) + kNoteGap;
-  }
-  const std::string text =
-      fitTracked(titleFont(), toUpper(title), kTitleSpacing, x1 - x0 - note_width);
-  drawTrackedText(canvas, titleFont(), x0, kTitleBaseline, text, kTitleSpacing);
-  canvas.hLine(x0, kTitleRule, x1 - x0, Color::kBlack);
-}
-
-void drawTileMessage(Canvas& canvas, std::string_view message, std::string_view detail) {
-  const int centre_x = canvas.width() / 2;
-  const int centre_y = kTileTitleHeight + (canvas.height() - kTileTitleHeight) / 2;
-  const int max_width = canvas.width() - 2 * kTilePadding;
-  drawWarningSign(canvas, centre_x - warningSignWidth(kMessageWarningHeight) / 2, centre_y - 14,
-                  kMessageWarningHeight);
-  const Font& big = fonts::kRobotoCondensedMedium24;
-  drawText(canvas, big, centre_x, centre_y + 20, fitText(big, message, max_width), Color::kBlack,
-           Align::kCenter);
-  if (!detail.empty()) {
-    const Font& small = fonts::kRobotoCondensedMedium17;
-    drawText(canvas, small, centre_x, centre_y + 44, fitText(small, detail, max_width),
-             Color::kBlack, Align::kCenter);
-  }
-}
-
-void drawSectionTitle(Canvas& canvas, int x0, int x1, int y, std::string_view name) {
-  const int centre = y + 11;
-  // Arrow: 2 px shaft, triangular head.
-  canvas.fillRect(x0, centre - 1, kArrowWidth - 4, 2, Color::kBlack);
-  canvas.fillTriangle(x0 + kArrowWidth - 6, centre - 5, x0 + kArrowWidth, centre,
-                      x0 + kArrowWidth - 6, centre + 4, Color::kBlack);
-  const int text_end = drawTrackedText(canvas, sectionFont(), x0 + kArrowWidth + 6, y + 17,
-                                       toUpper(name), kSectionSpacing);
-  const int dots = text_end + 10;
-  if (dots < x1) canvas.dottedHLine(dots, centre, x1 - dots + 1, 2);
-}
 
 int warningSignWidth(int height) { return (height * 23 + 10) / 20; }  // 1.15 x height
 
@@ -167,18 +86,6 @@ void drawWifiSymbol(Canvas& canvas, int x, int y, int size, bool connected) {
   }
 }
 
-void drawXbm(Canvas& canvas, int x, int y, int w, int h, const uint8_t* bits, int scale,
-             Color color) {
-  const int stride = (w + 7) / 8;
-  for (int row = 0; row < h; row++) {
-    for (int col = 0; col < w; col++) {
-      if (bits[row * stride + col / 8] & (1 << (col % 8))) {
-        canvas.fillRect(x + col * scale, y + row * scale, scale, scale, color);
-      }
-    }
-  }
-}
-
 void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, int height,
                     std::string_view label, SymbolShape shape) {
   const int baseline = y + (height + font.cap_height) / 2;
@@ -199,16 +106,11 @@ void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, i
       canvas.drawRect(x, y, width, height, Color::kBlack, 2);
       text = Color::kBlack;
       break;
-    case SymbolShape::kRoundFrame:
-      canvas.fillRoundRect(x, y, width, height, height / 2, Color::kWhite);
-      canvas.drawRoundRect(x, y, width, height, height / 2, Color::kBlack, 2);
-      text = Color::kBlack;
-      break;
   }
   drawText(canvas, font, centre, baseline, label, text, Align::kCenter);
 }
 
-// --- Briefing ------------------------------------------------------------------
+// --- Titles and messages ---------------------------------------------------------
 
 namespace {
 
@@ -282,28 +184,6 @@ void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_vie
     y += 18;
     drawText(canvas, small, centre_x, y - 4, l, Color::kBlack, Align::kCenter);
   }
-}
-
-int drawLineSymbolChain(Canvas& canvas, const Font& font, const Font& small, int x, int centre_y,
-                        int height, const std::vector<ChainLink>& links, bool draw) {
-  for (size_t i = 0; i < links.size(); i++) {
-    const ChainLink& link = links[i];
-    const int w = link.width > 0 ? link.width : textWidth(font, link.label) + 16;
-    if (draw) {
-      drawLineSymbol(canvas, font, x, centre_y - height / 2, w, height, link.label, link.shape);
-    }
-    x += w;
-    if (i + 1 == links.size()) break;
-    if (draw) {
-      canvas.hLine(x + 3, centre_y, kChainGap - 6, Color::kBlack);
-      if (!link.transfer.empty()) {
-        drawText(canvas, small, x + kChainGap / 2, centre_y + height / 2 + 12, link.transfer,
-                 Color::kBlack, Align::kCenter);
-      }
-    }
-    x += kChainGap;
-  }
-  return x;
 }
 
 }  // namespace ui

@@ -6,6 +6,7 @@
 #include <unity.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -27,6 +28,7 @@
 #include "widgets/mvg/config.h"
 #include "widgets/mvg/departures.h"
 #include "widgets/mvg/sections.h"
+#include "widgets/mvg/widget.h"
 #include "widgets/weather/column_view.h"
 #include "widgets/weather/forecast.h"
 
@@ -125,6 +127,30 @@ std::string text(const wx::Forecast& f, int64_t now, ui::Language lang = ui::Lan
   core::LocalTime t;
   core::toLocalTime(now, t);
   return br::weatherText(br::summarize(f, now), br::greetingFor(t.hour), lang);
+}
+
+// An event of today or a later day (hour < 0: all day).
+cal::Occurrence event(int day, int hour, int minute, const char* title) {
+  cal::Occurrence o;
+  const int64_t midnight = kMidnight + day * kDay;
+  o.all_day = hour < 0;
+  o.start = o.all_day ? midnight : midnight + hour * 3600 + minute * 60;
+  o.end = o.all_day ? midnight + kDay : o.start + 3600;
+  o.first_day = cal::localDay(o.start);
+  o.last_day = o.first_day;
+  o.summary = title;
+  return o;
+}
+
+widgets::mvg::Departure departure(const char* line, const char* destination, int64_t planned,
+                                  bool cancelled) {
+  widgets::mvg::Departure d;
+  d.line = line;
+  d.destination = destination;
+  d.planned = planned;
+  d.cancelled = cancelled;
+  d.transport = widgets::mvg::TransportType::kSBahn;
+  return d;
 }
 
 }  // namespace
@@ -280,6 +306,43 @@ void test_chart_never_meets_the_rain_bars() {
   TEST_ASSERT_TRUE(flat.curve_bottom > wet.curve_bottom);
 }
 
+// Saved response of 2026-10-22 07:30 with values every 15 minutes.
+wx::Forecast quarterForecast() {
+  std::ifstream file("test/fixtures/weather/muenchen_20261022.json", std::ios::binary);
+  JsonDocument doc;
+  deserializeJson(doc, file, DeserializationOption::Filter(wx::forecastFilter()));
+  wx::Forecast f;
+  TEST_ASSERT_TRUE(wx::parseForecast(doc, f));
+  return f;
+}
+
+void test_chart_from_values_every_15_minutes() {
+  constexpr int64_t kThursday = 1792647660;  // 2026-10-22 07:41
+  const wx::Forecast f = quarterForecast();
+  wx::Forecast hourly = f;
+  hourly.quarters = {};
+  const wx::ColumnChart fine = wx::columnChart(f, kThursday, 214);
+  const wx::ColumnChart coarse = wx::columnChart(hourly, kThursday, 214);
+  // 5-23 h: 73 values every 15 minutes instead of 19 hourly ones.
+  TEST_ASSERT_EQUAL_size_t(72 * 3 + 1, fine.curve.size());
+  TEST_ASSERT_EQUAL_size_t(18 * 10 + 1, coarse.curve.size());
+  TEST_ASSERT_EQUAL_size_t(5, fine.labels.size());
+  for (size_t i = 0; i < fine.labels.size(); i++) {
+    const auto& l = fine.labels[i];
+    // Same values on the full hour, and every label sits on the curve.
+    TEST_ASSERT_EQUAL_INT(coarse.labels[i].temperature, l.temperature);
+    bool on_curve = false;
+    for (const auto& p : fine.curve) {
+      on_curve = on_curve || (std::abs(p.x - l.x) <= 1 && std::abs(p.y - l.y) <= 1);
+    }
+    TEST_ASSERT_TRUE(on_curve);
+  }
+  // A gap in the 15 minute values: hourly values for the whole day.
+  wx::Forecast gap = f;
+  gap.quarters.temperatures[100] = NAN;
+  TEST_ASSERT_EQUAL_size_t(coarse.curve.size(), wx::columnChart(gap, kThursday, 214).curve.size());
+}
+
 void test_preview_weather_extremes() {
   const auto list = extremes();
   ui::Bitmap bitmap(4 * 214 + 3 * 20, 259);
@@ -364,6 +427,92 @@ void test_preview_departure_columns() {
   TEST_ASSERT_EQUAL_INT(8, widgets::mvg::columnRowsThatFit(259, 1));
 }
 
+// Saved responses of two stations; counts the requests.
+class TwoStations : public widgets::mvg::Source {
+ public:
+  std::vector<std::string> requests;
+  bool fetchDepartures(const widgets::mvg::Config& config, JsonDocument& doc) override {
+    requests.push_back(config.station + " " + widgets::mvg::transportTypesParam(config));
+    const char* file = config.station == "de:09162:8" ? "donnersbergerbruecke_20261019.json"
+                                                      : "pasing_20261019.json";
+    std::ifstream in(std::string("test/fixtures/mvg/") + file, std::ios::binary);
+    return widgets::mvg::readDepartures(in, doc) == DeserializationError::Ok;
+  }
+};
+
+widgets::mvg::Config mvgConfig(const char* json) {
+  JsonDocument doc;
+  deserializeJson(doc, json);
+  core::ConfigIssues issues;
+  const widgets::mvg::Config c = widgets::mvg::parseConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  return c;
+}
+
+void test_preview_departure_incidents() {
+  ui::Bitmap bitmap(3 * 264 + 2 * 20, 259);
+  bitmap.clear(ui::Color::kWhite);
+  widgets::mvg::ColumnOptions options;
+  options.station = "Pasing";
+  options.now_s = kMvgNow;
+
+  // Two directions with the disruption messages of their lines.
+  TwoStations api;
+  widgets::mvg::MvgSource directions(mvgConfig(R"({"station":"de:09162:10","sections":[
+        {"name":"In die Stadt","lines":["S3:H:S","S4:H:S","S6:H:S","S8:H:S"]},
+        {"name":"Raus","lines":["S3:R:S","S4:R:S","S6:R:S","S8:R:S"]}]})"),
+                                     api);
+  TEST_ASSERT_TRUE(directions.fetch(kMvgNow));
+  TEST_ASSERT_EQUAL_size_t(1, api.requests.size());
+  TEST_ASSERT_EQUAL_STRING(
+      "Störung S4, S6, S8",
+      widgets::mvg::incidentHeading(directions.incidents(), ui::Language::kGerman).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "S6: Technische Störung am Zug. S4, S6, S8: Verspätung eines vorausfahrenden Zuges.",
+      widgets::mvg::incidentText(directions.incidents()).c_str());
+  options.incidents = directions.incidents();
+  ui::BitmapCanvas a(bitmap, 0, 0, 264, 259);
+  TEST_ASSERT_EQUAL_INT(4, widgets::mvg::drawDeparturesColumn(a, directions.sections(), options));
+
+  // Two stations: one request each, the sections in the configured order.
+  api.requests.clear();
+  widgets::mvg::MvgSource stations(mvgConfig(R"({"station":"de:09162:10","sections":[
+        {"name":"Pasing","lines":["S3:H:S","S4:H:S"],"note":"Bahnhof"},
+        {"name":"Donnersbergerbr.","station":"de:09162:8","note":"4 min zu Fuß"}]})"),
+                                   api);
+  TEST_ASSERT_TRUE(stations.fetch(kMvgNow));
+  TEST_ASSERT_EQUAL_size_t(2, api.requests.size());
+  TEST_ASSERT_EQUAL_STRING("de:09162:10 SBAHN", api.requests[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("de:09162:8 SBAHN,UBAHN,TRAM,BUS,REGIONAL_BUS,BAHN",
+                           api.requests[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("Pasing", stations.sections()[0].name.c_str());
+  TEST_ASSERT_TRUE(stations.sections()[0].own_station);
+  TEST_ASSERT_TRUE(stations.sections()[1].own_station);
+  TEST_ASSERT_FALSE(directions.sections()[0].own_station);
+  TEST_ASSERT_EQUAL_STRING("4 min zu Fuß", stations.sections()[1].note.c_str());
+  options.incidents.clear();
+  ui::BitmapCanvas b(bitmap, 284, 0, 264, 259);
+  TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(b, stations.sections(), options));
+
+  // One list with one message, in English; the age badge stays on the title.
+  options.incidents = {{"Verspätungen wegen einer Signalstörung", {"S8"}}};
+  options.language = ui::Language::kEnglish;
+  options.note = "Stand 22:21";
+  options.note_alert = true;
+  ui::BitmapCanvas c(bitmap, 568, 0, 264, 259);
+  TEST_ASSERT_EQUAL_INT(5, widgets::mvg::drawDeparturesColumn(c, pasing(false), options));
+  check(bitmap, "briefing_departure_incidents");
+
+  // A failed request keeps the old data.
+  class Failing : public widgets::mvg::Source {
+   public:
+    bool fetchDepartures(const widgets::mvg::Config&, JsonDocument&) override { return false; }
+  } failing;
+  widgets::mvg::MvgSource none(mvgConfig(R"({"station":"de:09162:10"})"), failing);
+  TEST_ASSERT_FALSE(none.fetch(kMvgNow));
+  TEST_ASSERT_TRUE(none.incidents().empty());
+}
+
 // --- Band ---------------------------------------------------------------------------
 
 void test_preview_bands() {
@@ -394,22 +543,180 @@ void test_preview_bands() {
     context.language = cases[i].language;
     context.network_connected = cases[i].online;
     ui::BitmapCanvas canvas(bitmap, 0, i * 215, 800, 205);
-    br::drawBand(canvas, context, &cases[i].forecast, "11:48");
+    br::BandData data;
+    data.forecast = &cases[i].forecast;
+    data.as_of = "11:48";
+    br::drawBand(canvas, context, data);
   }
   check(bitmap, "briefing_bands");
 
   widgets::DrawContext context;
   context.now_s = kMorning;
   context.network_connected = true;
+  br::BandData data;
+  data.forecast = &cases[0].forecast;
   TEST_ASSERT_EQUAL_STRING("Guten Morgen. Ab 16\u00a0Uhr regnet es \u2013 Schirm mit.",
-                           br::bandSentence(context, &cases[0].forecast, "").c_str());
+                           br::bandSentence(context, data).c_str());
   // Without weather data only the greeting; offline with the time.
-  TEST_ASSERT_EQUAL_STRING("Guten Morgen.", br::bandSentence(context, nullptr, "").c_str());
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen.", br::bandSentence(context, br::BandData{}).c_str());
   context.network_connected = false;
+  br::BandData offline;
+  offline.as_of = "07:12";
   TEST_ASSERT_EQUAL_STRING("Guten Morgen. Keine Verbindung \u2013 die Angaben sind von 07:12.",
-                           br::bandSentence(context, nullptr, "07:12").c_str());
+                           br::bandSentence(context, offline).c_str());
   context.now_s = 0;  // no time yet
-  TEST_ASSERT_EQUAL_STRING("", br::bandSentence(context, nullptr, "").c_str());
+  TEST_ASSERT_EQUAL_STRING("", br::bandSentence(context, br::BandData{}).c_str());
+}
+
+void test_sentence_parts_by_rank() {
+  const wx::Forecast dry = forecast(course(7, 14), {0}, Condition::kOvercast, Condition::kClear);
+  std::vector<int> rain = rainFrom(14, 80);
+  const wx::Forecast wet = forecast(course(7, 14), rain, Condition::kRain, Condition::kRain);
+  const std::vector<widgets::mvg::Incident> incidents = {
+      {"Verspätung eines vorausfahrenden Zuges", {"S3"}}};
+  std::vector<widgets::mvg::Section> sections(1);
+  sections[0].departures = {departure("S6", "Ebersberg", kMorning + 12 * 60, true),
+                            departure("S6", "Ebersberg", kMorning + 2 * 3600, true)};
+  cal::Occurrences events = {event(0, -1, 0, "Geburtstag Oma"), event(0, 9, 30, "Zahnarzt"),
+                             event(0, 7, 0, "Laufen")};
+
+  br::SentenceInput in;
+  in.now_s = kMorning;
+  in.forecast = &dry;
+  // Only the weather: the calm part.
+  std::vector<br::Part> parts = br::sentenceParts(in);
+  TEST_ASSERT_EQUAL_size_t(1, parts.size());
+  TEST_ASSERT_TRUE(parts[0].topic == br::Topic::kCalm);
+  // With an event the calm part is left out; the next event of today, not
+  // the one that has passed or the all-day one.
+  in.events = &events;
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen. Um\u00a009:30 Zahnarzt.",
+                           br::joinSentence("Guten Morgen.", br::sentenceParts(in), 9).c_str());
+  // Everything: ranked, read in a fixed order.
+  in.forecast = &wet;
+  in.departures = &sections;
+  in.incidents = &incidents;
+  in.online = false;
+  in.as_of = "07:12";
+  parts = br::sentenceParts(in);
+  TEST_ASSERT_EQUAL_size_t(5, parts.size());
+  TEST_ASSERT_TRUE(parts[0].topic == br::Topic::kOffline);
+  TEST_ASSERT_TRUE(parts[1].topic == br::Topic::kCancellation);
+  TEST_ASSERT_TRUE(parts[2].topic == br::Topic::kDisruption);
+  TEST_ASSERT_TRUE(parts[3].topic == br::Topic::kWeather);
+  TEST_ASSERT_TRUE(parts[4].topic == br::Topic::kEvent);
+  TEST_ASSERT_EQUAL_STRING(
+      "Die S6 um\u00a007:54 nach Ebersberg fällt aus. Störung bei der S3 – plane mehr Zeit ein.",
+      br::joinSentence("", {parts[2], parts[1]}, 2).c_str());
+  // Too long for three lines: the parts of the lowest rank are left out.
+  in.online = true;
+  std::string used;
+  const br::SentenceLayout layout = br::layoutParts("Guten Morgen.", br::sentenceParts(in), &used);
+  TEST_ASSERT_TRUE(layout.lines.size() <= 3);
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. Die S6 um\u00a007:54 nach Ebersberg fällt aus. Störung bei der S3 – plane "
+      "mehr "
+      "Zeit ein.",
+      used.c_str());
+  TEST_ASSERT_TRUE(layout.small);
+  // A part that does not fit is skipped; a shorter one of a lower rank is
+  // still taken.
+  const std::vector<br::Part> skip = {
+      {br::Topic::kCancellation, "Die S6 um\u00a007:53 nach Ebersberg fällt aus."},
+      {br::Topic::kDisruption, "Störungen bei S4, S6 und S8 – plane mehr Zeit ein."},
+      {br::Topic::kEvent, "Um\u00a018:30 Kino mit Lena."}};
+  br::layoutParts("Guten Morgen.", skip, &used);
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. Die S6 um\u00a007:53 nach Ebersberg fällt aus. Um\u00a018:30 Kino mit Lena.",
+      used.c_str());
+  // A cancellation more than an hour ahead is not mentioned.
+  sections[0].departures.erase(sections[0].departures.begin());
+  TEST_ASSERT_EQUAL_STRING("",
+                           br::cancellationText(sections, kMorning, ui::Language::kGerman).c_str());
+}
+
+void test_sentence_parts_in_detail() {
+  const auto de = ui::Language::kGerman;
+  const auto en = ui::Language::kEnglish;
+  std::vector<widgets::mvg::Incident> two = {{"A", {"S8", "S3"}}};
+  TEST_ASSERT_EQUAL_STRING("Störungen bei S3 und S8 – plane mehr Zeit ein.",
+                           br::disruptionText(two, de).c_str());
+  two.push_back({"B", {"U6"}});
+  TEST_ASSERT_EQUAL_STRING("Disruptions on S3, S8 and U6 – allow extra time.",
+                           br::disruptionText(two, en).c_str());
+  two.push_back({"C", {"19"}});
+  TEST_ASSERT_EQUAL_STRING("Störungen bei mehreren Linien – plane mehr Zeit ein.",
+                           br::disruptionText(two, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("", br::disruptionText({}, de).c_str());
+
+  // Events: all-day today if nothing is ahead; in the evening tomorrow's
+  // first; long titles shortened.
+  cal::Occurrences events = {event(0, -1, 0, "Geburtstag Oma"), event(0, 7, 0, "Laufen"),
+                             event(1, 8, 15, "Abstimmung mit dem Architekturbüro wegen Umbau")};
+  TEST_ASSERT_EQUAL_STRING("Heute: Geburtstag Oma.",
+                           br::eventText(events, kMidnight + 12 * 3600, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Morgen um\u00a008:15 Abstimmung mit dem Architekturbü\u2026.",
+                           br::eventText(events, kMidnight + 19 * 3600, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Today: Geburtstag Oma.",
+                           br::eventText(events, kMidnight + 12 * 3600, en).c_str());
+
+  // Temperature jump: only in the evening, from 8 degrees.
+  wx::Forecast f = forecast(course(7, 14), {0});
+  f.days[1].high = 23;
+  TEST_ASSERT_EQUAL_STRING("Morgen wird es deutlich wärmer, bis 23°.",
+                           br::temperatureJumpText(f, kMidnight + 20 * 3600, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("", br::temperatureJumpText(f, kMorning, de).c_str());
+  f.days[1].high = 5.6f;
+  TEST_ASSERT_EQUAL_STRING("Tomorrow much colder, at most 6°.",
+                           br::temperatureJumpText(f, kMidnight + 20 * 3600, en).c_str());
+  f.days[1].high = 8;
+  TEST_ASSERT_EQUAL_STRING("", br::temperatureJumpText(f, kMidnight + 20 * 3600, de).c_str());
+}
+
+void test_preview_band_topics() {
+  ui::Bitmap bitmap(800, 3 * 205 + 2 * 10);
+  bitmap.clear(ui::Color::kWhite);
+  std::vector<int> rain = rainFrom(14, 80);
+  const wx::Forecast wet = forecast(course(7, 14), rain, Condition::kRain, Condition::kRain);
+  const wx::Forecast dry = forecast(course(4, 11), {0}, Condition::kOvercast, Condition::kClear);
+  wx::Forecast cold = forecast(course(9, 16), {0}, Condition::kOvercast, Condition::kPartlyCloudy,
+                               kMidnight, false);
+  cold.days[1].high = 5;
+  const std::vector<widgets::mvg::Incident> incidents = {
+      {"Verspätung eines vorausfahrenden Zuges", {"S3", "S4"}}};
+  std::vector<widgets::mvg::Section> sections(1);
+  sections[0].departures = {departure("S6", "Ebersberg", kMorning + 12 * 60, true)};
+  const cal::Occurrences events = {event(0, 9, 30, "Zahnarzt"), event(1, 8, 0, "Team meeting")};
+
+  widgets::DrawContext context;
+  context.network_connected = true;
+  // Morning: disruption and rain.
+  br::BandData a;
+  a.forecast = &wet;
+  a.incidents = &incidents;
+  context.now_s = kMorning;
+  ui::BitmapCanvas first(bitmap, 0, 0, 800, 205);
+  br::drawBand(first, context, a);
+  // Morning: cancellation and the next event, dry.
+  br::BandData b;
+  b.forecast = &dry;
+  b.departures = &sections;
+  b.events = &events;
+  ui::BitmapCanvas second(bitmap, 0, 215, 800, 205);
+  br::drawBand(second, context, b);
+  // Evening in English: much colder tomorrow and tomorrow's first event.
+  br::BandData c;
+  c.forecast = &cold;
+  c.events = &events;
+  context.now_s = kMidnight + 20 * 3600;
+  context.language = ui::Language::kEnglish;
+  ui::BitmapCanvas third(bitmap, 0, 430, 800, 205);
+  br::drawBand(third, context, c);
+  check(bitmap, "briefing_band_topics");
+  TEST_ASSERT_EQUAL_STRING(
+      "Good evening. Tomorrow much colder, at most 5°. Tomorrow at\u00a008:00: Team "
+      "meeting.",
+      br::bandSentence(context, c).c_str());
 }
 
 int main() {
@@ -419,10 +726,15 @@ int main() {
   RUN_TEST(test_snow_thunder_heat_and_english);
   RUN_TEST(test_picture_follows_the_weather_of_the_day);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
+  RUN_TEST(test_sentence_parts_by_rank);
+  RUN_TEST(test_sentence_parts_in_detail);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
+  RUN_TEST(test_chart_from_values_every_15_minutes);
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
   RUN_TEST(test_preview_departure_columns);
+  RUN_TEST(test_preview_departure_incidents);
   RUN_TEST(test_preview_bands);
+  RUN_TEST(test_preview_band_topics);
   return UNITY_END();
 }

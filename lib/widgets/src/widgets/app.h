@@ -1,8 +1,8 @@
 #pragma once
 
 // Wires everything together from the configuration: the data sources and
-// views of the widgets in the layout's slots (see widgets/registry.h), the
-// header, the screen and the display controller. main.cpp only provides the
+// views of the widgets in the layout's columns (see widgets/registry.h), the
+// band, the screen and the display controller. main.cpp only provides the
 // hardware (clock, display, network) and calls step(); the same code runs on
 // the PC with simulated parts.
 
@@ -14,7 +14,6 @@
 #include "core/config.h"
 #include "core/display_controller.h"
 #include "hal/display.h"
-#include "widgets/header/header.h"
 #include "widgets/registry.h"
 #include "widgets/screen.h"
 #include "widgets/widget.h"
@@ -22,8 +21,8 @@
 namespace widgets {
 
 // Reports all problems of a configuration (core settings, the sections of
-// the widgets in the layout, unknown widgets and widgets on slots of a size
-// they are not made for), e.g. before it is saved.
+// the widgets in the layout, unknown widgets and widgets in columns of a
+// size they are not made for), e.g. before it is saved.
 void validateConfig(JsonObjectConst root, core::ConfigIssues& issues);
 
 class App {
@@ -49,7 +48,6 @@ class App {
   hal::Display& display_;
   Services services_;
   core::CoreConfig config_;
-  header::HeaderView header_;
   std::vector<std::unique_ptr<DataSource>> sources_;
   std::vector<std::unique_ptr<View>> views_;
   std::unique_ptr<Screen> screen_;

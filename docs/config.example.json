@@ -7,8 +7,7 @@
     "full_refresh_minutes": 60
   },
   "layout": {
-    "template": "one_plus_two",
-    "slots": ["mvg", "weather", "calendar"]
+    "slots": ["mvg", "calendar", "weather"]
   },
   "widgets": {
     "mvg": {

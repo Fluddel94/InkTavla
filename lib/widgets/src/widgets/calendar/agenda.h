@@ -1,6 +1,6 @@
 #pragma once
 
-// From parsed events to what the tile shows: the occurrences of the coming
+// From parsed events to what the column shows: the occurrences of the coming
 // days (series expanded, exceptions and moved occurrences applied, zones
 // resolved) and the agenda built from them for the current time.
 

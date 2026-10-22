@@ -21,7 +21,7 @@ using ui::Color;
 
 namespace {
 
-const ui::Font& font() { return ui::fonts::kRobotoCondensedMedium24; }
+const ui::Font& font() { return ui::fonts::kRobotoCondensedMedium20; }
 
 int countBlack(const Bitmap& b) {
   int n = 0;
@@ -190,7 +190,7 @@ void test_text_width_adds_up() {
   const int b = ui::textWidth(font(), " Hbf");
   const int ab = ui::textWidth(font(), "München Hbf");
   TEST_ASSERT_INT_WITHIN(1, a + b, ab);
-  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedBold26, "München") >= a);
+  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedBold21, "München") >= a);
 }
 
 void test_draw_text_position_and_alignment() {
@@ -262,10 +262,6 @@ void test_line_symbol_box_and_frame() {
   TEST_ASSERT_TRUE(b.get(51, 28) == Color::kBlack);
   TEST_ASSERT_TRUE(b.get(4, 16) == Color::kWhite);  // inside the 2 px frame
   b.clear(Color::kWhite);
-  ui::drawLineSymbol(c, f, 2, 3, 50, 26, "SEV", ui::SymbolShape::kRoundFrame);
-  TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);  // rounded end
-  TEST_ASSERT_TRUE(b.get(26, 3) == Color::kBlack);
-  b.clear(Color::kWhite);
   ui::drawLineSymbol(c, f, 2, 3, 50, 26, "S8", ui::SymbolShape::kPill);
   TEST_ASSERT_TRUE(b.get(2, 3) == Color::kWhite);
   TEST_ASSERT_TRUE(b.get(2, 16) == Color::kBlack);  // filled
@@ -296,41 +292,28 @@ void test_upper_case() {
   TEST_ASSERT_EQUAL_STRING("÷ €", ui::toUpper("÷ €").c_str());
 }
 
-void test_tile_title() {
-  Bitmap b(358, 60);
+void test_polyline_is_exact_and_even() {
+  Bitmap b(20, 12);
   BitmapCanvas c(b);
-  ui::drawTileTitle(c, "Wetter", "KW 43");
-  // Hairline below the title from padding to padding.
-  TEST_ASSERT_TRUE(b.get(ui::kTilePadding, 32) == Color::kBlack);
-  TEST_ASSERT_TRUE(b.get(358 - ui::kTilePadding - 1, 32) == Color::kBlack);
-  TEST_ASSERT_TRUE(b.get(ui::kTilePadding - 1, 32) == Color::kWhite);
-  TEST_ASSERT_TRUE(b.get(100, 33) == Color::kWhite);
-  const Box box = blackBox(b);
-  TEST_ASSERT_INT_WITHIN(1, ui::kTilePadding, box.x0);
-  TEST_ASSERT_INT_WITHIN(1, 358 - ui::kTilePadding - 1, box.x1);
-  TEST_ASSERT_EQUAL_INT(24 - ui::fonts::kRobotoCondensedBold17.cap_height, box.y0);
-  // A long title is shortened and never runs into the note.
+  // Horizontal at y = 5: the rows above and below the line, 2 px wide.
+  c.drawPolyline({{2, 5}, {17, 5}}, 2, Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(8, 4) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(8, 5) == Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(8, 3) == Color::kWhite);
+  TEST_ASSERT_TRUE(b.get(8, 6) == Color::kWhite);
+  // Half a pixel lower moves the line by half: centred on row 5.
   b.clear(Color::kWhite);
-  ui::drawTileTitle(c, "Sehr lange Haltestellenbezeichnung am Ort", "Stand 07:31");
-  bool gap = false;
-  for (int x = 150; x < 344 && !gap; x++) {
-    bool empty = true;
-    for (int y = 0; y < 30; y++) empty = empty && b.get(x, y) == Color::kWhite;
-    gap = empty;
+  c.drawPolyline({{2, 5.5}, {17, 5.5}}, 2, Color::kBlack);
+  TEST_ASSERT_TRUE(b.get(8, 4) == Color::kBlack && b.get(8, 5) == Color::kBlack &&
+                   b.get(8, 6) == Color::kBlack);
+  // A diagonal has the same width everywhere: 2 or 3 pixels per column.
+  b.clear(Color::kWhite);
+  c.drawPolyline({{1, 1}, {11, 11}}, 2, Color::kBlack);
+  for (int x = 3; x < 10; x++) {
+    int n = 0;
+    for (int y = 0; y < 12; y++) n += b.get(x, y) == Color::kBlack;
+    TEST_ASSERT_TRUE(n == 2 || n == 3);
   }
-  TEST_ASSERT_TRUE(gap);
-}
-
-void test_section_title() {
-  Bitmap b(358, 30);
-  BitmapCanvas c(b);
-  ui::drawSectionTitle(c, 14, 344, 0, "Stadt");
-  TEST_ASSERT_TRUE(b.get(14, 11) == Color::kBlack);  // arrow shaft
-  // Dotted line up to x1.
-  TEST_ASSERT_TRUE(b.get(344, 11) == Color::kBlack || b.get(343, 11) == Color::kBlack);
-  TEST_ASSERT_TRUE(b.get(344, 11) != b.get(343, 11));
-  TEST_ASSERT_TRUE(b.get(345, 11) == Color::kWhite);
-  TEST_ASSERT_TRUE(blackBox(b).y1 < ui::kSectionTitleHeight);
 }
 
 void test_wifi_symbol() {
@@ -361,38 +344,28 @@ void test_i18n() {
   TEST_ASSERT_EQUAL_STRING("", ui::weekdayName(ui::Language::kEnglish, 7));
 }
 
-void test_layouts_cover_the_screen_without_overlap() {
-  for (const char* name : {"one_plus_two", "three_columns", "briefing"}) {
-    const ui::Layout l = ui::layoutFor(name);
-    TEST_ASSERT_EQUAL_size_t(3, l.slots.size());
-    TEST_ASSERT_EQUAL_size_t(3, l.sizes.size());  // a size type for every slot
-    if (!l.briefing) {
-      TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kColumn);
-      TEST_ASSERT_EQUAL_INT(358, l.slots[0].w);
-    }
-    Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
-    std::vector<ui::Rect> areas = l.slots;
-    areas.push_back(l.header);
-    areas.insert(areas.end(), l.separators.begin(), l.separators.end());
-    int total = 0;
-    for (const ui::Rect& r : areas) {
-      for (int y = r.y; y < r.y + r.h; y++) {
-        for (int x = r.x; x < r.x + r.w; x++) {
-          TEST_ASSERT_TRUE_MESSAGE(b.get(x, y) == Color::kWhite, name);  // no overlap
-          b.set(x, y, Color::kBlack);
-          total++;
-        }
+void test_layout_covers_the_screen_without_overlap() {
+  const ui::Layout l = ui::screenLayout();
+  TEST_ASSERT_EQUAL_size_t(3, l.slots.size());
+  TEST_ASSERT_EQUAL_size_t(3, l.sizes.size());  // a size type for every column
+  Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
+  std::vector<ui::Rect> areas = l.slots;
+  areas.push_back(l.header);
+  int total = 0;
+  for (const ui::Rect& r : areas) {
+    for (int y = r.y; y < r.y + r.h; y++) {
+      for (int x = r.x; x < r.x + r.w; x++) {
+        TEST_ASSERT_TRUE(b.get(x, y) == Color::kWhite);  // no overlap
+        b.set(x, y, Color::kBlack);
+        total++;
       }
     }
-    TEST_ASSERT_EQUAL_INT_MESSAGE(ui::kScreenWidth * ui::kScreenHeight, total, name);
   }
-  TEST_ASSERT_EQUAL_INT(440, ui::layoutFor("one_plus_two").slots[1].w);
-  TEST_ASSERT_EQUAL_INT(358, ui::layoutFor("unknown").slots[0].w);
+  TEST_ASSERT_EQUAL_INT(ui::kScreenWidth * ui::kScreenHeight, total);
 }
 
-void test_briefing_layout() {
-  const ui::Layout l = ui::layoutFor("briefing");
-  TEST_ASSERT_TRUE(l.briefing);
+void test_layout_columns_and_band() {
+  const ui::Layout l = ui::screenLayout();
   TEST_ASSERT_EQUAL_INT(205, l.header.h);
   // Content areas: 28-292, 318-532, 558-772, from y 205 to 464.
   const int x[] = {28, 318, 558};
@@ -406,28 +379,47 @@ void test_briefing_layout() {
     // Inside its slot.
     TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
   }
-  TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kBriefingWide);
-  TEST_ASSERT_TRUE(l.sizes[2] == ui::SlotSize::kBriefingColumn);
+  using ui::SlotSize;
+  TEST_ASSERT_TRUE(l.sizes ==
+                   (std::vector<SlotSize>{SlotSize::kBriefingWide, SlotSize::kBriefingColumn,
+                                          SlotSize::kBriefingColumn}));
+  TEST_ASSERT_EQUAL_STRING("wide column", ui::slotSizeName(SlotSize::kBriefingWide));
   // The header line with the clock is its own refresh area.
   TEST_ASSERT_EQUAL_size_t(3, l.header_areas.size());
   TEST_ASSERT_EQUAL_INT(44, l.header_areas[0].h);
   int area = 0;
   for (const ui::Rect& r : l.header_areas) area += r.w * r.h;
   TEST_ASSERT_EQUAL_INT(800 * 205, area);
-  // Other layouts: content = slots.
-  const ui::Layout a = ui::layoutFor("one_plus_two");
-  TEST_ASSERT_EQUAL_INT(a.slots[1].x, ui::contentOf(a, 1).x);
 }
 
-void test_layout_slot_sizes() {
-  using ui::SlotSize;
-  const ui::Layout a = ui::layoutFor("one_plus_two");
-  TEST_ASSERT_TRUE(a.sizes ==
-                   (std::vector<SlotSize>{SlotSize::kColumn, SlotSize::kTile, SlotSize::kTile}));
-  const ui::Layout b = ui::layoutFor("three_columns");
-  TEST_ASSERT_TRUE(b.sizes == (std::vector<SlotSize>{SlotSize::kColumn, SlotSize::kNarrowColumn,
-                                                     SlotSize::kNarrowColumn}));
-  TEST_ASSERT_EQUAL_STRING("narrow column", ui::slotSizeName(SlotSize::kNarrowColumn));
+void test_layout_variants_for_the_display_test() {
+  ui::LayoutOptions options;
+  options.equal_columns = true;
+  options.dividers = true;
+  const ui::Layout l = ui::screenLayout(options);
+  // Three columns of 232 px: 28-260, 284-516, 540-772.
+  const int x[] = {28, 284, 540};
+  int covered = 0;
+  for (size_t i = 0; i < 3; i++) {
+    const ui::Rect c = ui::contentOf(l, i);
+    TEST_ASSERT_EQUAL_INT(x[i], c.x);
+    TEST_ASSERT_EQUAL_INT(232, c.w);
+    TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
+    covered += l.slots[i].w;
+  }
+  TEST_ASSERT_EQUAL_INT(ui::kScreenWidth, covered);
+  // The dotted lines in the middle of the gaps, at the edge of a slot.
+  TEST_ASSERT_EQUAL_size_t(2, l.dividers.size());
+  TEST_ASSERT_EQUAL_INT(272, l.dividers[0].x);
+  TEST_ASSERT_EQUAL_INT(528, l.dividers[1].x);
+  TEST_ASSERT_EQUAL_INT(l.slots[1].x, l.dividers[0].x);
+  TEST_ASSERT_EQUAL_INT(464, l.dividers[1].y + l.dividers[1].h);
+  // Standard grid with lines: 305 and 545; without: none.
+  options.equal_columns = false;
+  const ui::Layout s = ui::screenLayout(options);
+  TEST_ASSERT_EQUAL_INT(305, s.dividers[0].x);
+  TEST_ASSERT_EQUAL_INT(545, s.dividers[1].x);
+  TEST_ASSERT_EQUAL_size_t(0, ui::screenLayout().dividers.size());
 }
 
 // --- Briefing building blocks ---------------------------------------------------
@@ -529,29 +521,6 @@ void test_dotted_fill_every_second_pixel() {
   TEST_ASSERT_TRUE(b.get(3, 2) == Color::kWhite);
 }
 
-void test_symbol_chain_width_and_transfer() {
-  Bitmap b(300, 60);
-  BitmapCanvas c(b);
-  const ui::Font& f = ui::fonts::kRobotoCondensedBold17;
-  const ui::Font& small = ui::fonts::kRobotoCondensedMedium13;
-  std::vector<ui::ChainLink> links = {{"S4", ui::SymbolShape::kPill, 0, "9 min"},
-                                      {"RB55", ui::SymbolShape::kFrame, 0, ""}};
-  const int measured = ui::drawLineSymbolChain(c, f, small, 10, 20, 21, links, false);
-  TEST_ASSERT_EQUAL_INT(0, countBlack(b));
-  const int expected =
-      10 + ui::textWidth(f, "S4") + 16 + ui::kChainGap + ui::textWidth(f, "RB55") + 16;
-  TEST_ASSERT_EQUAL_INT(expected, measured);
-  TEST_ASSERT_EQUAL_INT(expected, ui::drawLineSymbolChain(c, f, small, 10, 20, 21, links));
-  // The joining line and the transfer time below the gap.
-  const int gap_x = 10 + ui::textWidth(f, "S4") + 16;
-  TEST_ASSERT_TRUE(b.get(gap_x + 8, 20) == Color::kBlack);
-  int below = 0;
-  for (int y = 31; y < 45; y++) {
-    for (int x = gap_x - 10; x < gap_x + 26; x++) below += b.get(x, y) == Color::kBlack;
-  }
-  TEST_ASSERT_GREATER_THAN(10, below);
-}
-
 void test_column_title_note_and_badge() {
   Bitmap b(214, 30);
   BitmapCanvas c(b);
@@ -583,11 +552,11 @@ void test_briefing_icons() {
     const ui::Icon& band = ui::bandIcon(kind);
     TEST_ASSERT_EQUAL_INT(ui::kBandIconWidth, band.width);
     TEST_ASSERT_EQUAL_INT(ui::kBandIconHeight, band.height);
-    TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(kind, 30).width);
+    TEST_ASSERT_EQUAL_INT(38, ui::weatherIcon(kind, 38).width);
   }
   TEST_ASSERT_TRUE(ui::bandIcon(ui::WeatherIcon::kSun).bits !=
                    ui::bandIcon(ui::WeatherIcon::kRain).bits);
-  TEST_ASSERT_EQUAL_INT(32, ui::weatherIcon(ui::WeatherIcon::kSun, 32).width);  // unchanged
+  TEST_ASSERT_EQUAL_INT(38, ui::weatherIcon(ui::WeatherIcon::kSun, 30).width);  // nearest size
   TEST_ASSERT_EQUAL_INT(15, ui::kCalendarIcon.width);
   TEST_ASSERT_EQUAL_INT(16, ui::kPinIcon.height);
 }
@@ -612,19 +581,17 @@ int main() {
   RUN_TEST(test_line_symbol_box_and_frame);
   RUN_TEST(test_tracked_text_adds_spacing);
   RUN_TEST(test_upper_case);
-  RUN_TEST(test_tile_title);
-  RUN_TEST(test_section_title);
+  RUN_TEST(test_polyline_is_exact_and_even);
   RUN_TEST(test_wifi_symbol);
   RUN_TEST(test_i18n);
-  RUN_TEST(test_layouts_cover_the_screen_without_overlap);
-  RUN_TEST(test_layout_slot_sizes);
-  RUN_TEST(test_briefing_layout);
+  RUN_TEST(test_layout_covers_the_screen_without_overlap);
+  RUN_TEST(test_layout_columns_and_band);
+  RUN_TEST(test_layout_variants_for_the_display_test);
   RUN_TEST(test_briefing_fonts_contain_the_needed_characters);
   RUN_TEST(test_fit_text_with_ellipsis);
   RUN_TEST(test_wrap_text_between_words);
   RUN_TEST(test_fill_rule_rows);
   RUN_TEST(test_dotted_fill_every_second_pixel);
-  RUN_TEST(test_symbol_chain_width_and_transfer);
   RUN_TEST(test_column_title_note_and_badge);
   RUN_TEST(test_briefing_icons);
   return UNITY_END();

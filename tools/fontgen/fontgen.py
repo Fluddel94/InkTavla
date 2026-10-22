@@ -43,36 +43,23 @@ SOURCES = {
     },
 }
 
-# Characters of large fonts that only show numbers (temperatures).
-NUMBERS = [ord(c) for c in " +-0123456789"] + [0xB0, 0x2212]  # degree sign, minus
-
 # (C++ name, output file, weight, pixel size[, characters[, source]]).
-# Sizes follow the overall UI design from 2026-10-20 (style A) and the
-# "Briefing" design from 2026-10-21; they are provisional until checked on
+# Sizes follow the "Briefing" design from 2026-10-21; they are provisional
+# until checked on
 # the panel from 2-3 m. Without a character list: CHARSET. Without a source:
 # Roboto Condensed. Fraunces is set like in the design: optical size = pixel
 # size, softness 50, no "wonky" letters.
 FONTS = [
-    ("kRobotoCondensedBold16", "roboto_condensed_bold_16.cpp", 700, 16),  # section names
-    ("kRobotoCondensedMedium17", "roboto_condensed_medium_17.cpp", 500, 17),  # tile notes
-    ("kRobotoCondensedBold17", "roboto_condensed_bold_17.cpp", 700, 17),  # tile titles
-    ("kRobotoCondensedBold20", "roboto_condensed_bold_20.cpp", 700, 20),  # line symbols
-    ("kRobotoCondensedBold21", "roboto_condensed_bold_21.cpp", 700, 21),  # delays
-    ("kRobotoCondensedMedium24", "roboto_condensed_medium_24.cpp", 500, 24),  # destinations
-    ("kRobotoCondensedMedium26", "roboto_condensed_medium_26.cpp", 500, 26),  # header date
-    ("kRobotoCondensedBold26", "roboto_condensed_bold_26.cpp", 700, 26),  # departure times
-    ("kRobotoCondensedBold30", "roboto_condensed_bold_30.cpp", 700, 30),  # header time
-    ("kRobotoCondensedMedium18", "roboto_condensed_medium_18.cpp", 500, 18),  # weather notes
-    ("kRobotoCondensedBold18", "roboto_condensed_bold_18.cpp", 700, 18),  # chart temperatures
-    ("kRobotoCondensedMedium20", "roboto_condensed_medium_20.cpp", 500, 20),  # weather texts
-    ("kRobotoCondensedBold22", "roboto_condensed_bold_22.cpp", 700, 22),  # weekdays, highs, next event
-    ("kRobotoCondensedMedium22", "roboto_condensed_medium_22.cpp", 500, 22),  # calendar entries
-    ("kRobotoCondensedBold56", "roboto_condensed_bold_56.cpp", 700, 56, NUMBERS),  # temperature
-    # Briefing.
     ("kRobotoCondensedBold15", "roboto_condensed_bold_15.cpp", 700, 15),  # column titles, delays
+    ("kRobotoCondensedBold16", "roboto_condensed_bold_16.cpp", 700, 16),  # header line, weekdays
+    ("kRobotoCondensedBold17", "roboto_condensed_bold_17.cpp", 700, 17),  # line labels, times
+    ("kRobotoCondensedBold20", "roboto_condensed_bold_20.cpp", 700, 20),  # line symbol widths
+    ("kRobotoCondensedBold21", "roboto_condensed_bold_21.cpp", 700, 21),  # departure times
     ("kRobotoCondensedMedium13", "roboto_condensed_medium_13.cpp", 500, 13),  # data credit
     ("kRobotoCondensedMedium15", "roboto_condensed_medium_15.cpp", 500, 15),  # column notes, hours
     ("kRobotoCondensedMedium16", "roboto_condensed_medium_16.cpp", 500, 16),  # low temperatures
+    ("kRobotoCondensedMedium17", "roboto_condensed_medium_17.cpp", 500, 17),  # event times
+    ("kRobotoCondensedMedium20", "roboto_condensed_medium_20.cpp", 500, 20),  # destinations
     ("kFraunces38", "fraunces_38.cpp", 420, 38, None, "fraunces"),  # sentence
     ("kFraunces34", "fraunces_34.cpp", 420, 34, None, "fraunces"),  # long sentence
     ("kFraunces24Medium", "fraunces_24_medium.cpp", 500, 24, None, "fraunces"),  # "7° bis 14°"

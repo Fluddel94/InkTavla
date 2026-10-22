@@ -22,7 +22,7 @@
 
 namespace widgets::calendar {
 
-// Longest title kept (bytes of UTF-8); longer ones are cut. The tile shows
+// Longest title kept (bytes of UTF-8); longer ones are cut. The column shows
 // far less.
 inline constexpr size_t kMaxSummaryBytes = 96;
 // Most events kept from one file; more are dropped (truncated()).
