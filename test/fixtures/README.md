@@ -44,7 +44,10 @@ zones, folding inside UTF-8 characters) are written directly into
 Reference images of the screen previews (`test/test_ui_preview`), drawn with
 the real UI and widget code from the MVG fixtures. `briefing_symbols.png` and
 `briefing_parts.png` are sheets with the symbols, fonts and building blocks
-of the "Briefing" layout. Their image data is
+of the "Briefing" layout; `briefing_*_columns.png`, `briefing_bands.png` and
+`briefing_weather_extremes.png` show its columns, bands and the weather
+chart with extreme values (`test/test_briefing`), `sim_briefing_*.png` the
+whole screen in the simulation. Their image data is
 compared byte by byte (metadata chunks that tools may add are ignored); after an intended change of the appearance, update them with
 `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native -f test_ui_preview`.
 Before committing reference images, remove any metadata that tools may have

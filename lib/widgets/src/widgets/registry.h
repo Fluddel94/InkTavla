@@ -45,8 +45,9 @@ struct WidgetType {
   // (e.g. when only checking a configuration).
   std::unique_ptr<DataSource> (*create_source)(JsonObjectConst root, const Services& services,
                                                core::ConfigIssues& issues);
-  // Creates a view of a source made by create_source.
-  std::unique_ptr<View> (*create_view)(const DataSource& source);
+  // Creates a view of a source made by create_source for a slot of the
+  // given size (one of `sizes`).
+  std::unique_ptr<View> (*create_view)(const DataSource& source, ui::SlotSize size);
 
   bool fits(ui::SlotSize size) const;
 };

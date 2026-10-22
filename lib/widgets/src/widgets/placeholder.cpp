@@ -4,12 +4,13 @@
 
 namespace widgets {
 
-PlaceholderView PlaceholderView::notAvailable(std::string id) {
-  return PlaceholderView(std::move(id), ui::Text::kNotSetUp, "");
+PlaceholderView PlaceholderView::notAvailable(std::string id, bool column_style) {
+  return PlaceholderView(std::move(id), ui::Text::kNotSetUp, "", column_style);
 }
 
-PlaceholderView PlaceholderView::doesNotFit(std::string id) {
-  return PlaceholderView(std::move(id), ui::Text::kDoesNotFit, "config.json: layout.slots");
+PlaceholderView PlaceholderView::doesNotFit(std::string id, bool column_style) {
+  return PlaceholderView(std::move(id), ui::Text::kDoesNotFit, "config.json: layout.slots",
+                         column_style);
 }
 
 std::string PlaceholderView::title(ui::Language language) const {
@@ -20,10 +21,16 @@ std::string PlaceholderView::title(ui::Language language) const {
 }
 
 void PlaceholderView::draw(ui::Canvas& canvas, const DrawContext& context) {
+  const std::string detail =
+      detail_.empty() ? ui::text(context.language, ui::Text::kNotAvailable) : detail_;
+  if (column_style_) {
+    ui::drawColumnTitle(canvas, 0, canvas.width(), ui::kColumnTitleBaseline,
+                        title(context.language));
+    ui::drawColumnMessage(canvas, ui::text(context.language, message_), detail);
+    return;
+  }
   ui::drawTileTitle(canvas, title(context.language));
-  ui::drawTileMessage(
-      canvas, ui::text(context.language, message_),
-      detail_.empty() ? ui::text(context.language, ui::Text::kNotAvailable) : detail_);
+  ui::drawTileMessage(canvas, ui::text(context.language, message_), detail);
 }
 
 }  // namespace widgets

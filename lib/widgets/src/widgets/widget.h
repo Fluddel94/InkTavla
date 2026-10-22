@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/display_controller.h"
@@ -68,10 +69,19 @@ class View {
   // calling draw(), and old data gets the age badge. A view without sources
   // (e.g. the header) is always drawn.
   virtual std::vector<const DataSource*> sources() const { return {}; }
+  // True if the view handles the states of its sources itself (e.g. the
+  // band of "briefing", which always shows the clock): then draw() is always
+  // called.
+  virtual bool handlesStates() const { return false; }
   // Tile title, also used for messages when the view cannot be drawn.
   virtual std::string title(ui::Language language) const = 0;
   // Draws the current data into the area.
   virtual void draw(ui::Canvas& canvas, const DrawContext& context) = 0;
+  // Only the title (waiting for the first data), and the title with a
+  // message (no data, settings missing). By default in the style of tiles.
+  virtual void drawTitle(ui::Canvas& canvas, ui::Language language);
+  virtual void drawMessage(ui::Canvas& canvas, ui::Language language, std::string_view message,
+                           std::string_view detail);
 };
 
 }  // namespace widgets

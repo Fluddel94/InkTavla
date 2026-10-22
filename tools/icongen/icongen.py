@@ -41,6 +41,9 @@ WEATHER = [
     ("kThunder", "thunder"),
 ]
 SIZES = [(26, 2.3), (30, 2.4), (32, 3.0), (50, None)]
+# Symbols that fill their square (the drawing scaled up until it touches the
+# edges, same stroke): the days of the Briefing weather column.
+TIGHT_SIZES = [(38, 2.6)]
 
 # Large weather pictures for the band of the "Briefing" layout: drawn in
 # their final size (not scaled up) into a box of BAND_W x BAND_H. Rain is an
@@ -65,7 +68,8 @@ def rline(d, p0, p1, w):
 
 
 def sun(d, cx, cy, r, st, ray_len):
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=255, width=int(st))
+    # Filled disc (Tobias, 2026-10-21: the sun is filled in every symbol).
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
     g = r * 0.4
     for i in range(8):
         a = i * math.pi / 4
@@ -163,6 +167,22 @@ def drop(size):
         d.polygon([(cx - r * 0.95, cy - r * 0.3), (cx, n * 0.08), (cx + r * 0.95, cy - r * 0.3)],
                   fill=255)
     return mask(size, painter)
+
+
+def tight(kind, size, stroke):
+    """The symbol drawn as large as possible inside size x size, centred."""
+    best = None
+    for n in range(size, 2 * size):
+        img = weather(kind, n, stroke)
+        box = img.getbbox()
+        if box is None:
+            break
+        if box[2] - box[0] > size or box[3] - box[1] > size:
+            break
+        best = img.crop(box)
+    out = Image.new("1", (size, size), 0)
+    out.paste(best, ((size - best.width) // 2, (size - best.height) // 2))
+    return out
 
 
 def umbrella(size):
@@ -292,6 +312,10 @@ def main():
         for size, stroke in SIZES:
             name = f"k{kind.title().replace('_', '')}{size}"
             lines += array(name, weather(kind, size, stroke)) + [""]
+            table.append((enum, size, name))
+        for size, stroke in TIGHT_SIZES:
+            name = f"k{kind.title().replace('_', '')}{size}Tight"
+            lines += array(name, tight(kind, size, stroke)) + [""]
             table.append((enum, size, name))
     lines += array("kDrop15", drop(15)) + [""]
     lines += array("kCalendar15", calendar_icon(15)) + [""]

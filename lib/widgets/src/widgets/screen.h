@@ -15,6 +15,8 @@
 //  - not set up: the source's setup message
 // Views without sources are always drawn.
 
+#include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -25,6 +27,9 @@
 #include "widgets/widget.h"
 
 namespace widgets {
+
+// "Stand 14:32" / "As of 14:32": the time of a last successful update.
+std::string ageNote(ui::Language language, int64_t wall_s);
 
 class Screen : public core::ScreenRenderer {
  public:

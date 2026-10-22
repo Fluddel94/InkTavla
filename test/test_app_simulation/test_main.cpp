@@ -30,8 +30,9 @@ constexpr int64_t kStart = 1792441490;  // 2026-10-19 22:24:50 CEST
 class SimClock : public core::Clock {
  public:
   int64_t monotonicMs() const override { return ms; }
-  int64_t wallTime() const override { return kStart + ms / 1000; }
+  int64_t wallTime() const override { return start + ms / 1000; }
   int64_t ms = 0;
+  int64_t start = kStart;
 };
 
 // MVG source with a saved response; fails on demand like a lost connection.
@@ -42,7 +43,12 @@ class FixtureSource : public widgets::mvg::Source {
     last_types = widgets::mvg::transportTypesParam(config);
     if (fail) return false;
     std::ifstream file("test/fixtures/mvg/pasing_20261019.json", std::ios::binary);
-    return widgets::mvg::readDepartures(file, doc) == DeserializationError::Ok;
+    if (widgets::mvg::readDepartures(file, doc) != DeserializationError::Ok) return false;
+    // Moved in time for simulations at another time of day.
+    for (JsonVariant d : doc.as<JsonArray>()) {
+      d["plannedDepartureTime"] = d["plannedDepartureTime"].as<int64_t>() + shift_s * 1000;
+    }
+    return true;
   }
   bool fetchStationName(const std::string& station, std::string& name) override {
     name_requests++;
@@ -54,6 +60,7 @@ class FixtureSource : public widgets::mvg::Source {
   int requests = 0;
   int name_requests = 0;
   std::string last_types;
+  int64_t shift_s = 0;
 };
 
 // Weather source with the saved Open-Meteo response of 2026-10-20 18:30.
@@ -69,14 +76,16 @@ class WeatherFixtureSource : public widgets::weather::Source {
         DeserializationError::Ok) {
       return false;
     }
-    // One day earlier, to fit the simulated evening of 2026-10-19.
-    doc["current"]["time"] = doc["current"]["time"].as<int64_t>() - kDay;
+    // By default one day earlier, to fit the simulated evening of
+    // 2026-10-19.
+    doc["current"]["time"] = doc["current"]["time"].as<int64_t>() + shift_s;
     for (const char* list : {"hourly", "daily"}) {
-      for (JsonVariant t : doc[list]["time"].as<JsonArray>()) t.set(t.as<int64_t>() - kDay);
+      for (JsonVariant t : doc[list]["time"].as<JsonArray>()) t.set(t.as<int64_t>() + shift_s);
     }
     return true;
   }
   static constexpr int64_t kDay = 86400;
+  int64_t shift_s = -kDay;
   bool fail = false;
   int requests = 0;
 };
@@ -113,8 +122,12 @@ constexpr char kConfig[] = R"({
 struct Rig {
   // calendar_address: whether an iCal address is set (read once, like on the
   // device where saving one restarts it).
-  explicit Rig(const char* config_text, const char* name, bool calendar_address = true)
+  explicit Rig(const char* config_text, const char* name, bool calendar_address = true,
+               int64_t start = kStart)
       : display(800, 480, std::string(".pio/simulation/") + name), app(clock, display, services()) {
+    clock.start = start;
+    // The saved departures are from kStart; move them to the start time.
+    source.shift_s = start - kStart;
     calendar.has_address = calendar_address;
     std::filesystem::remove_all(std::string(".pio/simulation/") + name);
     JsonDocument doc;
@@ -290,8 +303,9 @@ void test_widget_on_a_slot_it_does_not_fit() {
     if (i.path == "layout.slots" && i.message.find("does not fit") != std::string::npos) misfits++;
   }
   TEST_ASSERT_EQUAL_INT(2, misfits);
-  TEST_ASSERT_EQUAL_STRING("widget \"weather\" does not fit slot 2 (narrow column); it fits: tile",
-                           rig.issues[0].message.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "widget \"weather\" does not fit slot 2 (narrow column); it fits: tile, briefing column",
+      rig.issues[0].message.c_str());
   // Only the MVG source exists: nothing is fetched for the other two.
   TEST_ASSERT_EQUAL_size_t(1, rig.app.sources().size());
   rig.app.controller().setNetworkConnected(true);
@@ -334,6 +348,62 @@ void test_one_source_for_several_views() {
   TEST_ASSERT_EQUAL_INT(0, differences);
 }
 
+// "Briefing" on Wednesday 2026-10-21 at 07:41:50: rain in the afternoon
+// (saved forecast of 2026-10-20 18:30), the week of the calendar fixture and
+// the departures moved to that morning.
+constexpr int64_t kBriefingMorning = 1792561310;
+constexpr char kBriefingConfig[] = R"({
+  "language": "de",
+  "layout": {"template": "briefing"},
+  "widgets": {"mvg": {"station": "de:09162:10", "name": "Pasing", "sections": [
+    {"name": "In die Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
+    {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
+  ]},
+  "weather": {"latitude": 48.137, "longitude": 11.575, "name": "München"}}
+})";
+
+void test_briefing_morning() {
+  Rig rig(kBriefingConfig, "briefing", true, kBriefingMorning);
+  rig.weather.shift_s = 0;
+  TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
+  rig.app.controller().setNetworkConnected(true);
+  // Order of the design: departures, calendar, weather.
+  TEST_ASSERT_EQUAL_STRING("mvg", rig.app.sources()[0]->id());
+  TEST_ASSERT_EQUAL_STRING("calendar", rig.app.sources()[1]->id());
+  TEST_ASSERT_EQUAL_STRING("weather", rig.app.sources()[2]->id());
+  rig.runUntil(0);
+  TEST_ASSERT_TRUE(rig.display.updates()[0].mode == hal::Refresh::kFull);
+  checkPanel(rig.display, "sim_briefing_morning");
+
+  // 07:42:01: only the clock and the departures change.
+  rig.runUntil(11000);
+  const hal::PngDisplay::Update& u = rig.display.updates().back();
+  TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
+  TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header line with the clock
+  TEST_ASSERT_FALSE(contains(u.regions, 0, 44));     // sentence unchanged
+  TEST_ASSERT_FALSE(contains(u.regions, 545, 205));  // weather unchanged
+
+  // Wi-Fi lost: shown after 60 s in the header line and in the sentence.
+  rig.app.controller().setNetworkConnected(false);
+  rig.weather.fail = true;
+  rig.source.fail = true;
+  rig.runUntil(11000 + 59000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().network_connected);
+  rig.runUntil(11000 + 125000);
+  TEST_ASSERT_FALSE(rig.app.controller().state().network_connected);
+  checkPanel(rig.display, "sim_briefing_offline");
+}
+
+void test_briefing_not_set_up() {
+  // Without station, calendar address and location: messages in the
+  // columns, the band only greets.
+  Rig rig(R"({"layout": {"template": "briefing"}, "language": "en"})", "briefing_setup", false,
+          kBriefingMorning);
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(2000);
+  checkPanel(rig.display, "sim_briefing_not_set_up");
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_normal_operation_and_refresh_types);
@@ -343,5 +413,7 @@ int main() {
   RUN_TEST(test_missing_settings_and_unknown_widget);
   RUN_TEST(test_widget_on_a_slot_it_does_not_fit);
   RUN_TEST(test_one_source_for_several_views);
+  RUN_TEST(test_briefing_morning);
+  RUN_TEST(test_briefing_not_set_up);
   return UNITY_END();
 }

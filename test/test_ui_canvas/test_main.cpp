@@ -362,12 +362,14 @@ void test_i18n() {
 }
 
 void test_layouts_cover_the_screen_without_overlap() {
-  for (const char* name : {"one_plus_two", "three_columns"}) {
+  for (const char* name : {"one_plus_two", "three_columns", "briefing"}) {
     const ui::Layout l = ui::layoutFor(name);
     TEST_ASSERT_EQUAL_size_t(3, l.slots.size());
     TEST_ASSERT_EQUAL_size_t(3, l.sizes.size());  // a size type for every slot
-    TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kColumn);
-    TEST_ASSERT_EQUAL_INT(358, l.slots[0].w);
+    if (!l.briefing) {
+      TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kColumn);
+      TEST_ASSERT_EQUAL_INT(358, l.slots[0].w);
+    }
     Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
     std::vector<ui::Rect> areas = l.slots;
     areas.push_back(l.header);
@@ -386,6 +388,35 @@ void test_layouts_cover_the_screen_without_overlap() {
   }
   TEST_ASSERT_EQUAL_INT(440, ui::layoutFor("one_plus_two").slots[1].w);
   TEST_ASSERT_EQUAL_INT(358, ui::layoutFor("unknown").slots[0].w);
+}
+
+void test_briefing_layout() {
+  const ui::Layout l = ui::layoutFor("briefing");
+  TEST_ASSERT_TRUE(l.briefing);
+  TEST_ASSERT_EQUAL_INT(205, l.header.h);
+  // Content areas: 28-292, 318-532, 558-772, from y 205 to 464.
+  const int x[] = {28, 318, 558};
+  const int w[] = {264, 214, 214};
+  for (size_t i = 0; i < 3; i++) {
+    const ui::Rect c = ui::contentOf(l, i);
+    TEST_ASSERT_EQUAL_INT(x[i], c.x);
+    TEST_ASSERT_EQUAL_INT(w[i], c.w);
+    TEST_ASSERT_EQUAL_INT(205, c.y);
+    TEST_ASSERT_EQUAL_INT(464, c.y + c.h);
+    // Inside its slot.
+    TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
+  }
+  TEST_ASSERT_TRUE(l.sizes[0] == ui::SlotSize::kBriefingWide);
+  TEST_ASSERT_TRUE(l.sizes[2] == ui::SlotSize::kBriefingColumn);
+  // The header line with the clock is its own refresh area.
+  TEST_ASSERT_EQUAL_size_t(3, l.header_areas.size());
+  TEST_ASSERT_EQUAL_INT(44, l.header_areas[0].h);
+  int area = 0;
+  for (const ui::Rect& r : l.header_areas) area += r.w * r.h;
+  TEST_ASSERT_EQUAL_INT(800 * 205, area);
+  // Other layouts: content = slots.
+  const ui::Layout a = ui::layoutFor("one_plus_two");
+  TEST_ASSERT_EQUAL_INT(a.slots[1].x, ui::contentOf(a, 1).x);
 }
 
 void test_layout_slot_sizes() {
@@ -587,6 +618,7 @@ int main() {
   RUN_TEST(test_i18n);
   RUN_TEST(test_layouts_cover_the_screen_without_overlap);
   RUN_TEST(test_layout_slot_sizes);
+  RUN_TEST(test_briefing_layout);
   RUN_TEST(test_briefing_fonts_contain_the_needed_characters);
   RUN_TEST(test_fit_text_with_ellipsis);
   RUN_TEST(test_wrap_text_between_words);

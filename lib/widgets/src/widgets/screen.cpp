@@ -9,8 +9,6 @@
 
 namespace widgets {
 
-namespace {
-
 // "Stand 14:32": time of the last successful update.
 std::string ageNote(ui::Language language, int64_t wall_s) {
   char time[8] = "--:--";
@@ -21,6 +19,8 @@ std::string ageNote(ui::Language language, int64_t wall_s) {
   return std::string(ui::text(language, ui::Text::kAsOf)) + " " + time;
 }
 
+namespace {
+
 hal::Rect toHal(const ui::Rect& r) { return {r.x, r.y, r.w, r.h}; }
 
 }  // namespace
@@ -29,7 +29,9 @@ Screen::Screen(const ui::Layout& layout, ui::Language language)
     : layout_(layout), language_(language), bitmap_(ui::kScreenWidth, ui::kScreenHeight) {}
 
 std::vector<hal::Rect> Screen::areas() const {
-  std::vector<hal::Rect> result{toHal(layout_.header)};
+  std::vector<hal::Rect> result;
+  if (layout_.header_areas.empty()) result.push_back(toHal(layout_.header));
+  for (const ui::Rect& r : layout_.header_areas) result.push_back(toHal(r));
   for (const ui::Rect& r : layout_.slots) result.push_back(toHal(r));
   return result;
 }
@@ -40,7 +42,7 @@ core::FrameView Screen::render(const core::ScreenState& state) {
   const size_t count = std::min(views_.size(), layout_.slots.size() + 1);
   for (size_t i = 0; i < count; i++) {
     if (views_[i] == nullptr) continue;
-    const ui::Rect& area = i == 0 ? layout_.header : layout_.slots[i - 1];
+    const ui::Rect area = i == 0 ? layout_.header : ui::contentOf(layout_, i - 1);
     drawArea(*views_[i], area, state);
   }
   ui::BitmapCanvas full(bitmap_);
@@ -65,7 +67,7 @@ void Screen::drawArea(View& view, const ui::Rect& area, const core::ScreenState&
   context.network_connected = state.network_connected;
   const std::vector<const DataSource*> sources = view.sources();
   for (const DataSource* source : sources) context.sources.push_back(statusOf(source, state));
-  if (sources.empty()) {
+  if (sources.empty() || view.handlesStates()) {
     view.draw(canvas, context);
     return;
   }
@@ -81,21 +83,19 @@ void Screen::drawArea(View& view, const ui::Rect& area, const core::ScreenState&
       view.draw(canvas, context);
       return;
     case core::DataState::kWaiting:
-      ui::drawTileTitle(canvas, view.title(language_));
+      view.drawTitle(canvas, language_);
       return;
     case core::DataState::kNoData:
-      ui::drawTileTitle(canvas, view.title(language_));
       if (state.network_connected) {
-        ui::drawTileMessage(canvas, ui::text(language_, ui::Text::kNoData));
+        view.drawMessage(canvas, language_, ui::text(language_, ui::Text::kNoData), "");
       } else {
-        ui::drawTileMessage(canvas, ui::text(language_, ui::Text::kNoConnection),
-                            ui::text(language_, ui::Text::kNoConnectionDetail));
+        view.drawMessage(canvas, language_, ui::text(language_, ui::Text::kNoConnection),
+                         ui::text(language_, ui::Text::kNoConnectionDetail));
       }
       return;
     case core::DataState::kNotSetUp: {
       const SetupMessage m = sources.front()->setupMessage(language_);
-      ui::drawTileTitle(canvas, view.title(language_));
-      ui::drawTileMessage(canvas, m.message, m.detail);
+      view.drawMessage(canvas, language_, m.message, m.detail);
       return;
     }
   }

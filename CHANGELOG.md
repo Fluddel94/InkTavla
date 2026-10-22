@@ -135,6 +135,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Widget registry (`widgets/registry.cpp`): one entry per widget with its ID,
   the slot sizes its view is made for and how its data source and view are
   created; `deviceServices()` provides the APIs of the device.
+- Layout template "briefing": band with date and time, a sentence and a
+  weather picture with today's low and high, three columns below
+  (departures 264 px, calendar and weather 214 px each) filled down to the
+  bottom edge. The header line with the clock is its own refresh area.
+- Briefing sentence from fixed rules: greeting by the time of day, rain
+  (70 % or more, with "Schirm mit"), possible rain (30-69 %), snow,
+  thunderstorms, heat (30° or more), dry; German and English; an offline
+  note after 60 s without a connection.
+- Briefing columns: departures (one list or two sections, rows of 28 px),
+  calendar (today, the next day with events, the rest of the week),
+  weather (chart that keeps the temperature curve above the rain bars,
+  at least 8 degrees span, five labelled hours; three days with 38 px
+  symbols; credit "Open-Meteo"); small age badge and messages in the
+  column style.
+- Weather symbols in 38 px that fill their square.
 - Building blocks for the "Briefing" layout: word wrap (`wrapText`),
   shortening with "…" (`fitTextEllipsis`), fill rule for lists
   (`rowsThatFit`, `distributeRows`), screened areas (`fillDotted`), column
@@ -155,6 +170,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   view.
 
 ### Changed
+
+- The sun is filled in every weather symbol.
+- Views draw their own title and messages (no data, settings missing); the
+  views of style A keep the tile look.
 
 - Widgets are split into a data source (fetching, data, freshness) and views
   (drawing an area of the screen). A view may read several sources, and a

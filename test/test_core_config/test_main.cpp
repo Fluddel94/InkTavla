@@ -176,6 +176,23 @@ void test_helpers() {
   TEST_ASSERT_EQUAL_STRING("w.a", issues[0].path.c_str());
 }
 
+void test_briefing_template_orders_the_columns() {
+  JsonDocument doc;
+  deserializeJson(doc, R"({"layout": {"template": "briefing"}})");
+  core::ConfigIssues issues;
+  const core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_STRING("briefing", c.layout.c_str());
+  TEST_ASSERT_EQUAL_STRING("mvg", c.slots[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("calendar", c.slots[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("weather", c.slots[2].c_str());
+  // Own slots are kept.
+  deserializeJson(doc, R"({"layout": {"template": "briefing",
+                           "slots": ["mvg", "weather", "calendar"]}})");
+  const core::CoreConfig d = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_STRING("weather", d.slots[1].c_str());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_empty_object_gives_defaults_without_issues);
@@ -189,5 +206,6 @@ int main() {
   RUN_TEST(test_unknown_keys_are_reported);
   RUN_TEST(test_newer_version_is_reported);
   RUN_TEST(test_helpers);
+  RUN_TEST(test_briefing_template_orders_the_columns);
   return UNITY_END();
 }

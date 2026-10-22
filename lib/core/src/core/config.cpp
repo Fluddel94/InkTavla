@@ -46,6 +46,7 @@ struct LayoutTemplate {
 constexpr LayoutTemplate kLayouts[] = {
     {"one_plus_two", 3},  // column + two wide tiles
     {"three_columns", 3},
+    {"briefing", 3},  // band with a sentence + three columns
 };
 
 }  // namespace
@@ -200,8 +201,10 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
   if (!layout.isNull()) {
     reportUnknownKeys(layout, {"template", "slots"}, "layout", issues);
     const int t =
-        readChoice(layout, "template", {kLayouts[0].name, kLayouts[1].name}, 0, "layout", issues);
+        readChoice(layout, "template", {kLayouts[0].name, kLayouts[1].name, kLayouts[2].name}, 0,
+                   "layout", issues);
     c.layout = kLayouts[t].name;
+    if (c.layout == "briefing") c.slots = {"mvg", "calendar", "weather"};  // order of the design
 
     JsonVariantConst slots = layout["slots"];
     if (!slots.isNull()) {

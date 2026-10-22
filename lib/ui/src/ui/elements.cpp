@@ -260,6 +260,30 @@ int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_vi
   return end;
 }
 
+void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail) {
+  const int centre_x = canvas.width() / 2;
+  const Font& big = fonts::kRobotoCondensedMedium20;
+  const Font& small = fonts::kRobotoCondensedMedium15;
+  const std::vector<std::string> lines = wrapText(big, message, canvas.width(), 2);
+  const std::vector<std::string> details =
+      detail.empty() ? std::vector<std::string>{} : wrapText(small, detail, canvas.width(), 3);
+  const int height = 22 + 8 + 24 * static_cast<int>(lines.size()) +
+                     (details.empty() ? 0 : 4 + 18 * static_cast<int>(details.size()));
+  const int top = kColumnTitleBaseline + 8;
+  int y = top + std::max(0, (canvas.height() - top - height) / 2);
+  drawWarningSign(canvas, centre_x - warningSignWidth(22) / 2, y + 22, 22);
+  y += 22 + 8;
+  for (const std::string& l : lines) {
+    y += 24;
+    drawText(canvas, big, centre_x, y - 6, l, Color::kBlack, Align::kCenter);
+  }
+  y += 4;
+  for (const std::string& l : details) {
+    y += 18;
+    drawText(canvas, small, centre_x, y - 4, l, Color::kBlack, Align::kCenter);
+  }
+}
+
 int drawLineSymbolChain(Canvas& canvas, const Font& font, const Font& small, int x, int centre_y,
                         int height, const std::vector<ChainLink>& links, bool draw) {
   for (size_t i = 0; i < links.size(); i++) {

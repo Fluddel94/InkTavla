@@ -43,7 +43,10 @@ A widget consists of two parts (`widgets/widget.h`):
 
 All widgets are listed in `widgets/registry.cpp` with their ID, the slot
 sizes their view is made for and how their source and view are created.
-Every slot of a layout has a size type (column, tile, narrow column); a
+The layout templates are "one_plus_two" (style A), "three_columns" and
+"briefing" (a band with a sentence and the weather at the top, three
+columns below). Every slot of a layout has a size type (column, tile,
+narrow column, briefing wide column, briefing column); a
 widget placed on a slot it is not made for is reported and the slot shows
 "Passt hier nicht" instead of a clipped view. Adding a widget means adding
 its folder and one entry in `registry.cpp` (plus its API object in

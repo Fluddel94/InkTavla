@@ -34,8 +34,10 @@ struct CoreConfig {
   std::string time_zone;  // POSIX TZ, default kDefaultTimeZone
   std::string language = "de";
   std::string ntp_server = "pool.ntp.org";
-  int full_refresh_minutes = 60;  // full refresh against ghosting
-  std::string layout = "one_plus_two";
+  int full_refresh_minutes = 60;        // full refresh against ghosting
+  std::string layout = "one_plus_two";  // "one_plus_two", "three_columns" or "briefing"
+  // Default {"mvg", "weather", "calendar"}; for "briefing" {"mvg", "calendar",
+  // "weather"}.
   std::vector<std::string> slots = {"mvg", "weather", "calendar"};
 
   CoreConfig();

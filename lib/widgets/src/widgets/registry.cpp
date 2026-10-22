@@ -3,7 +3,10 @@
 #include <algorithm>
 #include <utility>
 
+#include "widgets/calendar/column_view.h"
 #include "widgets/calendar/config.h"
+#include "widgets/mvg/column_view.h"
+#include "widgets/weather/column_view.h"
 
 #if defined(ARDUINO)
 #include "widgets/calendar/api.h"
@@ -45,24 +48,34 @@ bool WidgetType::fits(ui::SlotSize size) const {
 const std::vector<WidgetType>& widgetTypes() {
   static const std::vector<WidgetType> types = {
       {"mvg",
-       {ui::SlotSize::kColumn},
+       {ui::SlotSize::kColumn, ui::SlotSize::kBriefingWide},
        createMvg,
-       [](const DataSource& s) -> std::unique_ptr<View> {
-         return std::make_unique<mvg::DeparturesView>(static_cast<const mvg::MvgSource&>(s));
+       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+         const auto& source = static_cast<const mvg::MvgSource&>(s);
+         if (size == ui::SlotSize::kBriefingWide) {
+           return std::make_unique<mvg::DeparturesColumnView>(source);
+         }
+         return std::make_unique<mvg::DeparturesView>(source);
        }},
       {"weather",
-       {ui::SlotSize::kTile},
+       {ui::SlotSize::kTile, ui::SlotSize::kBriefingColumn},
        createWeather,
-       [](const DataSource& s) -> std::unique_ptr<View> {
-         return std::make_unique<weather::ForecastView>(
-             static_cast<const weather::WeatherSource&>(s));
+       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+         const auto& source = static_cast<const weather::WeatherSource&>(s);
+         if (size == ui::SlotSize::kBriefingColumn) {
+           return std::make_unique<weather::ForecastColumnView>(source);
+         }
+         return std::make_unique<weather::ForecastView>(source);
        }},
       {"calendar",
-       {ui::SlotSize::kTile},
+       {ui::SlotSize::kTile, ui::SlotSize::kBriefingColumn},
        createCalendar,
-       [](const DataSource& s) -> std::unique_ptr<View> {
-         return std::make_unique<calendar::AgendaView>(
-             static_cast<const calendar::CalendarSource&>(s));
+       [](const DataSource& s, ui::SlotSize size) -> std::unique_ptr<View> {
+         const auto& source = static_cast<const calendar::CalendarSource&>(s);
+         if (size == ui::SlotSize::kBriefingColumn) {
+           return std::make_unique<calendar::AgendaColumnView>(source);
+         }
+         return std::make_unique<calendar::AgendaView>(source);
        }},
   };
   return types;

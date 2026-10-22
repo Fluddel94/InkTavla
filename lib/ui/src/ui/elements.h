@@ -93,6 +93,15 @@ int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_vi
                     std::string_view note = {}, TitleIcon icon = TitleIcon::kNone,
                     bool alert = false);
 
+// Baseline of the first column title (y 234 on the screen, columns start at
+// y 205).
+inline constexpr int kColumnTitleBaseline = 29;
+
+// Message in a column (no data, settings missing), below the title: warning
+// sign, message (Medium 20) and detail (Medium 15), centred, both wrapped to
+// the column width.
+void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail = {});
+
 // One vehicle of a journey for drawLineSymbolChain().
 struct ChainLink {
   std::string label;  // "S4", "RB55"

@@ -102,25 +102,52 @@ reports are shown (serial monitor, settings page) follows later.
 | `language` | `"de"`, `"en"` | `"de"` | Language of texts on the display. |
 | `ntp_server` | text | `"pool.ntp.org"` | Time server (host name or IP address). |
 | `display.full_refresh_minutes` | 1–1440 | `60` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
-| `layout.template` | `"one_plus_two"`, `"three_columns"` | `"one_plus_two"` | Screen layout: one column plus two wide tiles, or three columns. |
-| `layout.slots` | list of widget IDs | `["mvg", "weather", "calendar"]` | Widget for each slot of the layout, in order (3 slots for both layouts). A widget may appear more than once; its data is fetched only once. |
+| `layout.template` | `"one_plus_two"`, `"three_columns"`, `"briefing"` | `"one_plus_two"` | Screen layout: one column plus two wide tiles, three columns, or "Briefing" (see below). |
+| `layout.slots` | list of widget IDs | `["mvg", "weather", "calendar"]`; for `"briefing"` `["mvg", "calendar", "weather"]` | Widget for each slot of the layout, in order (3 slots for every layout). A widget may appear more than once; its data is fetched only once. |
 
 Every slot has a size type, and each widget only goes on slots of the sizes
 its view is made for. A widget on another slot is reported
 (`layout.slots: widget "weather" does not fit slot 2 (narrow column); it
-fits: tile`) and the slot shows "Passt hier nicht" instead of a clipped view;
+fits: tile, briefing column`) and the slot shows "Passt hier nicht" instead of a clipped view;
 its data is not fetched there.
 
 | Template | Slot 1 | Slot 2 | Slot 3 |
 |---|---|---|---|
 | `one_plus_two` | column (358 × 438) | tile (440 × 218) | tile (440 × 218) |
 | `three_columns` | column (358 × 438) | narrow column (219 × 438) | narrow column (219 × 438) |
+| `briefing` | briefing wide column (264 × 259) | briefing column (214 × 259) | briefing column (214 × 259) |
 
 | Widget | Fits |
 |---|---|
-| `mvg` | column |
-| `weather` | tile |
-| `calendar` | tile |
+| `mvg` | column, briefing wide column |
+| `weather` | tile, briefing column |
+| `calendar` | tile, briefing column |
+
+### The "briefing" layout
+
+At the top a band with the date and time, a sentence and a weather picture
+with today's low and high; below three columns without frames that are
+filled down to the bottom edge. The sentence follows fixed rules (no AI):
+
+- a greeting by the time of day: "Guten Morgen" until 11:00, "Guten Tag"
+  until 18:00, then "Guten Abend";
+- today's weather for the hours still ahead: a rain probability of 70 % or
+  more gives "Ab 14 Uhr regnet es – Schirm mit." (or snow, thunderstorms)
+  and the umbrella as picture; 30–69 % gives "Ab 14 Uhr vielleicht Regen.";
+  below 30 % "Heute bleibt es trocken."; a high of 30° or more adds "Heiß,
+  bis 32°.";
+- without a connection for 60 s: "Keine Verbindung – die Angaben sind von
+  07:12." and a struck-through Wi-Fi symbol after the time.
+
+The band reads the weather section (`widgets.weather`) even if the weather
+column is not on the screen; without a location it only greets. Old weather
+data is left out of the sentence.
+
+The calendar column shows today (past events stay until midnight, "Keine
+Termine" without any), then the next day that has events ("MORGEN" or its
+weekday) if there is room, then the following events of the week, one line
+each, as many as fit. The departure column shows one list (title: the
+station) or the two `sections` (titles with an arrow), 28 px per row.
 
 ## Widgets
 
