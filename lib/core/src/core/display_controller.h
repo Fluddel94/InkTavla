@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "core/access_notice.h"
 #include "core/freshness.h"
 #include "core/refresh.h"
 #include "core/scheduler.h"
@@ -65,6 +66,8 @@ struct ScreenState {
   // DisplayController::kOfflineGraceMs, like a failing data source.
   bool network_connected = false;
   std::vector<ContentStatus> contents;  // in the order of addContent()
+  // Settings page or Wi-Fi setup hotspot, if open.
+  AccessNotice notice;
 };
 
 // Composes the frame from the state (implemented above core).
@@ -99,6 +102,14 @@ class DisplayController {
 
   // Fetches everything now (e.g. a button press).
   void requestUpdate();
+
+  // The next refresh of the panel is a full one (e.g. a button press
+  // against ghosting); redraws at once.
+  void requestFullRefresh();
+
+  // Shows or hides the notice of the settings page or the Wi-Fi setup;
+  // redraws at once when it changes.
+  void setAccessNotice(const AccessNotice& notice);
 
   // One pass of the main loop: runs due fetches, redraws and refreshes the
   // panel if anything changed. Returns the milliseconds until the next pass
@@ -135,6 +146,7 @@ class DisplayController {
   bool network_shown_ = true;       // network as shown in the last frame
   bool force_redraw_ = true;
   bool wall_valid_ = false;
+  AccessNotice notice_;
 };
 
 }  // namespace core

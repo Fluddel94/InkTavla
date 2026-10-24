@@ -397,6 +397,45 @@ void test_briefing_morning() {
   checkPanel(rig.display, "sim_briefing_offline");
 }
 
+void test_access_notices() {
+  // Settings page open: its notice replaces the sentence, the columns stay;
+  // only the band is refreshed.
+  Rig rig(kBriefingConfig, "access", true, kBriefingMorning);
+  rig.weather.fixture = "muenchen_20261022.json";
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  core::AccessNotice settings;
+  settings.mode = core::AccessMode::kSettings;
+  settings.address = "http://192.168.178.45";
+  settings.code = "482913";
+  settings.qr = "http://192.168.178.45/?code=482913";
+  settings.closes_wall_s = kBriefingMorning + 30 * 60;
+  const size_t before = rig.display.updates().size();
+  rig.app.controller().setAccessNotice(settings);
+  rig.runUntil(1000);
+  TEST_ASSERT_EQUAL_size_t(before + 1, rig.display.updates().size());
+  const hal::PngDisplay::Update& u = rig.display.updates().back();
+  TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
+  TEST_ASSERT_TRUE(contains(u.regions, 0, 44));      // band: notice instead of the sentence
+  TEST_ASSERT_FALSE(contains(u.regions, 545, 205));  // weather column unchanged
+  checkPanel(rig.display, "sim_settings_open");
+
+  // Saved Wi-Fi not reached since the start: the whole screen.
+  core::AccessNotice wifi;
+  wifi.mode = core::AccessMode::kWifiNotConnected;
+  wifi.network = "Heimnetz";
+  rig.app.controller().setAccessNotice(wifi);
+  rig.app.controller().requestFullRefresh();
+  rig.runUntil(2000);
+  TEST_ASSERT_TRUE(rig.display.updates().back().mode == hal::Refresh::kFull);
+  checkPanel(rig.display, "sim_wifi_missing");
+
+  // Closed again: the briefing as before.
+  rig.app.controller().setAccessNotice({});
+  rig.runUntil(3000);
+  TEST_ASSERT_TRUE(rig.app.controller().state().notice.mode == core::AccessMode::kNone);
+}
+
 void test_briefing_layout_variants() {
   // The variants for the display test: equal columns and dotted lines.
   std::string config = kBriefingConfig;
@@ -428,6 +467,7 @@ int main() {
   RUN_TEST(test_widget_in_a_column_it_does_not_fit);
   RUN_TEST(test_one_source_for_several_views);
   RUN_TEST(test_briefing_morning);
+  RUN_TEST(test_access_notices);
   RUN_TEST(test_briefing_layout_variants);
   RUN_TEST(test_briefing_not_set_up);
   return UNITY_END();

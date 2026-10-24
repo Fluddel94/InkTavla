@@ -86,6 +86,37 @@ const char* text(Language language, Text id) {
       return de ? "Passt hier nicht" : "Does not fit here";
     case Text::kDisruption:
       return de ? "Störung" : "Disruption";
+    case Text::kSettingsOpen:
+      return de ? "Die Einstellungen sind offen." : "The settings are open.";
+    case Text::kSettingsBrowser:
+      return de ? "Im Browser:" : "In a browser:";
+    case Text::kSettingsCode:
+      return "Code:";
+    case Text::kSettingsQr:
+      return de ? "Oder den QR-Code scannen." : "Or scan the QR code.";
+    case Text::kOpenUntil:
+      return de ? "Offen bis" : "Open until";
+    case Text::kSetupHeading:
+      return de ? "WLAN-Einrichtung" : "Wi-Fi setup";
+    case Text::kWifiNotSetUpTitle:
+      return de ? "Noch kein WLAN eingerichtet." : "No Wi-Fi set up yet.";
+    case Text::kWifiNotConnectedTitle:
+      return de ? "Das WLAN ist nicht erreichbar." : "The Wi-Fi cannot be reached.";
+    case Text::kWifiSaved:
+      return de ? "Gespeichert:" : "Saved:";
+    case Text::kSetupStep1:
+      return de ? "Das Display per USB-Kabel mit einem Computer verbinden."
+                : "Connect the display to a computer with a USB cable.";
+    case Text::kSetupStep2:
+      return de ? "In Chrome oder Edge die WLAN-Einrichtung (Improv) öffnen und das Display "
+                  "auswählen."
+                : "Open the Wi-Fi setup (Improv) in Chrome or Edge and choose the display.";
+    case Text::kSetupStep3:
+      return de ? "Dein WLAN auswählen, Passwort eingeben, verbinden."
+                : "Choose your Wi-Fi, enter its password, connect.";
+    case Text::kWifiRetrying:
+      return de ? "Das Display versucht es weiter mit dem gespeicherten WLAN."
+                : "The display keeps trying the saved Wi-Fi.";
   }
   return "";
 }

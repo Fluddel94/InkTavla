@@ -33,7 +33,7 @@ RefreshPlanner::RefreshPlanner(int full_refresh_minutes)
 RefreshPlan RefreshPlanner::plan(const FrameView& shown, const FrameView& next,
                                  const std::vector<hal::Rect>& areas, int64_t now_ms) const {
   RefreshPlan p;
-  if (shown.data == nullptr || !had_full_) {
+  if (shown.data == nullptr || !had_full_ || full_requested_) {
     p.mode = hal::Refresh::kFull;
     return p;
   }
@@ -50,6 +50,7 @@ RefreshPlan RefreshPlanner::plan(const FrameView& shown, const FrameView& next,
 void RefreshPlanner::done(const RefreshPlan& plan, int64_t now_ms) {
   if (plan.mode == hal::Refresh::kFull) {
     had_full_ = true;
+    full_requested_ = false;
     last_full_ms_ = now_ms;
   }
 }

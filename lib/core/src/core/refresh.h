@@ -42,12 +42,16 @@ class RefreshPlanner {
   RefreshPlan plan(const FrameView& shown, const FrameView& next,
                    const std::vector<hal::Rect>& areas, int64_t now_ms) const;
 
+  // The next plan is a full refresh (also if nothing changed).
+  void requestFull() { full_requested_ = true; }
+
   // Reports that a plan was carried out.
   void done(const RefreshPlan& plan, int64_t now_ms);
 
  private:
   int64_t full_interval_ms_;
   bool had_full_ = false;
+  bool full_requested_ = false;
   int64_t last_full_ms_ = 0;
 };
 

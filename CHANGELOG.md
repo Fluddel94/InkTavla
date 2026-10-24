@@ -186,6 +186,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layout variants for the display test, off by default: three columns of
   the same width (`layout.grid` = `"equal"`) and dotted lines between the
   columns (`layout.dividers`).
+- Buttons KEY1–KEY3 of the EE04 board in the HAL: interrupt per button,
+  debouncing, short and long presses (rules of the MVG departure display),
+  functions in one table. KEY1 fetches everything and does a full refresh.
+- Screen without Wi-Fi: without a saved network, or if the saved one was
+  not reached for 10 minutes since the start, the whole screen shows how to
+  set up Wi-Fi over the USB cable (Improv) and the name of the saved
+  network. A connection lost later still only shows the offline hints.
+- Notice for the settings page (follows): while it is open, the band shows
+  its address, a one-time code and a QR code instead of the sentence.
+  Reference images `sim_settings_open` and `sim_wifi_missing`.
+- QR Code generator library 1.8.0 by Project Nayuki (MIT), copied into
+  `lib/qrcodegen`.
 
 ### Removed
 

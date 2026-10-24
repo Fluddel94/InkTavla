@@ -64,6 +64,10 @@ struct BandData {
 // The whole sentence before fitting: the greeting and all parts.
 std::string bandSentence(const DrawContext& context, const BandData& data);
 
+// Header line of the band: date and time in spaced capitals, the
+// struck-through Wi-Fi symbol after the time when offline.
+void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context);
+
 // Draws the band (see above) into a canvas of 800 x 205.
 void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& data);
 

@@ -39,6 +39,21 @@ enum class Text {
   kCalendarAddressMissing,  // calendar widget without an iCal address
   kDoesNotFit,              // a widget in a column of a size it is not made for
   kDisruption,              // heading of disruption messages: "Störung S3, S4"
+  // Settings page open (band instead of the sentence).
+  kSettingsOpen,     // "Einstellungen sind offen."
+  kSettingsBrowser,  // before the address: "Im Browser:"
+  kSettingsCode,     // before the one-time code: "Code:"
+  kSettingsQr,       // "Oder den QR-Code scannen."
+  kOpenUntil,        // before a time: "Offen bis"
+  // No Wi-Fi (whole screen, set up over USB).
+  kSetupHeading,           // header line: "WLAN-Einrichtung"
+  kWifiNotSetUpTitle,      // "Noch kein WLAN eingerichtet."
+  kWifiNotConnectedTitle,  // "Das WLAN ist nicht erreichbar."
+  kWifiSaved,              // before the name of the saved network: "Gespeichert:"
+  kSetupStep1,             // connect the display to a computer by USB
+  kSetupStep2,             // open the Wi-Fi setup (Improv) in Chrome or Edge
+  kSetupStep3,             // choose your Wi-Fi, enter its password
+  kWifiRetrying,           // footer: still trying the saved network
 };
 
 const char* text(Language language, Text id);

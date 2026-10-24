@@ -14,6 +14,10 @@
 //  - no data for 60 s or more: "Keine Verbindung" (no Wi-Fi) or "Keine Daten"
 //  - not set up: the source's setup message
 // Views without sources are always drawn.
+//
+// While the settings page is open, the band shows its notice instead of the
+// sentence; without Wi-Fi (see core::wifiNoticeMode()) the whole screen
+// shows how to set it up (widgets/briefing/access.h).
 
 #include <cstdint>
 #include <string>

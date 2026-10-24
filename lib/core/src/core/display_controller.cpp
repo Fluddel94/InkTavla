@@ -52,6 +52,17 @@ void DisplayController::requestUpdate() {
   }
 }
 
+void DisplayController::requestFullRefresh() {
+  planner_.requestFull();
+  force_redraw_ = true;
+}
+
+void DisplayController::setAccessNotice(const AccessNotice& notice) {
+  if (notice == notice_) return;
+  notice_ = notice;
+  force_redraw_ = true;
+}
+
 int64_t DisplayController::step() {
   const int64_t now_ms = clock_.monotonicMs();
   int64_t wall_s = clock_.wallTime();
@@ -106,6 +117,7 @@ int64_t DisplayController::step() {
 void DisplayController::buildState(int64_t now_ms, int64_t wall_s) {
   state_.wall_s = wall_s;
   state_.network_connected = network_shown_;
+  state_.notice = notice_;
   state_.contents.clear();
   for (const Entry& e : entries_) {
     state_.contents.push_back({e.freshness.state(now_ms), e.freshness.lastSuccessWall()});

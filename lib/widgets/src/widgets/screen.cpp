@@ -6,6 +6,7 @@
 
 #include "core/time.h"
 #include "ui/elements.h"
+#include "widgets/briefing/access.h"
 
 namespace widgets {
 
@@ -37,11 +38,28 @@ std::vector<hal::Rect> Screen::areas() const {
 
 core::FrameView Screen::render(const core::ScreenState& state) {
   bitmap_.clear(ui::Color::kWhite);
+  DrawContext base;
+  base.now_s = state.wall_s;
+  base.language = language_;
+  base.network_connected = state.network_connected;
+  if (state.notice.mode == core::AccessMode::kWifiNotSetUp ||
+      state.notice.mode == core::AccessMode::kWifiNotConnected) {
+    // No Wi-Fi: the whole screen shows how to set it up.
+    ui::BitmapCanvas canvas(bitmap_, 0, 0, ui::kScreenWidth, ui::kScreenHeight);
+    briefing::drawWifiScreen(canvas, base, state.notice);
+    return {bitmap_.data(), bitmap_.width(), bitmap_.height(), bitmap_.stride()};
+  }
   // views_[0] is the band, views_[i] the view of column i - 1.
   const size_t count = std::min(views_.size(), layout_.slots.size() + 1);
   for (size_t i = 0; i < count; i++) {
     if (views_[i] == nullptr) continue;
     const ui::Rect area = i == 0 ? layout_.header : ui::contentOf(layout_, i - 1);
+    if (i == 0 && state.notice.mode == core::AccessMode::kSettings) {
+      // Settings page open: its notice instead of the sentence.
+      ui::BitmapCanvas canvas(bitmap_, area.x, area.y, area.w, area.h);
+      briefing::drawSettingsBand(canvas, base, state.notice);
+      continue;
+    }
     drawArea(*views_[i], area, state);
   }
   for (const ui::Rect& d : layout_.dividers) {

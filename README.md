@@ -68,6 +68,30 @@ The display controller (`core/display_controller.h`) runs the device:
   changed areas; every `display.full_refresh_minutes` it does a full refresh
   against ghosting.
 
+### Buttons
+
+The three buttons of the EE04 board are read by an interrupt, so a press is
+not lost while the panel refreshes or data is fetched (debouncing as in the
+MVG departure display, `core/buttons.h`). Their functions are listed in one
+table (`core/keys.cpp`):
+
+| Button | Short press |
+|---|---|
+| KEY1 (GPIO2) | Fetch everything now and refresh the whole panel |
+| KEY2 (GPIO3) | – (planned: system log) |
+| KEY3 (GPIO5) | Settings page (follows) |
+
+Long presses (held for 5 s) are supported but not used yet.
+
+### Without Wi-Fi
+
+Wi-Fi is set up over the USB cable with Improv. Without a saved network,
+the screen shows the steps for that at once. If a saved network has not
+been reached for 10 minutes since the start (e.g. a new router), the same
+screen shows its name; the device keeps trying in the background. A
+connection lost later only shows the offline hints of the normal screen
+(struck-through Wi-Fi symbol, age badges).
+
 The whole loop also runs on the PC with a simulated clock, simulated data
 and a simulated panel that writes every refresh as a PNG file
 (`hal::PngDisplay`, see `test/test_app_simulation`).
@@ -178,6 +202,7 @@ Nothing user-specific is compiled in.
 | Library | Version | License | Used for |
 |---|---|---|---|
 | [ArduinoJson](https://arduinojson.org/) | 7.4.3 | MIT | Reading API responses |
+| [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) (C) | 1.8.0 | MIT | QR code of the settings notice, copied into `lib/qrcodegen` |
 | [Unity](https://www.throwtheswitch.org/unity) | 2.6.1 | MIT | Unit tests only |
 | [Roboto Condensed](https://github.com/googlefonts/roboto-classic) (font) | 3.008 | SIL OFL 1.1 | Text on the display, converted by `tools/fontgen` |
 | [Fraunces](https://github.com/undercasetype/Fraunces) (font) | 1.000 | SIL OFL 1.1 (no Reserved Font Name) | Sentence and events of the "Briefing" layout, converted by `tools/fontgen` |

@@ -33,6 +33,9 @@ class Wifi {
   // pauses.
   void setBusy(bool busy) { busy_ = busy; }
 
+  // Whether a network is saved (cached, no NVS access).
+  bool credentialsSaved() const { return has_credentials_; }
+
   static bool hasCredentials();
   static bool loadCredentials(std::string& ssid, std::string& password);
   static bool saveCredentials(const std::string& ssid, const std::string& password);

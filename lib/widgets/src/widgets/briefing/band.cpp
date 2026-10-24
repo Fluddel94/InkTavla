@@ -113,8 +113,8 @@ std::string bandSentence(const DrawContext& context, const BandData& data) {
   return joinSentence(greetingNow(context), parts, parts.size());
 }
 
-void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& data) {
-  // Header line: "DIENSTAG, 20. OKTOBER · 07:42" (Wi-Fi symbol when offline).
+void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context) {
+  // "DIENSTAG, 20. OKTOBER · 07:42" (Wi-Fi symbol when offline).
   core::LocalTime local;
   const bool valid =
       core::isValidUnixTime(context.now_s) && core::toLocalTime(context.now_s, local);
@@ -130,6 +130,10 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
   if (!context.network_connected) {
     ui::drawWifiSymbol(canvas, end + 12, kHeaderBaseline - kWifiSize + 2, kWifiSize, false);
   }
+}
+
+void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& data) {
+  drawHeaderLine(canvas, context);
 
   // Sentence.
   const SentenceLayout layout =
