@@ -10,6 +10,7 @@
 #include <string>
 
 #include "core/config.h"
+#include "core/config_command.h"
 #include "core/display_controller.h"
 #include "core/secrets.h"
 #include "core/serial_link.h"
@@ -54,6 +55,9 @@ std::string info() {
 }  // namespace
 
 void setup() {
+  // The USB serial line drops what does not fit into its receive buffer
+  // (default 256 bytes); a whole configuration file arrives at once.
+  Serial.setRxBufferSize(core::kMaxConfigBytes + core::CommandParser::kMaxLine);
   Serial.begin(115200);
   Serial.setTxTimeoutMs(0);  // Do not block when no serial monitor is open.
 
