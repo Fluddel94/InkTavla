@@ -72,8 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration; `src/main.cpp` only provides clock and panel and loads
   `/config.json` from LittleFS.
 - HAL: display interface with full and partial refresh, a simulated panel for
-  the PC that writes PNG files, and a placeholder for the TRMNL panel (driver
-  in phase B).
+  the PC that writes PNG files, and the driver for the TRMNL panel (UC8179
+  on the EE04 board, SPI without an extra library): full refresh with the OTP
+  waveform, partial refresh of the reported regions with the fast waveform;
+  pins and register values as in Seeed_GFX (FreeBSD license).
 - Simulation of the complete main loop on the PC (simulated clock, MVG data
   and outages).
 
