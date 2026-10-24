@@ -30,7 +30,8 @@ inline constexpr int kSentenceX = 26;
 inline constexpr int kSentenceWidth = 564;  // up to x 590, left of the picture
 inline constexpr int kPictureX = 622;
 inline constexpr int kPictureY = 18;
-inline constexpr int kRangeX = 630;
+// Low and high: centred under the drawn part of the picture, at most up to
+// the right edge of the rule.
 inline constexpr int kRangeBaseline = 186;
 inline constexpr int kRuleY = 204;
 

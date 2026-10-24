@@ -76,12 +76,13 @@ void test_example_file_section() {
 void test_values_are_read() {
   ConfigIssues issues;
   const Config c =
-      parse(R"({"station":"de:09182:43227","name":"Holzkirchen Bf",)"
+      parse(R"({"station":"de:09182:43227","name":"Holzkirchen Bf","note":"Bahnhof",)"
             R"("transport_types":["BAHN","SBAHN","BAHN"],"direction":"R","time_format":"minutes"})",
             issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_STRING("de:09182:43227", c.station.c_str());
   TEST_ASSERT_EQUAL_STRING("Holzkirchen Bf", c.name.c_str());
+  TEST_ASSERT_EQUAL_STRING("Bahnhof", c.note.c_str());
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kR);
   TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
   // Duplicates dropped, fixed order in the request.

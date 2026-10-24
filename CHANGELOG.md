@@ -197,6 +197,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A column waiting for its first data shows "Wird geladen …" without a
+  warning sign (with "Wartet auf WLAN" while offline) instead of only its
+  title.
+- When Wi-Fi connects, all data is fetched at once instead of after the next
+  retry.
+- Two directions of one station get a title line with the location pin and
+  the station name above the section titles; the new setting
+  `widgets.mvg.note` puts a free text on its right ("Bahnhof"). The age
+  badge takes the place of the note.
+- The disruption text above the departures is shortened (if need be to the
+  heading alone) so that every section keeps at least two departures.
+- MVG line symbols: the MVV symbols (S-Bahn, U-Bahn, tram, night tram,
+  16 px high) are used again, all 36 px wide like the widest original
+  (S-Bahn). Buses, regional trains, rail replacement services and lines
+  without a symbol get a square frame with the name in the pixel digits of
+  the tram symbols, as in the MVG departure display (frame 1 px for long
+  names), at least 36 px wide. The destinations line up after the widest
+  visible symbol.
+- The low and high in the band are centred under the weather picture.
 - "Briefing" is the only layout. The setting `layout.template` is no longer
   needed (other values are reported); `layout.slots` still orders the three
   columns (default: departures, calendar, weather).

@@ -32,6 +32,9 @@ enum class SymbolShape {
   kFrame,  // square frame, black label (buses, regional trains)
 };
 
+// Thickness of the frame of kFrame.
+inline constexpr int kSymbolFrame = 2;
+
 // Generated line symbol with the label centred in it.
 void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, int height,
                     std::string_view label, SymbolShape shape);
@@ -61,8 +64,9 @@ int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_vi
 inline constexpr int kColumnTitleBaseline = 29;
 
 // Message in a column (no data, settings missing), below the title: warning
-// sign, message (Medium 20) and detail (Medium 15), centred, both wrapped to
-// the column width.
-void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail = {});
+// sign (unless `warning` is false, e.g. while loading), message (Medium 20)
+// and detail (Medium 15), centred, both wrapped to the column width.
+void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail = {},
+                       bool warning = true);
 
 }  // namespace ui

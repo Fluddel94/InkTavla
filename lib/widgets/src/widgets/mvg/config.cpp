@@ -163,10 +163,10 @@ bool isValidStationId(const std::string& id) {
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
-  core::reportUnknownKeys(
-      section,
-      {"station", "name", "transport_types", "lines", "direction", "sections", "time_format"},
-      kPath, issues);
+  core::reportUnknownKeys(section,
+                          {"station", "name", "note", "transport_types", "lines", "direction",
+                           "sections", "time_format"},
+                          kPath, issues);
 
   const std::string station = core::readString(section, "station", "", 32, kPath, issues);
   if (station.empty() || isValidStationId(station)) {
@@ -176,6 +176,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   }
 
   c.name = core::readString(section, "name", "", 64, kPath, issues);
+  c.note = core::readString(section, "note", "", kMaxSectionNote, kPath, issues);
 
   JsonVariantConst types = section["transport_types"];
   if (!types.isNull()) {

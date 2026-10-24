@@ -265,6 +265,7 @@ void test_no_connection_from_the_start() {
   rig.source.fail = true;
   rig.runUntil(30000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kWaiting);
+  checkPanel(rig.display, "sim_waiting");
   rig.runUntil(75000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kNoData);
   checkPanel(rig.display, "sim_no_connection");

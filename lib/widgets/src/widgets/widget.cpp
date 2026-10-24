@@ -13,9 +13,9 @@ void View::drawTitle(ui::Canvas& canvas, ui::Language language) {
 }
 
 void View::drawMessage(ui::Canvas& canvas, ui::Language language, std::string_view message,
-                       std::string_view detail) {
+                       std::string_view detail, bool warning) {
   drawTitle(canvas, language);
-  ui::drawColumnMessage(canvas, message, detail);
+  ui::drawColumnMessage(canvas, message, detail, warning);
 }
 
 }  // namespace widgets

@@ -19,6 +19,7 @@ enum class Text {
   kNoConnection,  // a widget has never received data
   kNoConnectionDetail,
   kNoData,          // a widget's data could not be read
+  kLoading,         // a widget waiting for its first data
   kNotSetUp,        // a column or widget without the settings it needs
   kNotAvailable,    // a widget that does not exist (yet)
   kStationMissing,  // MVG widget without a station

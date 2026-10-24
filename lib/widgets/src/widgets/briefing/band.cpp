@@ -1,5 +1,6 @@
 #include "widgets/briefing/band.h"
 
+#include <algorithm>
 #include <cstdio>
 
 #include "core/time.h"
@@ -17,6 +18,22 @@ using ui::Color;
 
 constexpr int kHeaderSpacing = 16;  // 2 px
 constexpr int kWifiSize = 18;
+
+// Centre (x) of the drawn pixels of an icon, relative to its left edge.
+int inkCentre(const ui::Icon& icon) {
+  const int bytes_per_row = (icon.width + 7) / 8;
+  int left = icon.width;
+  int right = -1;
+  for (int y = 0; y < icon.height; y++) {
+    for (int x = 0; x < icon.width; x++) {
+      if ((icon.bits[y * bytes_per_row + x / 8] >> (7 - x % 8)) & 1) {
+        left = std::min(left, x);
+        right = std::max(right, x);
+      }
+    }
+  }
+  return right < 0 ? icon.width / 2 : (left + right + 1) / 2;
+}
 
 }  // namespace
 
@@ -128,9 +145,14 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
   if (data.forecast != nullptr) {
     const WeatherSummary s = summarize(*data.forecast, context.now_s);
     if (s.valid) {
-      ui::drawIcon(canvas, kPictureX, kPictureY, ui::bandIcon(s.picture));
-      ui::drawText(canvas, ui::fonts::kFraunces24Medium, kRangeX, kRangeBaseline,
-                   rangeText(s, context.language));
+      const ui::Icon& picture = ui::bandIcon(s.picture);
+      ui::drawIcon(canvas, kPictureX, kPictureY, picture);
+      const ui::Font& font = ui::fonts::kFraunces24Medium;
+      const std::string range = rangeText(s, context.language);
+      const int width = ui::textWidth(font, range);
+      const int x =
+          std::min(kPictureX + inkCentre(picture) - width / 2, ui::kScreenWidth - kHeaderX - width);
+      ui::drawText(canvas, font, x, kRangeBaseline, range);
     }
   }
 

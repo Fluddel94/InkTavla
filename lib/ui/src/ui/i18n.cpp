@@ -46,6 +46,8 @@ const char* text(Language language, Text id) {
       return de ? "Wartet auf WLAN" : "Waiting for Wi-Fi";
     case Text::kNoData:
       return de ? "Keine Daten" : "No data";
+    case Text::kLoading:
+      return de ? "Wird geladen …" : "Loading …";
     case Text::kNotSetUp:
       return de ? "Nicht eingerichtet" : "Not set up";
     case Text::kNotAvailable:

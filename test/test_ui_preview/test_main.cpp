@@ -29,6 +29,7 @@
 #include "widgets/mvg/column_view.h"
 #include "widgets/mvg/config.h"
 #include "widgets/mvg/departures.h"
+#include "widgets/mvg/line_icons.h"
 #include "widgets/mvg/sections.h"
 
 namespace {
@@ -121,6 +122,41 @@ void caption(ui::Canvas& c, int centre_x, int baseline, const char* text) {
                ui::Align::kCenter);
 }
 
+// All line symbols: every MVV original (drawn kLineIconWidth wide) and
+// generated ones for regional trains, buses and replacement services.
+void test_line_symbols() {
+  ui::Bitmap bitmap(ui::kScreenWidth, 200);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas c(bitmap);
+  const char* originals[] = {"S1",  "S2",  "S3",  "S4",  "S5",  "S6",  "S7",  "S8", "S20",
+                             "U1",  "U2",  "U3",  "U4",  "U5",  "U6",  "U7",  "U8", "12",
+                             "14",  "15",  "16",  "17",  "18",  "19",  "20",  "21", "22",
+                             "23",  "24",  "25",  "26",  "27",  "28",  "29",  "37", "N15",
+                             "N16", "N17", "N18", "N19", "N20", "N21", "N27", "N37"};
+  int i = 0;
+  for (const char* label : originals) {
+    const widgets::mvg::LineIcon* icon = widgets::mvg::findLineIcon(label);
+    TEST_ASSERT_NOT_NULL(icon);
+    widgets::mvg::drawLineIcon(c, 12 + (i % 16) * 49, 10 + (i / 16) * 26, *icon);
+    i++;
+  }
+  caption(c, 400, 100, "MVV-Originale, alle 36 px breit");
+  struct Line {
+    const char* label;
+    bool bus;
+  };
+  const Line generated[] = {{"RB55", false}, {"RE80", false}, {"RB", false}, {"56", true},
+                            {"130", true},   {"X731", true},  {"N40", true}, {"SEV", true},
+                            {"S2", true},    {"S9", false},   {"U9", false}};
+  int x = 12;
+  for (const Line& l : generated) {
+    x += widgets::mvg::drawLineSymbol(c, x, 130, l.label, l.bus) + 14;
+  }
+  caption(c, 400, 170,
+          "Erzeugt wie im Abfahrtsdisplay: Regionalzug, Bus, SEV, Linien ohne Original");
+  check(bitmap, "mvg_line_symbols");
+}
+
 // All symbols of the Briefing design: the large weather pictures of the
 // band, the weather symbols of the columns and the small symbols.
 void test_briefing_symbols() {
@@ -164,22 +200,20 @@ void test_briefing_symbols() {
   ui::drawWarningSign(c, 646, 345, 18);
   caption(c, 643, 364, "Warnung 15/18");
 
-  // Line symbols, 22 px high (Bold 17).
-  const ui::Font& f = ui::fonts::kRobotoCondensedBold17;
+  // Line symbols: MVV originals and generated ones (see mvg_line_symbols).
   struct Line {
     const char* label;
-    ui::SymbolShape shape;
+    bool bus;
     const char* name;
   };
-  const Line lines[] = {{"S4", ui::SymbolShape::kPill, "S-Bahn"},
-                        {"U6", ui::SymbolShape::kRect, "U-Bahn"},
-                        {"19", ui::SymbolShape::kBox, "Tram"},
-                        {"RB55", ui::SymbolShape::kFrame, "Regionalzug"},
-                        {"56", ui::SymbolShape::kFrame, "Bus/SEV"}};
+  const Line lines[] = {{"S4", false, "S-Bahn"},
+                        {"U6", false, "U-Bahn"},
+                        {"19", false, "Tram"},
+                        {"RB55", false, "Regionalzug"},
+                        {"56", true, "Bus/SEV"}};
   int x = 20;
   for (const Line& l : lines) {
-    const int w = std::max(44, ui::textWidth(f, l.label) + 16);
-    ui::drawLineSymbol(c, f, x, 392, w, 22, l.label, l.shape);
+    const int w = widgets::mvg::drawLineSymbol(c, x, 395, l.label, l.bus);
     caption(c, x + w / 2, 430, l.name);
     x += w + 36;
   }
@@ -257,6 +291,7 @@ void test_briefing_parts() {
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_departure_columns_from_real_data);
+  RUN_TEST(test_line_symbols);
   RUN_TEST(test_briefing_symbols);
   RUN_TEST(test_briefing_parts);
   return UNITY_END();

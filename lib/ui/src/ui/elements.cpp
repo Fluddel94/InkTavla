@@ -103,7 +103,7 @@ void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, i
       break;
     case SymbolShape::kFrame:
       canvas.fillRect(x, y, width, height, Color::kWhite);
-      canvas.drawRect(x, y, width, height, Color::kBlack, 2);
+      canvas.drawRect(x, y, width, height, Color::kBlack, kSymbolFrame);
       text = Color::kBlack;
       break;
   }
@@ -162,19 +162,21 @@ int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_vi
   return end;
 }
 
-void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail) {
+void drawColumnMessage(Canvas& canvas, std::string_view message, std::string_view detail,
+                       bool warning) {
   const int centre_x = canvas.width() / 2;
   const Font& big = fonts::kRobotoCondensedMedium20;
   const Font& small = fonts::kRobotoCondensedMedium15;
   const std::vector<std::string> lines = wrapText(big, message, canvas.width(), 2);
   const std::vector<std::string> details =
       detail.empty() ? std::vector<std::string>{} : wrapText(small, detail, canvas.width(), 3);
-  const int height = 22 + 8 + 24 * static_cast<int>(lines.size()) +
+  const int sign = warning ? 22 + 8 : 0;
+  const int height = sign + 24 * static_cast<int>(lines.size()) +
                      (details.empty() ? 0 : 4 + 18 * static_cast<int>(details.size()));
   const int top = kColumnTitleBaseline + 8;
   int y = top + std::max(0, (canvas.height() - top - height) / 2);
-  drawWarningSign(canvas, centre_x - warningSignWidth(22) / 2, y + 22, 22);
-  y += 22 + 8;
+  if (warning) drawWarningSign(canvas, centre_x - warningSignWidth(22) / 2, y + 22, 22);
+  y += sign;
   for (const std::string& l : lines) {
     y += 24;
     drawText(canvas, big, centre_x, y - 6, l, Color::kBlack, Align::kCenter);

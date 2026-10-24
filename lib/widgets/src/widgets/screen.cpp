@@ -84,7 +84,9 @@ void Screen::drawArea(View& view, const ui::Rect& area, const core::ScreenState&
       view.draw(canvas, context);
       return;
     case core::DataState::kWaiting:
-      view.drawTitle(canvas, language_);
+      view.drawMessage(
+          canvas, language_, ui::text(language_, ui::Text::kLoading),
+          state.network_connected ? "" : ui::text(language_, ui::Text::kNoConnectionDetail), false);
       return;
     case core::DataState::kNoData:
       if (state.network_connected) {

@@ -37,6 +37,9 @@ void DisplayController::setNetworkConnected(bool connected) {
   if (connected == network_connected_) return;
   network_connected_ = connected;
   network_changed_ms_ = clock_.monotonicMs();
+  // Attempts without a connection have failed; fetch again at once instead
+  // of waiting for the next retry.
+  if (connected) requestUpdate();
 }
 
 bool DisplayController::networkShown(int64_t now_ms) const {

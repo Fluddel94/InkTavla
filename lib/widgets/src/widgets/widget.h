@@ -76,11 +76,11 @@ class View {
   virtual std::string title(ui::Language language) const = 0;
   // Draws the current data into the area.
   virtual void draw(ui::Canvas& canvas, const DrawContext& context) = 0;
-  // Only the title (waiting for the first data), and the title with a
-  // message below it (no data, settings missing).
+  // Only the title, and the title with a message below it (no data,
+  // settings missing: with a warning sign; loading: without).
   virtual void drawTitle(ui::Canvas& canvas, ui::Language language);
   virtual void drawMessage(ui::Canvas& canvas, ui::Language language, std::string_view message,
-                           std::string_view detail);
+                           std::string_view detail, bool warning = true);
 };
 
 }  // namespace widgets

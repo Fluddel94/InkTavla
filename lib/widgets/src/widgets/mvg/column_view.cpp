@@ -8,6 +8,7 @@
 #include "ui/rows.h"
 #include "ui/text.h"
 #include "widgets/mvg/departures.h"
+#include "widgets/mvg/line_icons.h"
 #include "widgets/mvg/sections.h"
 
 namespace widgets::mvg {
@@ -18,8 +19,7 @@ using ui::Color;
 
 // Sizes of the Briefing design (design/briefing/werkzeug, dep_block()).
 constexpr int kFirstRowTop = ui::kColumnTitleBaseline + 6;
-constexpr int kSymbolHeight = 22;
-constexpr int kSymbolPadding = 22;  // added to the label width (measured in Bold 20)
+constexpr int kSymbolHeight = kLineIconHeight;  // MVV symbols, see line_icons.h
 constexpr int kDestinationGap = 8;
 constexpr int kTimeRightMargin = 30;  // right edge of the time from the column edge
 constexpr int kTimeGap = 10;          // between destination and time
@@ -32,8 +32,6 @@ constexpr int kIncidentHeadingX = 24;
 constexpr int kIncidentLineStep = 20;
 constexpr int kIncidentTitleGap = 28;  // last text line to the first title
 
-const ui::Font& symbolFont() { return ui::fonts::kRobotoCondensedBold17; }
-const ui::Font& symbolMeasureFont() { return ui::fonts::kRobotoCondensedBold20; }
 const ui::Font& destinationFont() { return ui::fonts::kRobotoCondensedMedium20; }
 const ui::Font& timeFont() { return ui::fonts::kRobotoCondensedBold21; }
 const ui::Font& delayFont() { return ui::fonts::kRobotoCondensedBold15; }
@@ -50,44 +48,33 @@ std::string joinLines(const std::vector<std::string>& lines) {
 }
 
 // Draws the disruption messages from the top of the column; returns the
-// baseline of the first title below them.
-int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int sections,
+// baseline of the first title below them. `below` is the space the station
+// title takes between them and the sections.
+int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int sections, int below,
                   ui::Language language) {
   const int baseline = ui::kColumnTitleBaseline;
   ui::drawWarningSign(c, 0, baseline, kIncidentSignHeight);
   ui::drawText(c, incidentHeadingFont(), kIncidentHeadingX, baseline,
                ui::fitTextEllipsis(incidentHeadingFont(), incidentHeading(incidents, language),
                                    c.width() - kIncidentHeadingX));
-  // As many lines as leave every section at least one row; with sections
-  // at most kIncidentMaxLinesSections.
+  // As many lines as leave every section kIncidentMinRows rows, if need be
+  // only the heading; with sections at most kIncidentMaxLinesSections.
   int max_lines = sections > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
-  while (max_lines > 1 &&
-         columnRowsThatFit(c.height() - kIncidentLineStep * max_lines - kIncidentTitleGap,
-                           sections) < sections) {
+  while (max_lines > 0 &&
+         columnRowsThatFit(c.height() - below - kIncidentLineStep * max_lines - kIncidentTitleGap,
+                           sections) < kIncidentMinRows * sections) {
     max_lines--;
   }
-  const std::vector<std::string> lines =
-      ui::wrapText(incidentTextFont(), incidentText(incidents), c.width(), max_lines);
+  std::vector<std::string> lines;
+  if (max_lines > 0) {
+    lines = ui::wrapText(incidentTextFont(), incidentText(incidents), c.width(), max_lines);
+  }
   int y = baseline;
   for (const std::string& line : lines) {
     y += kIncidentLineStep;
     ui::drawText(c, incidentTextFont(), 0, y, line);
   }
   return y + kIncidentTitleGap;
-}
-
-ui::SymbolShape shapeFor(const Departure& d) {
-  if (d.bus) return ui::SymbolShape::kFrame;  // buses and replacement services
-  switch (d.transport) {
-    case TransportType::kTrain:
-      return ui::SymbolShape::kFrame;
-    case TransportType::kSBahn:
-      return ui::SymbolShape::kPill;
-    case TransportType::kUBahn:
-      return ui::SymbolShape::kRect;
-    default:
-      return ui::SymbolShape::kBox;  // tram
-  }
 }
 
 std::string timeText(const TimeDisplay& t, ui::Language language) {
@@ -111,8 +98,7 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
   const int centre = top + kColumnRowHeight / 2;
   const int baseline = centre + 7;
   const TimeDisplay t = timeDisplay(d, options.time_format, options.now_s);
-  ui::drawLineSymbol(c, symbolFont(), 0, centre - kSymbolHeight / 2, symbol_width, kSymbolHeight,
-                     d.line, shapeFor(d));
+  drawLineSymbol(c, 0, centre - kSymbolHeight / 2, d.line, d.bus);
 
   const int time_right = c.width() - kTimeRightMargin;
   const int dest_x = symbol_width + kDestinationGap;
@@ -172,13 +158,21 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
                          const ColumnOptions& options) {
   const bool list = sections.size() == 1 && sections[0].name.empty();
   const int n = std::max(1, static_cast<int>(sections.size()));
+  bool own_stations = false;
+  for (const Section& s : sections) own_stations = own_stations || s.own_station;
+  // Two directions get the station title above their section titles.
+  const bool station_above = !sections.empty() && !list && !own_stations;
+  const bool age = !options.note.empty();
   int first_title = ui::kColumnTitleBaseline;
   if (!options.incidents.empty()) {
-    first_title = drawIncidents(canvas, options.incidents, n, options.language);
+    first_title = drawIncidents(canvas, options.incidents, n, station_above ? kStationTitleStep : 0,
+                                options.language);
   }
-  if (sections.empty() || list) {
-    ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station, options.note,
-                        ui::TitleIcon::kPin, options.note_alert);
+  if (sections.empty() || list || station_above) {
+    ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station,
+                        age ? options.note : options.station_note, ui::TitleIcon::kPin,
+                        age && options.note_alert);
+    if (station_above) first_title += kStationTitleStep;
   }
   if (sections.empty()) return 0;
 
@@ -187,14 +181,13 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   const std::vector<int> rows = ui::distributeRows(
       columnRowsThatFit(canvas.height() - (first_title - ui::kColumnTitleBaseline), n), available);
 
-  // Common symbol width of all visible rows, so the destinations line up.
-  int symbol_width = ui::textWidth(symbolMeasureFont(), "S8") + kSymbolPadding;
+  // The destinations line up after the widest visible symbol.
+  int symbol_width = kLineIconWidth;
   for (int s = 0; s < n; s++) {
     const int count = std::min(rows[s], static_cast<int>(sections[s].departures.size()));
     for (int i = 0; i < count; i++) {
-      symbol_width = std::max(
-          symbol_width,
-          ui::textWidth(symbolMeasureFont(), sections[s].departures[i].line) + kSymbolPadding);
+      const Departure& d = sections[s].departures[i];
+      symbol_width = std::max(symbol_width, lineSymbolWidth(d.line, d.bus));
     }
   }
   int time_width = ui::textWidth(timeFont(), "00:00");
@@ -209,12 +202,13 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   int title = first_title;
   for (int s = 0; s < n; s++) {
     if (!list) {
-      // The age hint of the data replaces the note of the first section.
-      const bool age = s == 0 && !options.note.empty();
+      // Without the station title (two stations) the age badge goes into
+      // the first section title.
+      const bool badge = s == 0 && age && !station_above;
       ui::drawColumnTitle(canvas, 0, canvas.width(), title, sections[s].name,
-                          age ? options.note : sections[s].note,
+                          badge ? options.note : sections[s].note,
                           sections[s].own_station ? ui::TitleIcon::kPin : ui::TitleIcon::kArrow,
-                          age && options.note_alert);
+                          badge && options.note_alert);
     }
     int top = title + 6;
     const std::vector<Departure>& deps = sections[s].departures;
@@ -247,6 +241,7 @@ void DeparturesColumnView::drawTitle(ui::Canvas& canvas, ui::Language language) 
 void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
   ColumnOptions options;
   options.station = title(context.language);
+  options.station_note = source_.config().note;
   options.note = context.note;
   options.note_alert = context.note_alert;
   options.time_format = source_.config().time_format;

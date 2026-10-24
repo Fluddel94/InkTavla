@@ -180,6 +180,7 @@ time.
 |---|---|---|---|
 | `station` | text | `""` | Station as MVG `globalId`, e.g. `"de:09162:10"` (München-Pasing). Empty: widget not set up. |
 | `name` | text (≤ 64 bytes) | `""` | Name shown on the display. Empty: the name from the MVG API. |
+| `note` | text (≤ 24 bytes) | `""` | Text on the right of the station title, e.g. `"Bahnhof"`. Empty: none. |
 | `transport_types` | list | all | Means of transport to request: `"SBAHN"`, `"UBAHN"`, `"TRAM"`, `"BUS"`, `"REGIONAL_BUS"`, `"BAHN"` (regional trains). Rail replacement buses come with the means of transport they replace. Ignored when `lines` is set. |
 | `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. Not used with `sections`. |
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
@@ -220,14 +221,18 @@ choice, for example towards the city and away from it:
 
 - Exactly two sections, each with a `name` (up to 24 bytes, shown in
   capitals) and its `lines` in the same format as above (at least one).
+- Above the sections a title line shows the station (location pin and
+  `name`, or the name from the API) with the optional widget `note` on its
+  right, for example `"note": "Bahnhof"` (up to 24 bytes). While the data is
+  old, the age badge takes the place of the note.
 - Lines that are in no section are not shown; `lines` and `direction` are
   ignored.
 - The MVG direction code is fixed per line and does not say which way a
   line goes: at München-Pasing tram 14 "H" leaves the city while tram 19 "H"
   goes into it, and the same code can even lead to opposite destinations on
   one line. That is why every line is assigned with its direction.
-- The column has room for 7 departures with two sections (8 as one list).
-  They are shared evenly (4 + 3); rows a section cannot fill go to the
+- The column has room for 6 departures with two sections (8 as one list).
+  They are shared evenly (3 + 3); rows a section cannot fill go to the
   other one.
 - If anything about `sections` is invalid, the departures are shown as one
   list and the problem is reported.
@@ -270,7 +275,8 @@ lines ("Störung S3, S4") and the texts below it. The API only gives short
 texts such as "Verspätung eines vorausfahrenden Zuges" without a heading;
 the same text for several lines is shown once (with several texts each
 gets its lines: "S6: Technische Störung am Zug."). The text has at most
-three lines (two above two sections). The affected departures keep their
+three lines (two above two sections) and gets shorter, if need be down to
+the heading alone, so that every section keeps at least two departures. The affected departures keep their
 warning sign; notes on early terminations stay in the row, fare notes are
 not shown.
 

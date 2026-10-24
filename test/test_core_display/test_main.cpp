@@ -263,13 +263,19 @@ void test_controller_redraws_on_network_change_and_request() {
   // Before the first connection the network counts as connected for the
   // grace period (no Wi-Fi symbol struck through while starting).
   TEST_ASSERT_TRUE(renderer.states.back().network_connected);
-  const size_t drawn = renderer.states.size();
+  const size_t fetched = a.calls.size();
+  // Connecting fetches at once instead of waiting for the next retry.
   c.setNetworkConnected(true);
   c.step();
-  TEST_ASSERT_EQUAL_size_t(drawn, renderer.states.size());  // nothing changes
+  TEST_ASSERT_EQUAL_size_t(fetched + 1, a.calls.size());
+  TEST_ASSERT_TRUE(renderer.states.back().network_connected);
+  // Reporting the same state again does not fetch again.
+  c.setNetworkConnected(true);
+  c.step();
+  TEST_ASSERT_EQUAL_size_t(fetched + 1, a.calls.size());
   c.requestUpdate();
   c.step();
-  TEST_ASSERT_EQUAL_size_t(2, a.calls.size());
+  TEST_ASSERT_EQUAL_size_t(fetched + 2, a.calls.size());
 }
 
 void test_controller_shows_a_lost_connection_after_the_grace_period() {

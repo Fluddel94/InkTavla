@@ -37,6 +37,9 @@ struct Config {
   // Name shown in the column title; "" = the name from the MVG API.
   std::string name;
 
+  // Free text on the right of the station title ("Bahnhof"); "" = none.
+  std::string note;
+
   // Means of transport to request; default all. Replacement buses come with
   // the means of transport they replace.
   std::vector<TransportType> transport_types;

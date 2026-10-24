@@ -413,7 +413,7 @@ void test_preview_departure_columns() {
   options.station = "Pasing";
   options.now_s = kMvgNow;
   ui::BitmapCanvas a(bitmap, 0, 0, 264, 259);
-  TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(a, pasing(true), options));
+  TEST_ASSERT_EQUAL_INT(6, widgets::mvg::drawDeparturesColumn(a, pasing(true), options));
   ui::BitmapCanvas b(bitmap, 284, 0, 264, 259);
   TEST_ASSERT_EQUAL_INT(8, widgets::mvg::drawDeparturesColumn(b, pasing(false), options));
   ui::BitmapCanvas c(bitmap, 568, 0, 264, 259);
