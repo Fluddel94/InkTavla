@@ -24,6 +24,10 @@ int warningSignWidth(int height);
 // struck through when not connected.
 void drawWifiSymbol(Canvas& canvas, int x, int y, int size, bool connected = true);
 
+// Clock face (ring with two hands at "3 o'clock"), e.g. before hour labels;
+// size x size square at (x, y), odd sizes look best.
+void drawClockSymbol(Canvas& canvas, int x, int y, int size, Color color = Color::kBlack);
+
 // Shapes of generated line symbols (work for any network).
 enum class SymbolShape {
   kBox,    // filled box with slightly rounded corners, white label (tram)

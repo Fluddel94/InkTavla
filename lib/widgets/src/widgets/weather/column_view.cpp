@@ -27,6 +27,7 @@ constexpr int kDaysTop = kBase + 34;
 constexpr int kDayTemperatures = kDaysTop + 85;
 constexpr int kLabelHours[] = {8, 11, 14, 17, 20};
 constexpr double kCurveWidth = 2;
+constexpr int kClockSize = 11;  // clock at the left of the hour labels
 // Points of the spline between two values: hourly values are far apart,
 // 15 minute values only need a little rounding.
 constexpr int kStepsBetweenHours = 10;
@@ -80,6 +81,11 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
     std::snprintf(h, sizeof(h), "%d", l.hour);
     ui::drawText(c, ui::fonts::kRobotoCondensedMedium15, l.x, chart.base + 18, h, Color::kBlack,
                  ui::Align::kCenter);
+  }
+  // A small clock at the left edge of the chart, on the line of the hour
+  // labels, so the numbers read as times.
+  if (!chart.labels.empty()) {
+    ui::drawClockSymbol(c, kChartMargin, chart.base + 18 - kClockSize + 1, kClockSize);
   }
 }
 
