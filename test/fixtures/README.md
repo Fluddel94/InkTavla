@@ -49,6 +49,19 @@ firmware requests.
 | `muenchen_20261020.json` | Response of 2026-10-20 18:30 (hourly and daily values, no 15 minute values): rain the next afternoon |
 | `muenchen_20261022.json` | Response of 2026-10-22 07:30 as the firmware requests it now, with temperatures every 15 minutes from 24 hours back (here 20) to ahead |
 
+## `settings/`
+
+Responses for the setup help of the settings page (`test/test_settings`),
+fetched 2026-10-25. The two station searches keep only some of the points
+of interest the API returns (they are left out by the firmware anyway).
+
+| File | Content |
+|---|---|
+| `mvg_locations_pasing_20261025.json` | MVG station search "pasing": seven stations, two points of interest |
+| `mvg_locations_holzkirchen_20261025.json` | MVG station search "holzkirchen": stations in several places |
+| `mvg_lines_pasing_20261025.json` | MVG lines of München-Pasing (`lines/de:09162:10`), complete |
+| `openmeteo_geocoding_holzkirchen_20261025.json` | Open-Meteo place search "Holzkirchen" (language de), without the numeric region IDs |
+
 ## `ui/`
 
 Reference images drawn with the real UI and widget code from the fixtures:

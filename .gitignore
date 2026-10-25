@@ -14,3 +14,6 @@ secrets.h
 Thumbs.db
 *.swp
 *~
+
+# Settings page embedded into the firmware (tools/embed_web.py)
+src/generated/

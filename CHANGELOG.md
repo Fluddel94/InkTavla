@@ -199,6 +199,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - QR Code generator library 1.8.0 by Project Nayuki (MIT), copied into
   `lib/qrcodegen`.
 
+- Settings page in the browser (KEY3): one-time code and QR code on the
+  display, session cookie, closes 30 minutes after the last action or after
+  five wrong codes. Forms for all settings: departures with station search
+  and lines with example destinations per direction (one list, two
+  directions, two stations), weather place search (Open-Meteo geocoding),
+  calendar address (only "set", replace or remove), layout, language, full
+  refresh, time zone and time server; download and load `config.json`;
+  reset the settings; restart. Saving checks with the same rules as over
+  USB and lists the problems (save anyway possible, never for secrets),
+  then restarts; the page opens again for the rest of its time. Change
+  Wi-Fi: tests the new network and saves it only if it works. German and
+  English like the display. Served by the web server of the Arduino core
+  in its own task; the page (web/) is compiled into the firmware gzip
+  compressed by `tools/embed_web.py`.
+- MVG API responses (station search, lines of a station) and an Open-Meteo
+  place search as test fixtures (2026-10-25).
+
 ### Removed
 
 - Style A and the layouts "one_plus_two" and "three_columns" with their
@@ -209,6 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Weather column: a small clock symbol at the left edge of the chart, on the
+  line of the hour labels below the rain bars, so the numbers read as times.
 - A column waiting for its first data shows "Wird geladen …" without a
   warning sign (with "Wartet auf WLAN" while offline) instead of only its
   title.

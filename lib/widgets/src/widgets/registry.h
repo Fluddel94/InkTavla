@@ -8,10 +8,14 @@
 #include <ArduinoJson.h>
 
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "core/config.h"
+#if defined(ARDUINO)
+#include "core/settings_server.h"
+#endif
 #include "ui/layout.h"
 #include "widgets/calendar/widget.h"
 #include "widgets/mvg/widget.h"
@@ -53,6 +57,18 @@ struct WidgetType {
 };
 
 const std::vector<WidgetType>& widgetTypes();
+
+// For the settings page: the widgets with the slot sizes they fit and the
+// sizes of the layout's columns, as JSON object members:
+// "widgets": [{"id": "mvg", "sizes": ["wide"]}, ...], "slots": ["wide", ...]
+std::string settingsLayoutJson();
+
+#if defined(ARDUINO)
+// The setup help of the widgets on the settings page (requests to the MVG
+// API and the Open-Meteo place search, see widgets/mvg/setup.h and
+// widgets/weather/setup.h).
+std::vector<core::SettingsRoute> settingsRoutes();
+#endif
 
 // The widget with this ID, nullptr if there is none.
 const WidgetType* findWidgetType(std::string_view id);

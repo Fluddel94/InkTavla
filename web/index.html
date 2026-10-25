@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>InkTavla</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<!-- Shown until the page knows whether the browser is logged in. -->
+<p id="loading" class="hint center"><span class="spin"></span><span data-t="loading"></span></p>
+
+<!-- Login with the code from the display. -->
+<form id="login" class="login" hidden>
+  <h1>InkTavla</h1>
+  <p class="hint" data-t="loginHint"></p>
+  <input id="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" aria-label="Code">
+  <p id="loginError" class="err" hidden></p>
+  <div class="actions" style="justify-content:center"><button class="primary" id="loginButton" type="submit" data-t="login"></button></div>
+  <p class="hint" data-t="loginQr"></p>
+</form>
+
+<!-- Page closed (time up, closed on the display or too many wrong codes). -->
+<div id="closed" class="login" hidden>
+  <h1>InkTavla</h1>
+  <p class="hint" data-t="closedHint"></p>
+</div>
+
+<!-- Restarting after saving. -->
+<div id="restarting" class="login" hidden>
+  <h1>InkTavla</h1>
+  <p class="hint"><span class="spin"></span><span id="restartText"></span></p>
+</div>
+
+<main id="main" hidden>
+  <header class="top">
+    <h1>InkTavla</h1>
+    <div class="open"><span id="openUntil"></span><button class="quiet" id="closeButton" type="button" data-t="close"></button></div>
+  </header>
+  <p class="hint" data-t="saveHint"></p>
+
+  <div id="issues" class="issues" hidden></div>
+
+  <!-- Departures (MVG) -->
+  <section id="secMvg">
+    <h2><span data-t="departures"></span> <small>MVG</small></h2>
+    <span class="label" data-t="station"></span>
+    <div id="mvgStation"></div>
+    <div class="row">
+      <div><label for="mvgName" data-t="displayName"></label><input id="mvgName" type="text" maxlength="64"></div>
+      <div><label for="mvgNote" data-t="note"></label><input id="mvgNote" type="text" maxlength="24"></div>
+    </div>
+    <p class="hint" data-t="noteHint"></p>
+    <span class="label" data-t="layout"></span>
+    <div class="seg" id="mvgMode">
+      <button type="button" data-v="list" data-t="modeList"></button>
+      <button type="button" data-v="dir" data-t="modeDir"></button>
+      <button type="button" data-v="two" data-t="modeTwo"></button>
+    </div>
+    <div id="mvgModeBody"></div>
+    <span class="label" data-t="timeFormat"></span>
+    <div class="seg" id="mvgTime">
+      <button type="button" data-v="clock"><span data-t="clock"></span><small>14:32 +3</small></button>
+      <button type="button" data-v="minutes"><span data-t="minutes"></span><small>4 min</small></button>
+    </div>
+    <p class="hint" data-t="mvgUnofficial"></p>
+  </section>
+
+  <!-- Weather -->
+  <section id="secWeather">
+    <h2><span data-t="weather"></span> <small>Open-Meteo</small></h2>
+    <span class="label" data-t="place"></span>
+    <div id="weatherPlace"></div>
+    <label for="weatherName" data-t="displayName"></label>
+    <input id="weatherName" type="text" maxlength="32">
+    <details>
+      <summary data-t="coordinates"></summary>
+      <div class="row">
+        <div><label for="weatherLat" data-t="latitude"></label><input id="weatherLat" type="text" inputmode="decimal"></div>
+        <div><label for="weatherLon" data-t="longitude"></label><input id="weatherLon" type="text" inputmode="decimal"></div>
+      </div>
+      <p id="weatherCoordError" class="err" hidden></p>
+    </details>
+  </section>
+
+  <!-- Calendar -->
+  <section id="secCalendar">
+    <h2><span data-t="calendar"></span> <span class="pill" id="calendarState"></span></h2>
+    <p class="hint" data-t="calendarHint"></p>
+    <label for="calendarUrl" data-t="calendarNew"></label>
+    <input id="calendarUrl" type="password" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…">
+    <p id="calendarError" class="err" hidden></p>
+    <div class="actions"><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
+  </section>
+
+  <!-- Display -->
+  <section id="secDisplay">
+    <h2 data-t="display"></h2>
+    <span class="label" data-t="columns"></span>
+    <div class="slots" id="slots"></div>
+    <div class="row">
+      <div><label for="language" data-t="language"></label>
+        <select id="language"><option value="de">Deutsch</option><option value="en">English</option></select></div>
+      <div><label for="fullRefresh" data-t="fullRefresh"></label>
+        <select id="fullRefresh"></select></div>
+    </div>
+    <p class="hint" data-t="fullRefreshHint"></p>
+    <details>
+      <summary data-t="tryOut"></summary>
+      <div class="cb"><input id="gridEqual" type="checkbox"><label for="gridEqual" data-t="gridEqual"></label></div>
+      <div class="cb"><input id="dividers" type="checkbox"><label for="dividers" data-t="dividers"></label></div>
+    </details>
+  </section>
+
+  <!-- Wi-Fi -->
+  <section id="secWifi">
+    <h2 data-t="wifi"></h2>
+    <dl class="kv" id="wifiInfo"></dl>
+    <details id="wifiChange">
+      <summary data-t="wifiChange"></summary>
+      <div id="wifiNets" class="nets"></div>
+      <div class="actions"><button type="button" id="wifiScan" data-t="wifiScan"></button></div>
+      <label for="wifiSsid" data-t="wifiName"></label>
+      <input id="wifiSsid" type="text" maxlength="32" autocomplete="off">
+      <label for="wifiPassword" data-t="wifiPassword"></label>
+      <input id="wifiPassword" type="password" maxlength="64" autocomplete="off">
+      <div class="notice" data-t="wifiHow"></div>
+      <p id="wifiResult" class="err" hidden></p>
+      <div class="actions"><button class="primary" type="button" id="wifiTest" data-t="wifiTest"></button></div>
+    </details>
+  </section>
+
+  <!-- Device -->
+  <section id="secDevice">
+    <h2 data-t="device"></h2>
+    <dl class="kv" id="deviceInfo"></dl>
+    <h3 data-t="backup"></h3>
+    <p class="hint" data-t="backupHint"></p>
+    <div class="actions">
+      <a id="download" class="button" href="api/config/download" download="config.json" data-t="download"></a>
+      <button type="button" id="uploadButton" data-t="upload"></button>
+      <input id="uploadFile" type="file" accept=".json,application/json" hidden>
+    </div>
+    <p id="uploadResult" class="hint" hidden></p>
+    <details>
+      <summary data-t="advanced"></summary>
+      <label for="timeZone" data-t="timeZone"></label>
+      <select id="timeZone"></select>
+      <input id="timeZoneCustom" type="text" maxlength="64" hidden aria-label="POSIX TZ">
+      <p class="hint" id="timeZoneHint" data-t="timeZoneHint" hidden></p>
+      <label for="ntpServer" data-t="ntpServer"></label>
+      <input id="ntpServer" type="text" maxlength="64">
+    </details>
+    <div class="actions">
+      <button type="button" id="restart" data-t="restart"></button>
+      <button type="button" class="danger" id="reset" data-t="reset"></button>
+    </div>
+    <div id="resetConfirm" class="confirm" hidden>
+      <p data-t="resetConfirm"></p>
+      <div class="actions"><button type="button" class="danger" id="resetYes" data-t="resetYes"></button><button type="button" id="resetNo" data-t="cancel"></button></div>
+    </div>
+  </section>
+</main>
+</div>
+
+<div id="bar" class="bar" hidden><div><span id="barText"></span><button class="primary" id="save" type="button" data-t="save"></button></div></div>
+
+<script src="app.js"></script>
+</body>
+</html>

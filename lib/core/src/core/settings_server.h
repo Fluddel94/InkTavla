@@ -1,0 +1,85 @@
+#pragma once
+
+// The settings page in the home network (http://<address>/), served by the
+// web server of the Arduino core in its own FreeRTOS task, so the page
+// answers while the main loop refreshes the panel or fetches data.
+//
+// Security (Grundsatz 12): plain HTTP in the home network, open only on
+// request (a button) and for 30 minutes after the last action, a one-time
+// code on the display (core/settings_session.h), secrets never shown or
+// logged. The page itself (HTML, CSS, JavaScript from web/) is compiled into
+// the firmware; it holds no data until the browser has logged in.
+//
+// Routes (all JSON except the page):
+//   GET  /                    the page (gzip)
+//   GET  /api/state           everything the page shows (401 until logged in)
+//   GET  /api/ping            {"closes_in_s"}; not counted as an action
+//   POST /api/login           {"code"}; sets the session cookie
+//   POST /api/close           closes the page
+//   POST /api/config          saves (core/settings_api.h), then restarts
+//   POST /api/reset           empty configuration, then restarts
+//   POST /api/restart
+//   GET  /api/config/download the stored config.json
+//   GET  /api/wifi/scan       networks in range
+//   POST /api/wifi            {"ssid", "password"}: test, save on success
+//   GET  /api/wifi/status     {"state": "idle"|"testing"|"failed"}
+//   GET  /api/<widget>/...    setup help of the widgets (SettingsRoute)
+//
+// After saving, the session is kept in memory that survives the restart,
+// so the page opens again for the rest of its time with the same code.
+
+#if defined(ARDUINO)
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "core/access_notice.h"
+#include "core/config_command.h"
+#include "core/wifi.h"
+
+namespace core {
+
+// A request of a widget's setup help, e.g. GET /api/mvg/stations?q=...
+// handler gets the query arguments and returns the JSON reply; false: the
+// service could not be reached (502).
+struct SettingsRoute {
+  std::string path;
+  std::function<bool(const std::map<std::string, std::string>& args, std::string& json)> handler;
+};
+
+struct SettingsServerOptions {
+  const uint8_t* page_gz = nullptr;  // the page, gzip-compressed
+  size_t page_gz_size = 0;
+  const char* firmware_version = "";
+  std::string language = "de";  // of the configuration
+  ConfigValidator validate;
+  // JSON object members describing the layout for the page:
+  // "widgets": [{"id", "sizes": ["wide"|"column"]}], "slots": [...]
+  std::function<std::string()> layout_json;
+  std::vector<SettingsRoute> routes;
+};
+
+class SettingsServer {
+ public:
+  // Once in setup(): restores a session kept over a restart and starts the
+  // task (it listens only while the page is open and Wi-Fi is connected).
+  void begin(Wifi& wifi, SettingsServerOptions options);
+
+  // The button: opens the page, or closes it when it is open.
+  void toggle();
+
+  bool isOpen();
+
+  // What the display shows while the page is open (mode kNone if closed or
+  // without Wi-Fi). wall_s: current Unix time (closing time on the
+  // display).
+  AccessNotice notice(int64_t wall_s);
+};
+
+}  // namespace core
+
+#endif

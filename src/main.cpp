@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 
 #include "core/config.h"
 #include "core/config_command.h"
@@ -15,6 +16,7 @@
 #include "core/keys.h"
 #include "core/secrets.h"
 #include "core/serial_link.h"
+#include "core/settings_server.h"
 #include "core/time.h"
 #include "core/version.h"
 #include "core/wifi.h"
@@ -22,6 +24,9 @@
 #include "hal/trmnl_display.h"
 #include "widgets/app.h"
 #include "widgets/registry.h"
+
+// Generated from web/ by tools/embed_web.py before every build.
+#include "generated/settings_page.h"
 
 namespace {
 
@@ -32,6 +37,7 @@ core::SystemClock clock_source;
 hal::TrmnlDisplay display;
 core::Wifi wifi;
 hal::TrmnlButtons buttons;
+core::SettingsServer settings;
 core::ButtonLogic button_logic[core::kKeyCount];
 // The APIs of the widgets (widgets/registry.cpp) and the app; created in
 // setup(), because the calendar API reads NVS (not possible before).
@@ -39,7 +45,8 @@ widgets::Services services;
 widgets::App* app = nullptr;
 bool time_sync_started = false;
 bool connected_since_start = false;
-core::AccessMode wifi_notice = core::AccessMode::kNone;
+bool notice_whole_screen = false;
+std::string wifi_network;  // name of the saved network, for the notice
 
 void printIssues(const core::ConfigIssues& issues) {
   for (const core::ConfigIssue& i : issues) {
@@ -71,7 +78,11 @@ void handleButtons() {
         app->controller().requestFullRefresh();
         break;
       case core::KeyAction::kSettings:
-        Serial.println("Not available yet.");
+        if (wifi.connected() || settings.isOpen()) {
+          settings.toggle();
+        } else {
+          Serial.println("Settings page: needs Wi-Fi");
+        }
         break;
       case core::KeyAction::kNone:
         break;
@@ -79,22 +90,29 @@ void handleButtons() {
   }
 }
 
-// Without Wi-Fi the whole screen shows how to set it up over USB (see
-// core::wifiNoticeMode()).
-void updateWifiNotice(bool connected) {
+// The notice on the display: the settings page while it is open, else the
+// steps to set up Wi-Fi when there is none (see core::wifiNoticeMode()).
+void updateNotice(bool connected) {
   if (connected) connected_since_start = true;
-  const core::AccessMode mode =
-      core::wifiNoticeMode(wifi.credentialsSaved(), connected_since_start, core::monotonicMs());
-  if (mode == wifi_notice) return;
-  wifi_notice = mode;
-  core::AccessNotice notice;
-  notice.mode = mode;
-  if (mode == core::AccessMode::kWifiNotConnected) {
-    std::string password;
-    core::Wifi::loadCredentials(notice.network, password);
+  core::AccessNotice notice = settings.notice(clock_source.wallTime());
+  if (notice.mode == core::AccessMode::kNone) {
+    notice.mode =
+        core::wifiNoticeMode(wifi.credentialsSaved(), connected_since_start, core::monotonicMs());
+    if (notice.mode == core::AccessMode::kWifiNotConnected) {
+      if (wifi_network.empty()) {
+        std::string password;
+        core::Wifi::loadCredentials(wifi_network, password);
+      }
+      notice.network = wifi_network;
+    }
+  }
+  const bool whole_screen = notice.mode == core::AccessMode::kWifiNotSetUp ||
+                            notice.mode == core::AccessMode::kWifiNotConnected;
+  if (whole_screen != notice_whole_screen) {
+    notice_whole_screen = whole_screen;
+    app->controller().requestFullRefresh();  // the whole screen changes
   }
   app->controller().setAccessNotice(notice);
-  app->controller().requestFullRefresh();  // the whole screen changes
 }
 
 }  // namespace
@@ -133,8 +151,19 @@ void setup() {
   core::startSerialLink(wifi, link);
   wifi.begin();
 
-  for (size_t i = 0; i < core::kKeyCount; i++)
+  core::SettingsServerOptions page;
+  page.page_gz = kSettingsPageGz;
+  page.page_gz_size = sizeof(kSettingsPageGz);
+  page.firmware_version = core::kFirmwareVersion;
+  page.language = app->config().language;
+  page.validate = widgets::validateConfig;
+  page.layout_json = widgets::settingsLayoutJson;
+  page.routes = widgets::settingsRoutes();
+  settings.begin(wifi, std::move(page));
+
+  for (size_t i = 0; i < core::kKeyCount; i++) {
     button_logic[i].setLongPress(core::keyHasLongPress(i));
+  }
   buttons.begin();
 }
 
@@ -147,7 +176,7 @@ void loop() {
     time_sync_started = true;
   }
   app->controller().setNetworkConnected(connected);
-  updateWifiNotice(connected);
+  updateNotice(connected);
   const int64_t wait = app->step();
   delay(static_cast<uint32_t>(std::min<int64_t>(std::max<int64_t>(wait, 1), kMaxWaitMs)));
 }

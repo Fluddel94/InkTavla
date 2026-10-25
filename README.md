@@ -79,7 +79,7 @@ table (`core/keys.cpp`):
 |---|---|
 | KEY1 (GPIO2) | Fetch everything now and refresh the whole panel |
 | KEY2 (GPIO3) | – (planned: system log) |
-| KEY3 (GPIO5) | Settings page (follows) |
+| KEY3 (GPIO5) | Open the settings page (close it when open) |
 
 Long presses (held for 5 s) are supported but not used yet.
 
@@ -157,13 +157,19 @@ Nothing user-specific is compiled in.
   [Improv](https://www.improv-wifi.com/) ("Connect device to Wi-Fi" in a
   browser with Web Serial, e.g. Chrome or Edge). They are stored only on the
   device (NVS) and never printed.
+- **Settings page:** press KEY3; the display shows an address, a one-time
+  code and a QR code. The page in the browser sets everything else
+  (departures with station search, weather place, calendar address, layout,
+  language, a new Wi-Fi) and closes 30 minutes after the last action. Plain
+  HTTP, so use it only in your private home network. See
+  [docs/configuration.md](docs/configuration.md#the-settings-page).
 - **Calendar address:** the private iCal address of your calendar is a
-  secret as well; it is sent over USB with
-  `tools/inktavla_config.py calendar-url`, stored only in NVS and can be
+  secret as well; it is set on the settings page (or sent over USB with
+  `tools/inktavla_config.py calendar-url`), stored only in NVS and can be
   replaced or cleared but never read back.
-- **Everything else** is set in a JSON file on the device, for now sent over
-  USB with `tools/inktavla_config.py`, later through a settings page in the
-  browser. See [docs/configuration.md](docs/configuration.md).
+- **Everything else** is kept in a JSON file on the device (`config.json`),
+  written by the settings page or sent over USB with
+  `tools/inktavla_config.py`. See [docs/configuration.md](docs/configuration.md).
 
 ## Network
 
@@ -180,6 +186,11 @@ Nothing user-specific is compiled in.
 - Wi-Fi reconnects on its own with growing pauses (2, 5, 15, 30 s) and
   switches itself off and on after six failures in a row; power saving is
   off and the strongest access point is used.
+- The settings page is served over plain HTTP in the home network (see
+  [Configuration](#configuration)); it only answers while it is open. Its
+  files (`web/`) are compiled into the firmware: `tools/embed_web.py`
+  inlines and compresses them before every build into
+  `src/generated/settings_page.h` (not in the repository).
 - The clock is set by NTP (`ntp_server`, default `pool.ntp.org`).
 - The device only talks to the services that are configured; no telemetry.
 - Departures come from the **unofficial** MVG API, which is not endorsed by

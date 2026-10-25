@@ -3,13 +3,13 @@
 #include "core/serial_link.h"
 
 #include <Arduino.h>
-#include <LittleFS.h>
 #include <WiFi.h>
 
 #include <utility>
 #include <vector>
 
 #include "core/improv.h"
+#include "core/littlefs_store.h"
 #include "core/time.h"
 
 namespace core {
@@ -36,31 +36,6 @@ void send(const std::string& data) {
     if (n == 0) vTaskDelay(pdMS_TO_TICKS(2));
   }
 }
-
-class LittleFsStore : public ConfigStore {
- public:
-  bool write(const char* path, const std::string& data) override {
-    File f = LittleFS.open(path, "w");
-    if (!f) return false;
-    const size_t n = f.write(reinterpret_cast<const uint8_t*>(data.data()), data.size());
-    f.close();
-    return n == data.size();
-  }
-  bool rename(const char* from, const char* to) override {
-    // littlefs replaces an existing file atomically; the fallback (remove,
-    // then rename) is only for file systems that refuse that.
-    if (LittleFS.rename(from, to)) return true;
-    return LittleFS.exists(to) && LittleFS.remove(to) && LittleFS.rename(from, to);
-  }
-  bool read(const char* path, std::string& data) override {
-    File f = LittleFS.open(path, "r");
-    if (!f) return false;
-    data.assign(f.size(), '\0');
-    const size_t n = f.read(reinterpret_cast<uint8_t*>(&data[0]), data.size());
-    f.close();
-    return n == data.size();
-  }
-};
 
 // --- Improv --------------------------------------------------------------------
 

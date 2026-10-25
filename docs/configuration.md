@@ -6,13 +6,59 @@ into the firmware.
 
 **Not in this file:** Wi-Fi credentials and other secrets such as the
 address of your calendar. They are entered at runtime (Wi-Fi via Improv over
-USB, the calendar address with `tools/inktavla_config.py calendar-url`, see
+USB or on the settings page, the calendar address on the settings page or
+with `tools/inktavla_config.py calendar-url`, see
 [the calendar widget](#calendar-calendar-agenda)) and kept only in the
 device's protected storage; they cannot be read back.
 
-## Putting the file onto the device
+## The settings page
 
-Until the settings page exists, the file is sent over the USB cable with
+All settings below can be changed in a browser, on a phone or a computer in
+the same Wi-Fi as the display:
+
+1. Press **KEY3** on the display. The band at the top shows the address of
+   the page (e.g. `192.168.178.45`), a one-time code of six digits and a QR
+   code.
+2. Scan the QR code (address and code in one), or open the address in a
+   browser and enter the code.
+3. Change what you like and press **Speichern und neu starten** / **Save
+   and restart**. The display checks the settings with the same rules as
+   below; if it finds problems, nothing is saved and the page lists them
+   (with **Trotzdem speichern** / **Save anyway** invalid values use their
+   defaults). After saving, the display restarts and the page opens again
+   for the rest of its time with the same code.
+
+The page closes 30 minutes after the last action on it, when you press KEY3
+again or press **Schließen** / **Close**, and after five wrong codes. It
+offers:
+
+- **Departures:** station search, display name and note, one list, two
+  directions or two stations, and for every line and direction whether and
+  where it is shown; the example destinations come from the departures of
+  the next 12 hours.
+- **Weather:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
+  display name, coordinates under **Koordinaten**.
+- **Calendar:** replace or remove the private iCal address. The page only
+  shows whether one is set.
+- **Display:** widgets of the columns, language, full refresh, the layout
+  variants.
+- **Wi-Fi:** the current network; **WLAN wechseln** / **Change Wi-Fi** tests
+  a new network and saves it only if the display can connect (otherwise it
+  goes back to the old one).
+- **Device:** download and load `config.json` (a backup; secrets are never
+  in it), time zone and time server, restart, and **Einstellungen
+  zurücksetzen** / **Reset settings** (all settings to their defaults; Wi-Fi
+  and the calendar address stay).
+
+**Security:** the page uses plain HTTP, since a device in the home network
+cannot get a certificate a browser trusts. Only use it in your private home
+network, not in open or shared networks, where the code, the session or a
+new Wi-Fi password or calendar address could be read along. That is also
+why the page only opens on request and closes again by itself.
+
+## Over the USB cable
+
+The file can also be sent over the USB cable with
 `tools/inktavla_config.py` (needs Python 3 and pyserial:
 `pip install -r tools/requirements.txt`). Close the serial monitor first;
 only one program can use the port.
@@ -89,8 +135,9 @@ The device never stops because of the configuration:
   ignored.
 
 Each of these cases is reported with the path of the setting, e.g.
-`display.full_refresh_minutes: must be between 1 and 1440`. Where the
-reports are shown (serial monitor, settings page) follows later.
+`display.full_refresh_minutes: must be between 1 and 1440`, in the serial
+monitor at the start, as the reply of `tools/inktavla_config.py put` and on
+the settings page when saving.
 
 ## General settings
 
