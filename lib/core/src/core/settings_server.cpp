@@ -3,6 +3,7 @@
 #include "core/settings_server.h"
 
 #include <Arduino.h>
+#include <Update.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <esp_random.h>
@@ -11,6 +12,7 @@
 #include <cstring>
 #include <mutex>
 
+#include "core/firmware_check.h"
 #include "core/littlefs_store.h"
 #include "core/secrets.h"
 #include "core/settings_api.h"
@@ -270,6 +272,85 @@ void handleWifiStatus() {
   sendJson(200, std::string("{\"state\":\"") + state + "\"}");
 }
 
+// --- Firmware upload ------------------------------------------------------------------
+
+struct Upload {
+  bool allowed = false;
+  bool failed = false;
+  std::string error;
+  FirmwareCheck check;
+  size_t bytes = 0;
+};
+Upload upload;
+
+void failUpload(const char* error) {
+  if (!upload.failed) Serial.printf("Firmware update: %s\n", error);
+  upload.failed = true;
+  if (upload.error.empty()) upload.error = error;
+  if (Update.isRunning()) Update.abort();
+}
+
+// Called for every part of the uploaded file (multipart form "firmware").
+void handleFirmwarePart() {
+  HTTPUpload& part = server.upload();
+  if (part.status == UPLOAD_FILE_START) {
+    upload = Upload{};
+    {
+      std::lock_guard<std::mutex> lock(mutex);
+      const int64_t now = monotonicMs();
+      upload.allowed = session.authorized(cookieToken(), now);
+      if (upload.allowed) session.touch(now);
+    }
+    if (!upload.allowed) {
+      upload.failed = true;
+      upload.error = "not logged in";
+      return;
+    }
+    Serial.println("Firmware update: receiving");
+    if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) failUpload("cannot start the update");
+  } else if (part.status == UPLOAD_FILE_WRITE) {
+    if (upload.failed) return;
+    if (!upload.check.feed(part.buf, part.currentSize)) {
+      failUpload("not an ESP32-S3 firmware image");
+      return;
+    }
+    if (Update.write(part.buf, part.currentSize) != part.currentSize) {
+      failUpload("cannot write to flash");
+      return;
+    }
+    upload.bytes += part.currentSize;
+    std::lock_guard<std::mutex> lock(mutex);
+    session.touch(monotonicMs());  // a long upload is an action
+  } else if (part.status == UPLOAD_FILE_END) {
+    if (upload.failed) return;
+    if (!upload.check.complete()) {
+      failUpload("not an InkTavla firmware");
+      return;
+    }
+    if (!Update.end(true)) {
+      failUpload("the image is not valid");
+      return;
+    }
+    Serial.printf("Firmware update: %u bytes written, restarting\n",
+                  static_cast<unsigned>(upload.bytes));
+  } else if (part.status == UPLOAD_FILE_ABORTED) {
+    failUpload("upload aborted");
+  }
+}
+
+void handleFirmwareDone() {
+  if (!upload.allowed) {
+    sendJson(401, "{\"open\":true}");
+    return;
+  }
+  if (upload.failed || !upload.check.complete()) {
+    sendError(422, upload.error.empty() ? "no file" : upload.error.c_str());
+    return;
+  }
+  sendJson(200, "{\"ok\":true}");
+  restartSoon();
+}
+
 void handleRoute(const SettingsRoute& route) {
   if (!authorized()) return;
   std::map<std::string, std::string> args;
@@ -297,6 +378,7 @@ void registerRoutes() {
   server.on("/api/wifi/scan", HTTP_GET, handleScan);
   server.on("/api/wifi", HTTP_POST, handleWifi);
   server.on("/api/wifi/status", HTTP_GET, handleWifiStatus);
+  server.on("/api/firmware", HTTP_POST, handleFirmwareDone, handleFirmwarePart);
   for (const SettingsRoute& r : options.routes) {
     server.on(("/api/" + r.path).c_str(), HTTP_GET, [&r] { handleRoute(r); });
   }

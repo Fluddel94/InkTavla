@@ -109,6 +109,12 @@ const TEXTS = {
     upload: "Datei laden …",
     uploadLoaded: "Datei geladen. Bitte prüfen und dann speichern.",
     uploadBad: "Die Datei ist keine gültige config.json.",
+    firmwareUpdate: "Firmware aktualisieren",
+    firmwareHint: "Datei firmware.bin aus .pio\\build\\xiao_esp32s3_plus\\. Das Display prüft, ob es eine InkTavla-Firmware ist, und startet danach neu. Startet die neue Version nicht richtig, kehrt es zur bisherigen zurück.",
+    firmwareChoose: "Firmware-Datei wählen …",
+    firmwareUploading: "Wird übertragen: {p} % – Display nicht ausschalten.",
+    firmwareFailed: "Update fehlgeschlagen: {e}. Die bisherige Firmware bleibt.",
+    firmwareNotBin: "Bitte die Datei firmware.bin wählen.",
     advanced: "Erweitert",
     timeZone: "Zeitzone",
     timeZoneHint: "Eigene Zeitzone als POSIX-Text, z. B. CET-1CEST,M3.5.0,M10.5.0/3.",
@@ -248,6 +254,12 @@ const TEXTS = {
     upload: "Load file …",
     uploadLoaded: "File loaded. Please check it, then save.",
     uploadBad: "The file is not a valid config.json.",
+    firmwareUpdate: "Update firmware",
+    firmwareHint: "The file firmware.bin from .pio\\build\\xiao_esp32s3_plus\\. The display checks that it is an InkTavla firmware and then restarts. If the new version does not start properly, it goes back to the previous one.",
+    firmwareChoose: "Choose firmware file …",
+    firmwareUploading: "Uploading: {p} % – do not switch off the display.",
+    firmwareFailed: "Update failed: {e}. The previous firmware stays.",
+    firmwareNotBin: "Please choose the file firmware.bin.",
     advanced: "Advanced",
     timeZone: "Time zone",
     timeZoneHint: "Own time zone as a POSIX string, e.g. CET-1CEST,M3.5.0,M10.5.0/3.",
@@ -1027,6 +1039,7 @@ function fillDevice() {
   $("timeZoneHint").hidden = known;
   $("ntpServer").value = config.ntp_server || "pool.ntp.org";
   $("uploadResult").hidden = true;
+  $("firmwareResult").hidden = true;
   $("resetConfirm").hidden = true;
 }
 $("timeZone").addEventListener("change", (e) => {
@@ -1055,6 +1068,49 @@ $("uploadFile").addEventListener("change", async (e) => {
     out.textContent = t("uploadBad");
   }
 });
+// Firmware: upload with progress (XMLHttpRequest reports it, fetch does not).
+$("firmwareButton").addEventListener("click", () => $("firmwareFile").click());
+$("firmwareFile").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const out = $("firmwareResult");
+  out.hidden = false;
+  if (!/\.bin$/i.test(file.name)) { out.className = "err"; out.textContent = t("firmwareNotBin"); return; }
+  const form = new FormData();
+  form.append("firmware", file, file.name);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "api/firmware");
+  $("firmwareButton").disabled = true;
+  out.className = "hint";
+  out.textContent = t("firmwareUploading", { p: 0 });
+  xhr.upload.onprogress = (p) => {
+    if (p.lengthComputable) out.textContent = t("firmwareUploading", { p: Math.floor((p.loaded / p.total) * 100) });
+  };
+  xhr.onload = () => {
+    $("firmwareButton").disabled = false;
+    if (xhr.status === 200) { waitForRestart(); return; }
+    if (xhr.status === 401) { pageClosed(); return; }
+    let error = "HTTP " + xhr.status;
+    try { error = JSON.parse(xhr.responseText).error || error; } catch (err) { /* keep */ }
+    const known = {
+      "not an InkTavla firmware": { de: "keine InkTavla-Firmware", en: "not an InkTavla firmware" },
+      "not an ESP32-S3 firmware image": { de: "keine Firmware für den ESP32-S3", en: "not a firmware for the ESP32-S3" },
+      "the image is not valid": { de: "die Datei ist beschädigt", en: "the file is damaged" },
+      "upload aborted": { de: "Übertragung abgebrochen", en: "upload aborted" },
+    };
+    if (known[error]) error = known[error][lang];
+    out.className = "err";
+    out.textContent = t("firmwareFailed", { e: error });
+  };
+  xhr.onerror = () => {
+    $("firmwareButton").disabled = false;
+    out.className = "err";
+    out.textContent = t("firmwareFailed", { e: t("connectionLost") });
+  };
+  xhr.send(form);
+});
+
 $("restart").addEventListener("click", async () => {
   try { await api("api/restart", { method: "POST" }); waitForRestart(); } catch (e) { /* shown */ }
 });
@@ -1066,11 +1122,11 @@ $("resetYes").addEventListener("click", async () => {
 
 // Any change in a form field counts.
 document.querySelector("main").addEventListener("input", (e) => {
-  if (e.target.closest("#wifiChange") || e.target.id === "uploadFile" || e.target.id === "code") return;
+  if (e.target.closest("#wifiChange") || e.target.type === "file" || e.target.id === "code") return;
   setDirty(true);
 });
 document.querySelector("main").addEventListener("change", (e) => {
-  if (e.target.closest("#wifiChange") || e.target.id === "uploadFile") return;
+  if (e.target.closest("#wifiChange") || e.target.type === "file") return;
   setDirty(true);
 });
 

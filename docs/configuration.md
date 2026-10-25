@@ -46,9 +46,21 @@ offers:
   a new network and saves it only if the display can connect (otherwise it
   goes back to the old one).
 - **Device:** download and load `config.json` (a backup; secrets are never
-  in it), time zone and time server, restart, and **Einstellungen
-  zurücksetzen** / **Reset settings** (all settings to their defaults; Wi-Fi
-  and the calendar address stay).
+  in it), **Firmware aktualisieren** / **Update firmware** (see below), time
+  zone and time server, restart, and **Einstellungen zurücksetzen** /
+  **Reset settings** (all settings to their defaults; Wi-Fi and the
+  calendar address stay).
+
+### Updating the firmware on the settings page
+
+Choose the file `firmware.bin` (after a build in
+`.pio/build/xiao_esp32s3_plus/`). The display checks while receiving it
+that it is an InkTavla firmware for the ESP32-S3 and refuses anything else;
+the running firmware stays until the new one is complete. Then the display
+restarts with the new firmware and the page opens again. The new firmware
+is only kept once it runs properly (30 seconds with Wi-Fi, or 10 minutes
+without); if it crashes or restarts before, the display goes back to the
+previous firmware by itself. The settings stay in both cases.
 
 **Security:** the page uses plain HTTP, since a device in the home network
 cannot get a certificate a browser trusts. Only use it in your private home

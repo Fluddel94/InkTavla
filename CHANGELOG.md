@@ -213,6 +213,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   English like the display. Served by the web server of the Arduino core
   in its own task; the page (web/) is compiled into the firmware gzip
   compressed by `tools/embed_web.py`.
+- Firmware update on the settings page: upload of `firmware.bin`, checked
+  while receiving (ESP32-S3 app image with the InkTavla marker), written to
+  the other OTA slot, then restart. The new firmware confirms itself once it
+  runs properly (30 s with Wi-Fi or 10 min without); otherwise the
+  bootloader goes back to the previous one.
 - MVG API responses (station search, lines of a station) and an Open-Meteo
   place search as test fixtures (2026-10-25).
 

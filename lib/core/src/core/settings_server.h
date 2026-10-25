@@ -23,6 +23,8 @@
 //   GET  /api/wifi/scan       networks in range
 //   POST /api/wifi            {"ssid", "password"}: test, save on success
 //   GET  /api/wifi/status     {"state": "idle"|"testing"|"failed"}
+//   POST /api/firmware        upload of a firmware file (multipart), checked
+//                             with core/firmware_check.h, then restarts
 //   GET  /api/<widget>/...    setup help of the widgets (SettingsRoute)
 //
 // After saving, the session is kept in memory that survives the restart,

@@ -5,12 +5,14 @@
 
 #include <unity.h>
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "core/firmware_check.h"
 #include "core/secrets.h"
 #include "core/settings_api.h"
 #include "core/settings_session.h"
@@ -393,6 +395,55 @@ void test_weather_place_search() {
                            widgets::weather::placesJson(parse("{}").as<JsonObjectConst>()).c_str());
 }
 
+// --- Firmware upload -------------------------------------------------------------
+
+namespace {
+
+std::vector<uint8_t> image(uint8_t magic, uint16_t chip, const std::string& body) {
+  std::vector<uint8_t> data(16, 0);
+  data[0] = magic;
+  data[12] = static_cast<uint8_t>(chip & 0xFF);
+  data[13] = static_cast<uint8_t>(chip >> 8);
+  data.insert(data.end(), body.begin(), body.end());
+  return data;
+}
+
+// Feeds in pieces of `step` bytes (the marker may be split between them).
+core::FirmwareCheck feedAll(const std::vector<uint8_t>& data, size_t step) {
+  core::FirmwareCheck check;
+  for (size_t i = 0; i < data.size(); i += step) {
+    const size_t n = std::min(step, data.size() - i);
+    if (!check.feed(data.data() + i, n)) break;
+  }
+  return check;
+}
+
+}  // namespace
+
+void test_firmware_check() {
+  const std::string marker = core::kFirmwareMarker;
+  const auto good = image(0xE9, 9, "abc InkTavla/firm" + std::string("xx") + marker + " end");
+  for (size_t step : {1, 3, 7, 64}) {
+    TEST_ASSERT_TRUE(feedAll(good, step).complete());
+  }
+  // Without the marker (another project), for another chip, no image.
+  TEST_ASSERT_FALSE(feedAll(image(0xE9, 9, "some other firmware"), 5).complete());
+  TEST_ASSERT_TRUE(feedAll(image(0xE9, 9, "some other firmware"), 5).headerOk());
+  core::FirmwareCheck esp32 = feedAll(image(0xE9, 0, marker), 4);
+  TEST_ASSERT_FALSE(esp32.headerOk());
+  TEST_ASSERT_FALSE(esp32.complete());
+  core::FirmwareCheck check;
+  const auto littlefs = image(0x00, 9, marker);
+  TEST_ASSERT_FALSE(check.feed(littlefs.data(), littlefs.size()));
+}
+
+void test_new_firmware_is_confirmed_when_it_runs() {
+  TEST_ASSERT_FALSE(core::firmwareConfirmed(29000, true));
+  TEST_ASSERT_TRUE(core::firmwareConfirmed(30000, true));
+  TEST_ASSERT_FALSE(core::firmwareConfirmed(9 * kMinute, false));
+  TEST_ASSERT_TRUE(core::firmwareConfirmed(10 * kMinute, false));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_open_shows_a_six_digit_code);
@@ -411,5 +462,7 @@ int main() {
   RUN_TEST(test_mvg_lines_with_example_destinations);
   RUN_TEST(test_mvg_setup_urls);
   RUN_TEST(test_weather_place_search);
+  RUN_TEST(test_firmware_check);
+  RUN_TEST(test_new_firmware_is_confirmed_when_it_runs);
   return UNITY_END();
 }

@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <esp_ota_ops.h>
 
 #include <algorithm>
 #include <string>
@@ -13,6 +14,7 @@
 #include "core/config.h"
 #include "core/config_command.h"
 #include "core/display_controller.h"
+#include "core/firmware_check.h"
 #include "core/keys.h"
 #include "core/secrets.h"
 #include "core/serial_link.h"
@@ -45,6 +47,7 @@ widgets::Services services;
 widgets::App* app = nullptr;
 bool time_sync_started = false;
 bool connected_since_start = false;
+bool firmware_pending = false;  // new firmware not confirmed yet
 bool notice_whole_screen = false;
 std::string wifi_network;  // name of the saved network, for the notice
 
@@ -115,7 +118,21 @@ void updateNotice(bool connected) {
   app->controller().setAccessNotice(notice);
 }
 
+// A firmware from the settings page is confirmed once it runs properly;
+// if it crashes or restarts before, the bootloader goes back to the
+// previous one.
+void confirmFirmware(bool connected) {
+  if (!firmware_pending || !core::firmwareConfirmed(core::monotonicMs(), connected)) return;
+  esp_ota_mark_app_valid_cancel_rollback();
+  firmware_pending = false;
+  Serial.println("Firmware: new version confirmed");
+}
+
 }  // namespace
+
+// The Arduino core would confirm a new firmware at once; it is confirmed in
+// confirmFirmware() instead.
+extern "C" bool verifyRollbackLater() { return true; }
 
 void setup() {
   // The USB serial line drops what does not fit into its receive buffer
@@ -128,6 +145,13 @@ void setup() {
   Serial.printf("Flash: %lu bytes, PSRAM: %lu bytes\n",
                 static_cast<unsigned long>(ESP.getFlashChipSize()),
                 static_cast<unsigned long>(ESP.getPsramSize()));
+
+  esp_ota_img_states_t ota_state;
+  if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &ota_state) == ESP_OK &&
+      ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+    firmware_pending = true;
+    Serial.println("Firmware: new version, confirmed once it runs");
+  }
 
   services = widgets::deviceServices();
   static widgets::App the_app(clock_source, display, services);
@@ -177,6 +201,7 @@ void loop() {
   }
   app->controller().setNetworkConnected(connected);
   updateNotice(connected);
+  confirmFirmware(connected);
   const int64_t wait = app->step();
   delay(static_cast<uint32_t>(std::min<int64_t>(std::max<int64_t>(wait, 1), kMaxWaitMs)));
 }

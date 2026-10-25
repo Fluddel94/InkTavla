@@ -160,8 +160,8 @@ Nothing user-specific is compiled in.
 - **Settings page:** press KEY3; the display shows an address, a one-time
   code and a QR code. The page in the browser sets everything else
   (departures with station search, weather place, calendar address, layout,
-  language, a new Wi-Fi) and closes 30 minutes after the last action. Plain
-  HTTP, so use it only in your private home network. See
+  language, a new Wi-Fi, a firmware update) and closes 30 minutes after the
+  last action. Plain HTTP, so use it only in your private home network. See
   [docs/configuration.md](docs/configuration.md#the-settings-page).
 - **Calendar address:** the private iCal address of your calendar is a
   secret as well; it is set on the settings page (or sent over USB with
