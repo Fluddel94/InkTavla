@@ -367,15 +367,19 @@ void test_layout_covers_the_screen_without_overlap() {
 void test_layout_columns_and_band() {
   const ui::Layout l = ui::screenLayout();
   TEST_ASSERT_EQUAL_INT(205, l.header.h);
-  // Content areas: 28-292, 318-532, 558-772, from y 205 to 464.
-  const int x[] = {28, 318, 558};
-  const int w[] = {264, 214, 214};
+  // Margin of 20 px at the sides, 15 px at the bottom. Content areas:
+  // 20-300, 326-540, 566-780, from y 205 to 465; the slots split the gaps
+  // (313, 553).
+  TEST_ASSERT_EQUAL_INT(20, ui::kMargin);
+  TEST_ASSERT_EQUAL_INT(15, ui::kMarginBottom);
+  const int x[] = {20, 326, 566};
+  const int w[] = {280, 214, 214};
   for (size_t i = 0; i < 3; i++) {
     const ui::Rect c = ui::contentOf(l, i);
     TEST_ASSERT_EQUAL_INT(x[i], c.x);
     TEST_ASSERT_EQUAL_INT(w[i], c.w);
     TEST_ASSERT_EQUAL_INT(205, c.y);
-    TEST_ASSERT_EQUAL_INT(464, c.y + c.h);
+    TEST_ASSERT_EQUAL_INT(465, c.y + c.h);
     // Inside its slot.
     TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
   }
@@ -384,6 +388,15 @@ void test_layout_columns_and_band() {
                    (std::vector<SlotSize>{SlotSize::kBriefingWide, SlotSize::kBriefingColumn,
                                           SlotSize::kBriefingColumn}));
   TEST_ASSERT_EQUAL_STRING("wide column", ui::slotSizeName(SlotSize::kBriefingWide));
+  TEST_ASSERT_EQUAL_INT(313, l.slots[1].x);
+  TEST_ASSERT_EQUAL_INT(553, l.slots[2].x);
+  TEST_ASSERT_EQUAL_INT(800, l.slots[2].x + l.slots[2].w);
+  // Dotted lines between the columns by default, in the middle of the gaps.
+  TEST_ASSERT_EQUAL_size_t(2, l.dividers.size());
+  TEST_ASSERT_EQUAL_INT(313, l.dividers[0].x);
+  TEST_ASSERT_EQUAL_INT(553, l.dividers[1].x);
+  TEST_ASSERT_EQUAL_INT(ui::kDividerTop, l.dividers[0].y);
+  TEST_ASSERT_EQUAL_INT(465, l.dividers[0].y + l.dividers[0].h);
   // The header line with the clock is its own refresh area.
   TEST_ASSERT_EQUAL_size_t(3, l.header_areas.size());
   TEST_ASSERT_EQUAL_INT(44, l.header_areas[0].h);
@@ -397,29 +410,27 @@ void test_layout_variants_for_the_display_test() {
   options.equal_columns = true;
   options.dividers = true;
   const ui::Layout l = ui::screenLayout(options);
-  // Three columns of 232 px: 28-260, 284-516, 540-772.
-  const int x[] = {28, 284, 540};
+  // Three columns of 237 px with gaps of 24 px: 20-257, 281-518, 542-779.
+  const int x[] = {20, 281, 542};
   int covered = 0;
   for (size_t i = 0; i < 3; i++) {
     const ui::Rect c = ui::contentOf(l, i);
     TEST_ASSERT_EQUAL_INT(x[i], c.x);
-    TEST_ASSERT_EQUAL_INT(232, c.w);
+    TEST_ASSERT_EQUAL_INT(237, c.w);
     TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
     covered += l.slots[i].w;
   }
   TEST_ASSERT_EQUAL_INT(ui::kScreenWidth, covered);
   // The dotted lines in the middle of the gaps, at the edge of a slot.
   TEST_ASSERT_EQUAL_size_t(2, l.dividers.size());
-  TEST_ASSERT_EQUAL_INT(272, l.dividers[0].x);
-  TEST_ASSERT_EQUAL_INT(528, l.dividers[1].x);
+  TEST_ASSERT_EQUAL_INT(269, l.dividers[0].x);
+  TEST_ASSERT_EQUAL_INT(530, l.dividers[1].x);
   TEST_ASSERT_EQUAL_INT(l.slots[1].x, l.dividers[0].x);
-  TEST_ASSERT_EQUAL_INT(464, l.dividers[1].y + l.dividers[1].h);
-  // Standard grid with lines: 305 and 545; without: none.
+  TEST_ASSERT_EQUAL_INT(465, l.dividers[1].y + l.dividers[1].h);
+  // Standard grid without lines ("dividers": false): none.
   options.equal_columns = false;
-  const ui::Layout s = ui::screenLayout(options);
-  TEST_ASSERT_EQUAL_INT(305, s.dividers[0].x);
-  TEST_ASSERT_EQUAL_INT(545, s.dividers[1].x);
-  TEST_ASSERT_EQUAL_size_t(0, ui::screenLayout().dividers.size());
+  options.dividers = false;
+  TEST_ASSERT_EQUAL_size_t(0, ui::screenLayout(options).dividers.size());
 }
 
 // --- Briefing building blocks ---------------------------------------------------
@@ -499,8 +510,8 @@ void test_wrap_text_between_words() {
 void test_fill_rule_rows() {
   // Briefing departures: 230 px below the first title, a second section
   // title 28 px high, rows of 28 px -> 7 rows (4 + 3).
-  TEST_ASSERT_EQUAL_INT(7, ui::rowsThatFit(464 - 240, 28, 2, 28));
-  TEST_ASSERT_EQUAL_INT(8, ui::rowsThatFit(464 - 240, 28));
+  TEST_ASSERT_EQUAL_INT(7, ui::rowsThatFit(465 - 240, 28, 2, 28));
+  TEST_ASSERT_EQUAL_INT(8, ui::rowsThatFit(465 - 240, 28));
   TEST_ASSERT_EQUAL_INT(0, ui::rowsThatFit(20, 28));
   TEST_ASSERT_EQUAL_INT(0, ui::rowsThatFit(100, 0));
   using V = std::vector<int>;

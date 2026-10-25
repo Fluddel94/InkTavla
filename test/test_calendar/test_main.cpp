@@ -564,7 +564,7 @@ void test_widget() {
   TEST_ASSERT_EQUAL_INT(0, source.requests);
 
   TEST_ASSERT_TRUE(data.fetch(kNow));
-  ui::Bitmap bitmap(214, 259);
+  ui::Bitmap bitmap(214, 260);
   ui::BitmapCanvas canvas(bitmap);
   widgets::DrawContext context;
   context.now_s = kNow;
@@ -581,7 +581,7 @@ void test_widget() {
   source.fail = false;
   source.text = source.text.substr(0, source.text.size() / 2);
   TEST_ASSERT_FALSE(data.fetch(kNow + 1800));
-  ui::Bitmap again(214, 259);
+  ui::Bitmap again(214, 260);
   ui::BitmapCanvas canvas2(again);
   view.draw(canvas2, context);
   TEST_ASSERT_TRUE(std::equal(bitmap.data(), bitmap.data() + bitmap.size(), again.data()));

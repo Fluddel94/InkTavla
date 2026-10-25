@@ -40,7 +40,7 @@ struct Entry {
   std::string title;   // kNone: "Keine Termine"
   std::string suffix;  // kAllDay: "ganztägig", "bis Fr", "bis 12:00"
   std::string note;    // right edge: "in 48 min", "läuft"
-  bool next = false;   // the next event of today: bold
+  bool next = false;   // the next event of today (no longer drawn in bold)
   bool past = false;   // an event of today that is over (stays until midnight)
 };
 

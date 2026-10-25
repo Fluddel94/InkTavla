@@ -1,11 +1,13 @@
-# E-Ink Combination Display
+# InkTavla
 
 Firmware for a 7.5" e-paper display that shows several widgets on one
-overview screen: public transport departures, weather and calendar to start
-with. The image is rendered on the device itself; no server is needed.
+overview screen: public transport departures (MVG), weather and calendar to
+start with. The image is rendered on the device itself; no server is needed.
 
-> **Status:** early development (0.x). Nothing usable yet; the project name is
-> a working title.
+> **Status:** early development (0.x), no release yet. Departures, weather
+> and calendar run on the reference hardware; Wi-Fi is set up over USB
+> (Improv), everything else on a settings page in the browser, which also
+> updates the firmware. Settings and layout may still change.
 
 ## Reference hardware
 
@@ -50,6 +52,17 @@ column it is not made for is reported and the column shows "Passt hier
 nicht" instead of a clipped view. Adding a widget means adding
 its folder and one entry in `registry.cpp` (plus its API object in
 `Services` and `deviceServices()` in the same file).
+
+### Screen
+
+The screen keeps a margin of 20 px at the left, right and top and 15 px at
+the bottom; they are two constants (`kMargin` and `kMarginBottom` in
+`lib/ui/src/ui/layout.h`), so they can be adapted if a case covers the edge
+of the panel. Below the band the three columns are 280, 214
+and 214 px wide with 26 px between them (the departure column gets what the
+margin leaves), separated by dotted lines that can be switched off
+(`layout.dividers`). The weather chart shows the amount of rain of every
+hour as bars.
 
 ### Main loop
 
@@ -236,6 +249,8 @@ small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
 - Versions follow [Semantic Versioning](https://semver.org/); changes are
   recorded in [CHANGELOG.md](CHANGELOG.md).
 - Code is formatted with `clang-format` (`.clang-format`, Google-based).
+- InkTavla is developed with the help of Claude, Anthropic's AI assistant;
+  every change is reviewed and committed by the maintainer.
 
 ## License
 

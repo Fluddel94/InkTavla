@@ -220,6 +220,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bootloader goes back to the previous one.
 - MVG API responses (station search, lines of a station) and an Open-Meteo
   place search as test fixtures (2026-10-25).
+- Open-Meteo response of a day of steady rain with the amount per hour as a
+  test fixture (`muenchen_20261025.json`).
 
 ### Removed
 
@@ -288,9 +290,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   26, 30 px) instead of 19, 23 and 27 px.
 - Screen previews compare only the critical PNG chunks, so reference images
   stay valid when a tool adds metadata to them.
+- Settings page in five tabs (General, Departures MVG, Weather, Calendar,
+  Device); the display name follows the chosen station and stays editable;
+  buttons for the means of transport of the station before the line table
+  (all on at first, switching one off hides its lines); names of two
+  directions suggested as "Zentrum" / "Auswärts" ("Centre" / "Outbound").
+- Margins of 20 px at the left, right and top and 15 px at the bottom
+  instead of 28/22/16 px, as two constants (`ui::kMargin`,
+  `ui::kMarginBottom`); the departure column is 280 px wide (was 264), the
+  columns end at y 465; the band, its rule and the sentence (now up to
+  580 px wide) follow the margin. The date line uses Roboto Condensed Bold
+  20 instead of 16. The equal grid has three columns of 237 px.
+- Calendar: the next event of today is no longer bold, all events use the
+  same weight; long titles wrap once onto a second line where there is
+  room.
+- Dotted lines between the columns are on by default (`layout.dividers`;
+  `false` turns them off); the settings page writes `false` only when they
+  are switched off.
+- Weather: the bars of the chart show the amount of precipitation of each
+  hour (`precipitation`, sum of the preceding hour) instead of the rain
+  probability, on a square root scale (full from 5 mm per hour, nothing
+  below 0.1 mm), each between the marks of its hour. The sentence still
+  uses the probability.
 
 ### Fixed
 
 - Configuration over USB: the receive buffer of the USB serial line holds a
   whole configuration file; before, everything after the first 256 bytes was
   lost and `put` ended with "timeout while receiving".
+- Weather: the rain bars were 10 or 11 px wide, and the first and last bar
+  reached beyond the bottom line; now the hour marks are a whole number of
+  pixels apart, all bars have the same width and gaps, and the line runs
+  from the first to the last bar.
+- Weather: the descenders of the credit "Open-Meteo" were cut off at the
+  bottom edge of the column; the same for the last week line of the
+  calendar.

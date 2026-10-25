@@ -43,8 +43,16 @@
 
   <div id="issues" class="issues" hidden></div>
 
+  <nav id="tabs" class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="general" data-t="tabGeneral"></button>
+    <button type="button" role="tab" data-tab="mvg" data-t="tabMvg"></button>
+    <button type="button" role="tab" data-tab="weather" data-t="tabWeather"></button>
+    <button type="button" role="tab" data-tab="calendar" data-t="tabCalendar"></button>
+    <button type="button" role="tab" data-tab="device" data-t="tabDevice"></button>
+  </nav>
+
   <!-- Departures (MVG) -->
-  <section id="secMvg">
+  <section id="secMvg" data-tab="mvg">
     <h2><span data-t="departures"></span> <small>MVG</small></h2>
     <span class="label" data-t="station"></span>
     <div id="mvgStation"></div>
@@ -69,7 +77,7 @@
   </section>
 
   <!-- Weather -->
-  <section id="secWeather">
+  <section id="secWeather" data-tab="weather">
     <h2><span data-t="weather"></span> <small>Open-Meteo</small></h2>
     <span class="label" data-t="place"></span>
     <div id="weatherPlace"></div>
@@ -86,7 +94,7 @@
   </section>
 
   <!-- Calendar -->
-  <section id="secCalendar">
+  <section id="secCalendar" data-tab="calendar">
     <h2><span data-t="calendar"></span> <span class="pill" id="calendarState"></span></h2>
     <p class="hint" data-t="calendarHint"></p>
     <label for="calendarUrl" data-t="calendarNew"></label>
@@ -96,7 +104,7 @@
   </section>
 
   <!-- Display -->
-  <section id="secDisplay">
+  <section id="secDisplay" data-tab="general">
     <h2 data-t="display"></h2>
     <span class="label" data-t="columns"></span>
     <div class="slots" id="slots"></div>
@@ -107,15 +115,15 @@
         <select id="fullRefresh"></select></div>
     </div>
     <p class="hint" data-t="fullRefreshHint"></p>
+    <div class="cb"><input id="dividers" type="checkbox"><label for="dividers" data-t="dividers"></label></div>
     <details>
       <summary data-t="tryOut"></summary>
       <div class="cb"><input id="gridEqual" type="checkbox"><label for="gridEqual" data-t="gridEqual"></label></div>
-      <div class="cb"><input id="dividers" type="checkbox"><label for="dividers" data-t="dividers"></label></div>
     </details>
   </section>
 
   <!-- Wi-Fi -->
-  <section id="secWifi">
+  <section id="secWifi" data-tab="general">
     <h2 data-t="wifi"></h2>
     <dl class="kv" id="wifiInfo"></dl>
     <details id="wifiChange">
@@ -133,7 +141,7 @@
   </section>
 
   <!-- Device -->
-  <section id="secDevice">
+  <section id="secDevice" data-tab="device">
     <h2 data-t="device"></h2>
     <dl class="kv" id="deviceInfo"></dl>
     <h3 data-t="backup"></h3>

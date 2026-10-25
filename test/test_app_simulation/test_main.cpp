@@ -221,8 +221,8 @@ void test_normal_operation_and_refresh_types() {
   const hal::PngDisplay::Update& u = rig.display.updates()[1];
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header line with the clock
-  TEST_ASSERT_FALSE(contains(u.regions, 305, 205));  // calendar (every 15 minutes)
-  TEST_ASSERT_FALSE(contains(u.regions, 545, 205));  // weather (every 30 minutes)
+  TEST_ASSERT_FALSE(contains(u.regions, 313, 205));  // calendar (every 15 minutes)
+  TEST_ASSERT_FALSE(contains(u.regions, 553, 205));  // weather (every 30 minutes)
 
   // One hour later at least one full refresh against ghosting.
   rig.runUntil(3700000);
@@ -342,7 +342,7 @@ void test_one_source_for_several_views() {
   const ui::Bitmap& b = rig.app.screen().bitmap();
   int differences = 0, black = 0;
   for (int y = 205; y < 480; y++) {
-    for (int x = 318; x < 318 + 214; x++) {
+    for (int x = 326; x < 326 + 214; x++) {
       const bool left = b.get(x, y) == ui::Color::kBlack;
       black += left;
       differences += left != (b.get(x + 240, y) == ui::Color::kBlack);
@@ -384,7 +384,7 @@ void test_briefing_morning() {
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header line with the clock
   TEST_ASSERT_FALSE(contains(u.regions, 0, 44));     // sentence unchanged
-  TEST_ASSERT_FALSE(contains(u.regions, 545, 205));  // weather unchanged
+  TEST_ASSERT_FALSE(contains(u.regions, 553, 205));  // weather unchanged
 
   // Wi-Fi lost: shown after 60 s in the header line and in the sentence.
   rig.app.controller().setNetworkConnected(false);
@@ -417,7 +417,7 @@ void test_access_notices() {
   const hal::PngDisplay::Update& u = rig.display.updates().back();
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 44));      // band: notice instead of the sentence
-  TEST_ASSERT_FALSE(contains(u.regions, 545, 205));  // weather column unchanged
+  TEST_ASSERT_FALSE(contains(u.regions, 553, 205));  // weather column unchanged
   checkPanel(rig.display, "sim_settings_open");
 
   // Saved Wi-Fi not reached since the start: the whole screen.

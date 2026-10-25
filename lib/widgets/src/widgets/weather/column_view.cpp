@@ -70,7 +70,7 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
   for (const ColumnChart::Bar& b : chart.bars) {
     c.fillDotted(b.x0, chart.base - b.height, b.x1 - b.x0 + 1, b.height);
   }
-  c.hLine(kChartMargin, chart.base, c.width() - 2 * kChartMargin, Color::kBlack);
+  c.hLine(chart.line_x0, chart.base, chart.line_x1 - chart.line_x0 + 1, Color::kBlack);
   c.drawPolyline(chart.curve, kCurveWidth, Color::kBlack);
   for (const ColumnChart::Label& l : chart.labels) {
     char t[12];
@@ -85,7 +85,7 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
   // A small clock at the left edge of the chart, on the line of the hour
   // labels, so the numbers read as times.
   if (!chart.labels.empty()) {
-    ui::drawClockSymbol(c, kChartMargin, chart.base + 18 - kClockSize + 1, kClockSize);
+    ui::drawClockSymbol(c, chart.line_x0, chart.base + 18 - kClockSize + 1, kClockSize);
   }
 }
 
@@ -126,16 +126,27 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
 
 }  // namespace
 
+int rainBarHeight(float mm) {
+  // The JSON parser reads "0.10" as 0.0999999; a small tolerance keeps 0.1 mm
+  // a bar. !(>=) is also true for NaN.
+  if (!(mm >= kRainMinMm - 0.001f)) return 0;
+  const double share = std::min(1.0, static_cast<double>(mm) / kRainFullMm);
+  return std::max(kRainMinBar, roundToInt(std::sqrt(share) * kColumnRainMax));
+}
+
 ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
   ColumnChart chart;
   chart.base = kBase;
   chart.curve_top = kCurveTop;
+  // Hour marks a whole number of px apart, the chart centred in the column.
+  constexpr int kHours = kLastHour - kFirstHour;
+  const int pitch = std::max(3, (width - 2 * kChartMargin) / kHours);
+  const int gx0 = (width - kHours * pitch) / 2;
+  auto px = [&](double h) { return gx0 + (h - kFirstHour) * pitch; };
+  chart.pitch = pitch;
+  chart.line_x0 = gx0 + 1;                   // left edge of the bar of 6 h
+  chart.line_x1 = gx0 + kHours * pitch - 2;  // right edge of the bar of 23 h
   if (forecast.hours.empty()) return chart;
-  const double gx0 = kChartMargin;
-  const double gx1 = width - kChartMargin;
-  auto px = [&](double h) {
-    return gx0 + (h - kFirstHour) / (kLastHour - kFirstHour) * (gx1 - gx0);
-  };
 
   core::LocalTime today;
   core::toLocalTime(core::isValidUnixTime(now_s) ? now_s : forecast.hours.front().time, today);
@@ -152,16 +163,16 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
   }
   if (items.size() < 2) return chart;
 
-  // Bars first: the curve has to stay above the highest one.
-  const double step = px(kFirstHour + 1) - px(kFirstHour);
+  // Bars first: the curve has to stay above the highest one. The value of
+  // hour h is the precipitation from h - 1 to h: its bar fills that span.
   int highest_bar = 0;
   for (const Item& i : items) {
-    const int pct = std::clamp(i.data->rain_probability, 0, 100);
-    if (pct <= 0) continue;
-    const int h = std::max(1, roundToInt(pct / 100.0 * kColumnRainMax));
+    if (i.hour <= kFirstHour) continue;
+    const int h = rainBarHeight(i.data->precipitation);
+    if (h <= 0) continue;
     highest_bar = std::max(highest_bar, h);
-    chart.bars.push_back({static_cast<int>(px(i.hour) - step / 2 + 1),
-                          static_cast<int>(px(i.hour) + step / 2 - 1) - 1, h});
+    const int x0 = static_cast<int>(px(i.hour - 1)) + 1;
+    chart.bars.push_back({x0, x0 + pitch - 3, h});
   }
   chart.curve_bottom =
       highest_bar > 0 ? std::min(kCurveBottomWithoutRain, kBase - highest_bar - kCurveGapAboveBars)
@@ -238,9 +249,11 @@ void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const Colum
                       ui::TitleIcon::kNone, options.note_alert);
   drawChart(canvas, columnChart(forecast, options.now_s, canvas.width()));
   drawDays(canvas, forecast, options.now_s, options.language);
-  // Credit asked for by the terms of Open-Meteo.
-  ui::drawText(canvas, ui::fonts::kRobotoCondensedMedium13, canvas.width(), canvas.height(),
-               kAttribution, Color::kBlack, ui::Align::kRight);
+  // Credit asked for by the terms of Open-Meteo; its descenders ("p") stay
+  // above the bottom edge of the column.
+  const ui::Font& credit = ui::fonts::kRobotoCondensedMedium13;
+  ui::drawText(canvas, credit, canvas.width(), canvas.height() - credit.descent, kAttribution,
+               Color::kBlack, ui::Align::kRight);
 }
 
 std::string ForecastColumnView::title(ui::Language language) const {

@@ -3,11 +3,14 @@
 // View of the calendar widget in a column of the "Briefing" layout
 // (2026-10-21):
 //  - "HEUTE" with the week number, the events of today (past ones stay until
-//    midnight; "Keine Termine" without any), the next one in bold;
+//    midnight; "Keine Termine" without any);
 //  - then the next day that has events ("MORGEN" or its weekday) if there
 //    is room;
-//  - then the following events of the week, one line each, as many as fit.
-// Times in Roboto Condensed, titles in Fraunces, shortened with "…";
+//  - then the following events of the week, as many as fit.
+// Times in Roboto Condensed, titles in Fraunces, all in the same weight
+// (2026-10-25: the next event is no longer bold). A long title wraps once
+// onto a second line if there is room (today: as long as all events of today
+// that fit in single lines still fit), else it is shortened with "…";
 // all-day events with a small calendar sheet instead of the time.
 
 #include <string>
@@ -30,6 +33,9 @@ struct ColumnOptions {
 // Row heights (Briefing design): today and the next day, the week lines.
 inline constexpr int kColumnDayRowHeight = 27;
 inline constexpr int kColumnWeekRowHeight = 22;
+// Extra height of a title that wraps onto a second line.
+inline constexpr int kColumnDayLineHeight = 22;
+inline constexpr int kColumnWeekLineHeight = 20;
 
 // Draws the agenda (from buildAgenda(); today first).
 void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,

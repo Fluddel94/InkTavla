@@ -37,6 +37,8 @@ int inkCentre(const ui::Icon& icon) {
 
 }  // namespace
 
+const ui::Font& headerFont() { return ui::fonts::kRobotoCondensedBold20; }
+
 SentenceLayout layoutSentence(const std::string& sentence) {
   SentenceLayout out;
   bool complete = true;
@@ -125,8 +127,8 @@ void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context) {
     header = ui::toUpper(ui::longDate(context.language, local.weekday, local.day, local.month)) +
              " \u00b7 " + time;
   }
-  const int end = ui::drawTrackedText(canvas, ui::fonts::kRobotoCondensedBold16, kHeaderX,
-                                      kHeaderBaseline, header, kHeaderSpacing);
+  const int end =
+      ui::drawTrackedText(canvas, headerFont(), kHeaderX, kHeaderBaseline, header, kHeaderSpacing);
   if (!context.network_connected) {
     ui::drawWifiSymbol(canvas, end + 12, kHeaderBaseline - kWifiSize + 2, kWifiSize, false);
   }

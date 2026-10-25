@@ -30,24 +30,28 @@ the same Wi-Fi as the display:
 
 The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes. It
-offers:
+has five tabs:
 
-- **Departures:** station search, display name and note, one list, two
-  directions or two stations, and for every line and direction whether and
-  where it is shown; the example destinations come from the departures of
-  the next 12 hours.
-- **Weather:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
+- **Allgemein / General:** widgets of the columns, language, full refresh,
+  the dotted lines between the columns (on by default; three columns of the
+  same width can be tried out below); the current Wi-Fi network and **WLAN
+  wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
+  if the display can connect (otherwise it goes back to the old one).
+- **Abfahrten MVG / Departures MVG:** station search; the display name
+  follows the chosen station (and can still be edited); note; one list, two
+  directions or two stations; buttons for the means of transport that serve
+  the station (all on at first; switching one off hides its lines in the
+  table), then for every line and direction whether and where it is shown.
+  The example destinations come from the departures of the next 12 hours;
+  the names of two directions are suggested as "Zentrum" / "Auswärts"
+  ("Centre" / "Outbound" in English).
+- **Wetter / Weather:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
   display name, coordinates under **Koordinaten**.
-- **Calendar:** replace or remove the private iCal address. The page only
-  shows whether one is set.
-- **Display:** widgets of the columns, language, full refresh, the layout
-  variants.
-- **Wi-Fi:** the current network; **WLAN wechseln** / **Change Wi-Fi** tests
-  a new network and saves it only if the display can connect (otherwise it
-  goes back to the old one).
-- **Device:** download and load `config.json` (a backup; secrets are never
-  in it), **Firmware aktualisieren** / **Update firmware** (see below), time
-  zone and time server, restart, and **Einstellungen zurücksetzen** /
+- **Kalender / Calendar:** replace or remove the private iCal address. The
+  page only shows whether one is set.
+- **Gerät / Device:** download and load `config.json` (a backup; secrets are
+  never in it), **Firmware aktualisieren** / **Update firmware** (see below),
+  time zone and time server, restart, and **Einstellungen zurücksetzen** /
   **Reset settings** (all settings to their defaults; Wi-Fi and the
   calendar address stay).
 
@@ -161,8 +165,8 @@ the settings page when saving.
 | `ntp_server` | text | `"pool.ntp.org"` | Time server (host name or IP address). |
 | `display.full_refresh_minutes` | 1–1440 | `60` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
 | `layout.slots` | list of 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. A widget may appear more than once; its data is fetched only once. |
-| `layout.grid` | `"standard"`, `"equal"` | `"standard"` | Widths of the columns: 264/214/214 px, or three columns of 232 px (for trying out on the display; the departure column gets narrower). |
-| `layout.dividers` | `true`, `false` | `false` | Dotted vertical lines between the columns (for trying out on the display). |
+| `layout.grid` | `"standard"`, `"equal"` | `"standard"` | Widths of the columns: 280/214/214 px, or three columns of 237 px (for trying out on the display; the departure column gets narrower). |
+| `layout.dividers` | `true`, `false` | `true` | Dotted vertical lines in the middle between the columns; `false` turns them off. |
 
 The `layout.template` setting of earlier versions is no longer needed: the
 screen always uses the "Briefing" layout (see below). `"briefing"` is still
@@ -176,7 +180,7 @@ view; its data is not fetched there.
 
 | Column 1 | Column 2 | Column 3 |
 |---|---|---|
-| wide column (264 × 259) | column (214 × 259) | column (214 × 259) |
+| wide column (280 × 260) | column (214 × 260) | column (214 × 260) |
 
 | Widget | Fits |
 |---|---|
@@ -185,6 +189,12 @@ view; its data is not fetched there.
 | `calendar` | column |
 
 ### The "Briefing" layout
+
+The screen keeps a margin of 20 px at the left, right and top (the capitals
+of the date line start 20 px from the top) and 15 px at the bottom. The
+margins are two constants in the firmware (`kMargin` and `kMarginBottom` in
+`lib/ui/src/ui/layout.h`), in case a case covers the edge of the panel; the
+departure column gets the width that is left.
 
 At the top a band with the date and time, a sentence and a weather picture
 with today's low and high; below three columns without frames that are
@@ -272,8 +282,8 @@ choice, for example towards the city and away from it:
   "station": "de:09162:10",
   "name": "Pasing",
   "sections": [
-    {"name": "Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
-    {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
+    {"name": "Zentrum", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
+    {"name": "Auswärts", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
   ]
 }
 ```
@@ -344,9 +354,16 @@ not shown.
 Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
 every 30 minutes. The column shows the course of the day from 5 to 23
 o'clock (temperature curve from the values every 15 minutes with five
-labelled hours, rain probability per hour) and the next three days; the
-band at the top uses the same data for its sentence and picture.
+labelled hours, the amount of rain per hour as bars) and the next three
+days; the band at the top uses the same data for its sentence and picture.
 Temperatures are in degrees Celsius.
+
+Each bar shows the precipitation (rain and snow as water) of one hour and
+stands between its hour marks: Open-Meteo gives the sum of the preceding
+hour, so the value of 17:00 is the bar between 16 and 17. The height follows
+a square root scale, so light rain stays visible: a full bar is 5 mm per
+hour or more, 0.5 mm is about a third, less than 0.1 mm shows no bar. The
+sentence in the band still uses the rain probability.
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
@@ -379,8 +396,11 @@ and other services that publish a calendar in iCalendar format.
 
 The column shows today with the week number ("KW 43"), then the next day
 that has events and the rest of the week, as described under
-[The "Briefing" layout](#the-briefing-layout). The next event of today is
-bold; all-day events have a small calendar symbol.
+[The "Briefing" layout](#the-briefing-layout). All events are in the same
+weight; a long title wraps once onto a second line where there is room
+(today only as long as every event of today that fits still has its line;
+a first word that is too long for the line is shortened instead), else it
+is shortened with "…". All-day events have a small calendar symbol.
 
 The section has no settings yet; the widget only needs the address.
 

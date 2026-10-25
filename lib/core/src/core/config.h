@@ -37,10 +37,11 @@ struct CoreConfig {
   int full_refresh_minutes = 60;  // full refresh against ghosting
   // Widgets of the three columns from left to right.
   std::vector<std::string> slots = {"mvg", "calendar", "weather"};
-  // Layout variants to try out on the display: three columns of the same
-  // width ("grid": "equal") and dotted lines between the columns.
+  // Layout variants: three columns of the same width ("grid": "equal", to try
+  // out, off by default) and dotted lines between the columns (on by
+  // default, "dividers": false turns them off).
   bool equal_columns = false;
-  bool dividers = false;
+  bool dividers = true;
 
   CoreConfig();
 };

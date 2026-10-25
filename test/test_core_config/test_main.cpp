@@ -197,12 +197,16 @@ void test_layout_variants() {
   core::ConfigIssues issues;
   core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_FALSE(c.equal_columns);  // off by default
-  TEST_ASSERT_FALSE(c.dividers);
+  TEST_ASSERT_TRUE(c.dividers);        // on by default
   deserializeJson(doc, R"({"layout": {"grid": "equal", "dividers": true}})");
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_TRUE(c.equal_columns);
   TEST_ASSERT_TRUE(c.dividers);
+  deserializeJson(doc, R"({"layout": {"dividers": false}})");
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_FALSE(c.dividers);
   deserializeJson(doc, R"({"layout": {"grid": "wide", "dividers": "yes"}})");
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(2, issues.size());

@@ -83,7 +83,7 @@ void test_url() {
   TEST_ASSERT_EQUAL_STRING(
       "https://api.open-meteo.com/v1/forecast?latitude=48.1374&longitude=-11.5000"
       "&current=temperature_2m,weather_code,is_day"
-      "&hourly=temperature_2m,precipitation_probability,weather_code,is_day"
+      "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day"
       "&minutely_15=temperature_2m&past_minutely_15=96&forecast_minutely_15=96"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
       "&timezone=auto&timeformat=unixtime&forecast_days=4",
@@ -127,6 +127,30 @@ void test_parse_quarters() {
   TEST_ASSERT_TRUE(g.quarters.temperatures.empty());
 }
 
+void test_parse_precipitation() {
+  // Response of 2026-10-25 11:45 (a day of steady rain): the amount of the
+  // preceding hour in mm next to the probability.
+  const Forecast f = load("muenchen_20261025.json");
+  TEST_ASSERT_EQUAL_size_t(96, f.hours.size());
+  TEST_ASSERT_EQUAL_INT64(1792908000, f.hours[7].time);  // 07:00 (rain 06-07 h)
+  TEST_ASSERT_EQUAL_FLOAT(0.9f, f.hours[7].precipitation);
+  TEST_ASSERT_EQUAL_INT(100, f.hours[7].rain_probability);
+  TEST_ASSERT_EQUAL_FLOAT(1.1f, f.hours[17].precipitation);
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, f.hours[5].precipitation);
+  // Older responses without the amount: 0.
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, load().hours[15].precipitation);
+  // Missing values, null and negative values count as 0.
+  JsonDocument doc;
+  deserializeJson(doc, R"({"current": {"time": 1, "temperature_2m": 5},
+      "hourly": {"time": [0, 3600, 7200], "temperature_2m": [5, 5, 5], "weather_code": [61, 61, 61],
+                 "precipitation": [null, -0.5]},
+      "daily": {"time": [0], "temperature_2m_max": [6], "temperature_2m_min": [4]}})");
+  Forecast g;
+  TEST_ASSERT_TRUE(widgets::weather::parseForecast(doc, g));
+  TEST_ASSERT_EQUAL_size_t(3, g.hours.size());
+  for (const auto& h : g.hours) TEST_ASSERT_EQUAL_FLOAT(0.0f, h.precipitation);
+}
+
 void test_parse_rejects_broken() {
   JsonDocument doc;
   deserializeJson(doc, R"({"current": {"time": 1}, "hourly": {"time": [1, 2],
@@ -164,6 +188,7 @@ int main() {
   RUN_TEST(test_url);
   RUN_TEST(test_parse);
   RUN_TEST(test_parse_quarters);
+  RUN_TEST(test_parse_precipitation);
   RUN_TEST(test_parse_rejects_broken);
   RUN_TEST(test_conditions);
   RUN_TEST(test_temperature);

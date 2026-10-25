@@ -84,8 +84,8 @@ JsonDocument forecastFilter() {
   }
   filter["minutely_15"]["time"] = true;
   filter["minutely_15"]["temperature_2m"] = true;
-  for (const char* key :
-       {"time", "temperature_2m", "precipitation_probability", "weather_code", "is_day"}) {
+  for (const char* key : {"time", "temperature_2m", "precipitation_probability", "precipitation",
+                          "weather_code", "is_day"}) {
     filter["hourly"][key] = true;
   }
   for (const char* key : {"time", "weather_code", "temperature_2m_max", "temperature_2m_min"}) {
@@ -110,6 +110,7 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
   JsonArrayConst times = hourly["time"];
   JsonArrayConst temps = hourly["temperature_2m"];
   JsonArrayConst rain = hourly["precipitation_probability"];
+  JsonArrayConst amount = hourly["precipitation"];  // optional
   JsonArrayConst codes = hourly["weather_code"];
   JsonArrayConst is_day = hourly["is_day"];
   if (times.isNull() || temps.size() != times.size() || codes.size() != times.size()) return false;
@@ -119,6 +120,8 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
     h.time = times[i].as<int64_t>();
     h.temperature = temps[i].as<float>();
     h.rain_probability = i < rain.size() ? (rain[i] | 0) : 0;
+    // Missing or null counts as dry; the models never give less than 0.
+    h.precipitation = i < amount.size() ? std::max(0.0f, amount[i] | 0.0f) : 0.0f;
     h.condition = conditionFromWmo(codes[i] | -1);
     h.day = i < is_day.size() ? (is_day[i] | 1) != 0 : true;
     result.hours.push_back(h);

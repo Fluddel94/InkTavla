@@ -30,14 +30,23 @@ Layout screenLayout(const LayoutOptions& options) {
   const int top = kBriefingBandHeight;
   const int h = kScreenHeight - top;
   const int content_h = kBriefingContentBottom - top;
+  // Columns from left to right; the slots split the gaps between them.
+  int widths[3] = {kWideColumnWidth, kColumnWidth, kColumnWidth};
+  int gap = kColumnGap;
   if (options.equal_columns) {
-    // Columns: 28-260, 284-516, 540-772; the slots split the gaps.
-    l.slots = {{0, top, 272, h}, {272, top, 256, h}, {528, top, kScreenWidth - 528, h}};
-    l.content = {{28, top, 232, content_h}, {284, top, 232, content_h}, {540, top, 232, content_h}};
-  } else {
-    // Columns: 28-292, 318-532, 558-772; the slots split the gaps.
-    l.slots = {{0, top, 305, h}, {305, top, 240, h}, {545, top, kScreenWidth - 545, h}};
-    l.content = {{28, top, 264, content_h}, {318, top, 214, content_h}, {558, top, 214, content_h}};
+    const int content_w = kScreenWidth - 2 * kMargin;
+    const int w = (content_w - 2 * kEqualColumnGap) / 3;
+    widths[0] = widths[1] = widths[2] = w;
+    gap = (content_w - 3 * w) / 2;  // the rest of the division goes into the gaps
+  }
+  int x = kMargin;
+  int slot_x = 0;
+  for (int i = 0; i < 3; i++) {
+    l.content.push_back({x, top, widths[i], content_h});
+    const int slot_end = i < 2 ? x + widths[i] + gap / 2 : kScreenWidth;
+    l.slots.push_back({slot_x, top, slot_end - slot_x, h});
+    slot_x = slot_end;
+    x += widths[i] + gap;
   }
   l.sizes = {SlotSize::kBriefingWide, SlotSize::kBriefingColumn, SlotSize::kBriefingColumn};
   if (options.dividers) {

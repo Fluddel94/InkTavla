@@ -47,7 +47,8 @@ firmware requests.
 | File | Content |
 |---|---|
 | `muenchen_20261020.json` | Response of 2026-10-20 18:30 (hourly and daily values, no 15 minute values): rain the next afternoon |
-| `muenchen_20261022.json` | Response of 2026-10-22 07:30 as the firmware requests it now, with temperatures every 15 minutes from 24 hours back (here 20) to ahead |
+| `muenchen_20261022.json` | Response of 2026-10-22 07:30 with temperatures every 15 minutes from 24 hours back (here 20) to ahead, without the amount of precipitation |
+| `muenchen_20261025.json` | Response of 2026-10-25 11:45 as the firmware requests it now (with `precipitation`): steady rain from 4 to 18 h (100 %, 0.1–1.1 mm per hour); the day the clocks went back |
 
 ## `settings/`
 
@@ -70,7 +71,7 @@ Reference images drawn with the real UI and widget code from the fixtures:
 `briefing_parts.png` are sheets with the symbols, fonts and building blocks
 of the "Briefing" layout; `briefing_*_columns.png`, `briefing_bands.png` and
 `briefing_weather_extremes.png` show its columns, bands and the weather
-chart with extreme values, `briefing_departure_incidents.png` disruption
+chart with extreme values and a real day of steady rain, `briefing_departure_incidents.png` disruption
 messages and two stations, `briefing_band_topics.png` sentences on
 departures, events and tomorrow's temperature (`test/test_briefing`),
 `sim_*.png` the whole screen in the simulation (`test/test_app_simulation`). Their image data is

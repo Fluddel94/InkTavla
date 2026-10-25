@@ -18,6 +18,10 @@ const TEXTS = {
     openUntil: "Offen bis",
     saveHint: "Änderungen gelten nach dem Speichern; das Display startet dann neu.",
     departures: "Abfahrten",
+    tabGeneral: "Allgemein", tabMvg: "Abfahrten MVG", tabWeather: "Wetter", tabCalendar: "Kalender", tabDevice: "Gerät",
+    transportModes: "Verkehrsmittel an dieser Haltestelle",
+    transportHint: "Abwählen blendet die Linien des Verkehrsmittels aus; schon gewählte Linien bleiben gewählt (Zahl am Knopf).",
+    sectionDefault1: "Zentrum", sectionDefault2: "Auswärts",
     station: "Haltestelle",
     stationNone: "Noch keine Haltestelle gewählt.",
     choose: "Auswählen",
@@ -163,6 +167,10 @@ const TEXTS = {
     openUntil: "Open until",
     saveHint: "Changes apply after saving; the display then restarts.",
     departures: "Departures",
+    tabGeneral: "General", tabMvg: "Departures MVG", tabWeather: "Weather", tabCalendar: "Calendar", tabDevice: "Device",
+    transportModes: "Modes of transport at this station",
+    transportHint: "Switching one off hides its lines; lines already chosen stay chosen (number on the button).",
+    sectionDefault1: "Centre", sectionDefault2: "Outbound",
     station: "Station",
     stationNone: "No station chosen yet.",
     choose: "Choose",
@@ -400,6 +408,7 @@ const mvg = {          // the departures form
   pick2: {},
   names: ["", ""],
   notes: ["", ""],
+  hiddenTypes: {},     // station id -> Set of modes switched off in the table
 };
 
 function touched() {
@@ -457,6 +466,7 @@ async function loadState() {
   closesAt = Date.now() + S.closes_in_s * 1000;
   config = S.config && typeof S.config === "object" ? S.config : {};
   fillForm();
+  selectTab(initialTab());
   show("main");
   setDirty(false);
   showOpenUntil();
@@ -571,6 +581,8 @@ function fillMvg() {
   renderStation($("mvgStation"), () => mvg.station, (s) => {
     mvg.station = s;
     mvg.pick = {};
+    // The display name follows the station; it stays editable.
+    $("mvgName").value = s.name;
     renderMvgBody();
   });
   renderMvgBody();
@@ -667,6 +679,23 @@ function sym(line) {
 function linesTable(id, pick, control) {
   const rows = rowsFor(id, pick);
   const box = el("div", { class: "lines" });
+  const hiddenTypes = mvg.hiddenTypes[id] || (mvg.hiddenTypes[id] = new Set());
+  const isSelected = (line, dir) => !!pick[line.key] && pick[line.key][dir] !== undefined;
+  // Modes of transport that run here (lines with departures or already chosen).
+  const modes = [];
+  for (const line of rows) {
+    if (modes.includes(line.type)) continue;
+    if (["H", "R"].some((d) => (line[d] || []).length || isSelected(line, d))) modes.push(line.type);
+  }
+  if (modes.length > 1) {
+    const count = (type) => rows.filter((l) => l.type === type && pick[l.key]).length;
+    box.append(el("span", { class: "label" }, t("transportModes")),
+      el("div", { class: "chips" }, modes.map((type) => el("button", {
+        type: "button", class: "chip", "aria-pressed": String(!hiddenTypes.has(type)),
+        onclick: () => { if (hiddenTypes.has(type)) hiddenTypes.delete(type); else hiddenTypes.add(type); renderMvgBody(); },
+      }, t("type" + type), count(type) ? el("b", {}, count(type)) : null))),
+      el("p", { class: "hint" }, t("transportHint")));
+  }
   const row = (line, dir) => {
     const dest = (line[dir] || []).join(", ");
     return el("div", { class: "line" }, sym(line),
@@ -678,6 +707,7 @@ function linesTable(id, pick, control) {
   let group = null;
   let details = null;
   for (const line of rows) {
+    if (hiddenTypes.has(line.type)) continue;
     const dirs = ["H", "R"].filter((d) => (line[d] || []).length || selected(line, d));
     if (!dirs.length) { inactive.push(line); continue; }
     if (line.type !== group) {
@@ -715,7 +745,7 @@ function renderMvgBody() {
       [0, 1].map((i) => el("div", {},
         el("label", { for: "secName" + i }, t("section") + " " + (i + 1)),
         el("input", { id: "secName" + i, type: "text", maxlength: 24, value: mvg.names[i],
-          placeholder: i === 0 ? (lang === "en" ? "Into town" : "In die Stadt") : (lang === "en" ? "Out" : "Raus"),
+          placeholder: t(i === 0 ? "sectionDefault1" : "sectionDefault2"),
           oninput: (e) => { mvg.names[i] = e.target.value; setDirty(true); } })))));
     body.append(el("h3", {}, t("linesAndDirections")), el("p", { class: "hint" }, t("dirHint")));
     if (!id) return;
@@ -935,7 +965,7 @@ function fillDisplay() {
   $("fullRefresh").replaceChildren(...choices.map((m) =>
     el("option", { value: m, selected: m === refresh }, m % 60 === 0 && m >= 60 ? m / 60 + " h" : m + " min")));
   $("gridEqual").checked = layout.grid === "equal";
-  $("dividers").checked = layout.dividers === true;
+  $("dividers").checked = layout.dividers !== false;  // on by default
 }
 function widgetName(id) {
   const key = "widget" + id.charAt(0).toUpperCase() + id.slice(1);
@@ -1215,7 +1245,7 @@ function buildConfig() {
   c.layout = c.layout || {};
   c.layout.slots = [0, 1, 2].map((i) => $("slot" + i).value);
   if ($("gridEqual").checked) c.layout.grid = "equal"; else delete c.layout.grid;
-  if ($("dividers").checked) c.layout.dividers = true; else delete c.layout.dividers;
+  if ($("dividers").checked) delete c.layout.dividers; else c.layout.dividers = false;
   delete c.layout.template;
   c.language = $("language").value;
   c.display = c.display || {};
@@ -1228,6 +1258,32 @@ function buildConfig() {
   const ntp = $("ntpServer").value.trim();
   if (!ntp || ntp === "pool.ntp.org") delete c.ntp_server; else c.ntp_server = ntp;
   return { config: c, errors };
+}
+
+// --- Tabs ----------------------------------------------------------------------------
+
+const TABS = ["general", "mvg", "weather", "calendar", "device"];
+function selectTab(name) {
+  if (!TABS.includes(name)) name = "general";
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  document.querySelectorAll("main section[data-tab]").forEach((s) => { s.hidden = s.dataset.tab !== name; });
+  try { sessionStorage.setItem("inktavlaTab", name); } catch (e) { /* not available */ }
+}
+$("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (b) selectTab(b.dataset.tab);
+});
+function initialTab() {
+  try { return sessionStorage.getItem("inktavlaTab") || "general"; } catch (e) { return "general"; }
+}
+function markTabErrors(errors) {
+  const bad = new Set();
+  for (const [id] of errors) {
+    const s = $(id) && $(id).closest("section[data-tab]");
+    if (s) bad.add(s.dataset.tab);
+  }
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("bad", bad.has(b.dataset.tab)));
+  return bad;
 }
 
 function showFieldErrors(errors) {
@@ -1247,9 +1303,12 @@ function showFieldErrors(errors) {
       target.after(el("p", { class: "err fielderr" }, msg));
     }
   }
+  markTabErrors(errors);
   if (errors.length) {
     const first = $(errors[0][0]);
     if (first) {
+      const own = first.closest("section[data-tab]");
+      if (own) selectTab(own.dataset.tab);
       const details = first.closest("details");
       if (details) details.open = true;
       first.scrollIntoView({ block: "center", behavior: "smooth" });

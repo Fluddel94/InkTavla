@@ -22,11 +22,33 @@ constexpr int kRuleBelowRows = 10;
 constexpr int kTitleBelowRows = 32;
 constexpr int kWeekTimeSpace = 44;  // kept free for the time on the right
 
-const ui::Font& timeFont(bool bold) {
-  return bold ? ui::fonts::kRobotoCondensedBold17 : ui::fonts::kRobotoCondensedMedium17;
+const ui::Font& kTimeFont = ui::fonts::kRobotoCondensedMedium17;
+const ui::Font& kTitleFont = ui::fonts::kFraunces20;
+const ui::Font& kWeekTitleFont = ui::fonts::kFraunces18;
+
+// Lines of a title: wrapped once onto a second line (max_lines 2), the last
+// one shortened with "…" if it is still too long.
+std::vector<std::string> titleLines(const ui::Font& font, const std::string& title, int width,
+                                    int max_lines) {
+  if (max_lines <= 1) return {ui::fitTextEllipsis(font, title, width)};
+  std::vector<std::string> lines = ui::wrapText(font, title, width, max_lines);
+  if (lines.empty()) lines.push_back("");
+  // A first word too long for the line ("Projektbesprechung") would be cut
+  // in the first line already: then one shortened line is clearer.
+  const std::string ellipsis = "\u2026";
+  const std::string& first = lines.front();
+  if (lines.size() > 1 && first.size() >= ellipsis.size() &&
+      first.compare(first.size() - ellipsis.size(), ellipsis.size(), ellipsis) == 0) {
+    return {ui::fitTextEllipsis(font, title, width)};
+  }
+  return lines;
 }
-const ui::Font& titleFont(bool bold) {
-  return bold ? ui::fonts::kFraunces20Bold : ui::fonts::kFraunces20;
+
+// Height of a row of today or the next day with up to max_lines lines.
+int dayRowHeight(const Entry& e, int width, int max_lines) {
+  if (e.kind == Entry::Kind::kNone) return kColumnDayRowHeight;
+  const size_t lines = titleLines(kTitleFont, e.title, width - kTimeColumn, max_lines).size();
+  return kColumnDayRowHeight + (lines > 1 ? kColumnDayLineHeight : 0);
 }
 
 bool hasEvents(const AgendaDay& day) {
@@ -36,21 +58,31 @@ bool hasEvents(const AgendaDay& day) {
   return false;
 }
 
-// Draws one row of today or the next day with its baseline at y + 22.
-void drawDayRow(ui::Canvas& c, const Entry& e, int y) {
+// Draws one row of today or the next day with its first baseline at y + 22
+// and up to max_lines lines; returns its height.
+int drawDayRow(ui::Canvas& c, const Entry& e, int y, int max_lines) {
   const int baseline = y + 22;
   if (e.kind == Entry::Kind::kNone) {
-    ui::drawText(c, titleFont(false), 0, baseline, e.title);
-    return;
+    ui::drawText(c, kTitleFont, 0, baseline, e.title);
+    return kColumnDayRowHeight;
   }
   if (e.kind == Entry::Kind::kAllDay) {
     ui::drawIcon(c, 2, baseline - 14, ui::kCalendarIcon);
   } else {
-    ui::drawText(c, timeFont(e.next), 0, baseline, e.time);
+    ui::drawText(c, kTimeFont, 0, baseline, e.time);
   }
-  const ui::Font& f = titleFont(e.next);
-  ui::drawText(c, f, kTimeColumn, baseline,
-               ui::fitTextEllipsis(f, e.title, c.width() - kTimeColumn));
+  const std::vector<std::string> lines =
+      titleLines(kTitleFont, e.title, c.width() - kTimeColumn, max_lines);
+  for (size_t i = 0; i < lines.size(); i++) {
+    ui::drawText(c, kTitleFont, kTimeColumn, baseline + static_cast<int>(i) * kColumnDayLineHeight,
+                 lines[i]);
+  }
+  return kColumnDayRowHeight + (lines.size() > 1 ? kColumnDayLineHeight : 0);
+}
+
+// Lines for a row that has `space` px left: two if they fit, else one.
+int linesThatFit(const Entry& e, int width, int space) {
+  return dayRowHeight(e, width, 2) <= space ? 2 : 1;
 }
 
 // Entries of today that fit into `rows`: if there are too many, past events
@@ -92,12 +124,17 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
                       options.note, ui::TitleIcon::kNone, options.note_alert);
   if (agenda.empty()) return;
 
-  // Today: as many rows as fit.
+  // Today: as many events as fit in single lines; then long titles wrap as
+  // long as all of them still fit.
   int y = ui::kColumnTitleBaseline + kRowsBelowTitle;
   const int today_rows = std::max(1, (bottom - y) / kColumnDayRowHeight);
-  for (const Entry* e : visibleToday(agenda[0], today_rows)) {
-    drawDayRow(canvas, *e, y);
-    y += kColumnDayRowHeight;
+  const std::vector<const Entry*> today = visibleToday(agenda[0], today_rows);
+  int spare = (bottom - y) - static_cast<int>(today.size()) * kColumnDayRowHeight;
+  for (const Entry* e : today) {
+    const int extra = dayRowHeight(*e, width, 2) - kColumnDayRowHeight;
+    const bool wrap = extra > 0 && extra <= spare;
+    if (wrap) spare -= extra;
+    y += drawDayRow(canvas, *e, y, wrap ? 2 : 1);
   }
 
   // The next day with events, if its title and one row still fit.
@@ -116,8 +153,7 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
   y = title + kRowsBelowTitle;
   for (const Entry& e : day.entries) {
     if (y + kColumnDayRowHeight > bottom) return;
-    drawDayRow(canvas, e, y);
-    y += kColumnDayRowHeight;
+    y += drawDayRow(canvas, e, y, linesThatFit(e, width, bottom - y));
   }
 
   // The rest of the week, one line per event.
@@ -126,7 +162,8 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
     for (const Entry& e : agenda[i].entries) {
       if (e.kind == Entry::Kind::kNone) continue;
       const int baseline = y + (rule ? 0 : kRuleBelowRows) + kColumnWeekRowHeight;
-      if (baseline > bottom) return;
+      // Descenders ("g", "p") stay above the bottom edge.
+      if (baseline + kWeekTitleFont.descent > bottom) return;
       if (!rule) {
         canvas.dottedHLine(0, y + kRuleBelowRows, width, 2);
         y += kRuleBelowRows;
@@ -135,15 +172,21 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
       y = baseline;
       ui::drawText(canvas, ui::fonts::kRobotoCondensedBold16, 0, y,
                    ui::weekdayShort(lang, weekdayFromDays(agenda[i].day)));
-      const ui::Font& f = ui::fonts::kFraunces18;
       const bool timed = e.kind == Entry::Kind::kTimed;
-      ui::drawText(
-          canvas, f, kTimeColumn, y,
-          ui::fitTextEllipsis(f, e.title, width - kTimeColumn - (timed ? kWeekTimeSpace : 0)));
+      const int title_width = width - kTimeColumn - (timed ? kWeekTimeSpace : 0);
+      // A second line only if it still fits above the bottom edge.
+      const bool room = y + kColumnWeekLineHeight + kWeekTitleFont.descent <= bottom;
+      const std::vector<std::string> lines =
+          titleLines(kWeekTitleFont, e.title, title_width, room ? 2 : 1);
+      for (size_t l = 0; l < lines.size(); l++) {
+        ui::drawText(canvas, kWeekTitleFont, kTimeColumn,
+                     y + static_cast<int>(l) * kColumnWeekLineHeight, lines[l]);
+      }
       if (timed) {
         ui::drawText(canvas, ui::fonts::kRobotoCondensedMedium15, width, y, e.time, Color::kBlack,
                      ui::Align::kRight);
       }
+      if (lines.size() > 1) y += kColumnWeekLineHeight;
     }
   }
 }

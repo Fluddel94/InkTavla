@@ -14,7 +14,9 @@
 #include <vector>
 
 #include "ui/canvas.h"
+#include "ui/font.h"
 #include "ui/i18n.h"
+#include "ui/layout.h"
 #include "widgets/briefing/sentence.h"
 #include "widgets/calendar/widget.h"
 #include "widgets/mvg/widget.h"
@@ -23,17 +25,26 @@
 
 namespace widgets::briefing {
 
-// Positions of the Briefing design (design/briefing/werkzeug/briefing.py).
-inline constexpr int kHeaderX = 28;
-inline constexpr int kHeaderBaseline = 34;
-inline constexpr int kSentenceX = 26;
-inline constexpr int kSentenceWidth = 564;  // up to x 590, left of the picture
-inline constexpr int kPictureX = 622;
+// Positions of the Briefing design (design/briefing/werkzeug/briefing.py),
+// moved to the margin ui::kMargin (2026-10-25): the header line starts at
+// the margin, its capitals begin at the margin from the top.
+inline constexpr int kHeaderX = ui::kMargin;
+inline constexpr int kHeaderCapHeight = 14;  // Roboto Condensed Bold 20
+inline constexpr int kHeaderBaseline = ui::kMargin + kHeaderCapHeight;
+inline constexpr int kSentenceX = ui::kMargin - 2;  // Fraunces has a small left bearing
+// The weather picture keeps its distance of 150 px from the right margin;
+// the sentence ends 32 px left of it.
+inline constexpr int kPictureX = ui::kScreenWidth - ui::kMargin - 150;
+inline constexpr int kSentenceWidth = kPictureX - 32 - kSentenceX;
 inline constexpr int kPictureY = 18;
 // Low and high: centred under the drawn part of the picture, at most up to
 // the right edge of the rule.
 inline constexpr int kRangeBaseline = 186;
 inline constexpr int kRuleY = 204;
+
+// Font of the header line (date and clock; also the heading of the Wi-Fi
+// screen), in spaced capitals.
+const ui::Font& headerFont();
 
 // Lines of the sentence: Fraunces 38 with 44 px between baselines; if it
 // does not fit into three lines, Fraunces 34 with 40 px; then shortened.

@@ -76,7 +76,8 @@ void check(const ui::Bitmap& bitmap, const char* name) {
 }
 
 // A forecast for the day of `midnight`: 24 hourly temperatures and rain
-// probabilities, today and the next three days.
+// probabilities, today and the next three days. The precipitation follows the
+// probability (100 % -> 5 mm, a full bar).
 wx::Forecast forecast(const std::vector<float>& temps, const std::vector<int>& rain,
                       Condition hours = Condition::kOvercast,
                       Condition today = Condition::kOvercast, int64_t midnight = kMidnight,
@@ -90,6 +91,7 @@ wx::Forecast forecast(const std::vector<float>& temps, const std::vector<int>& r
     hour.time = midnight + h * 3600;
     hour.temperature = temps[h % temps.size()];
     hour.rain_probability = rain[h % rain.size()];
+    hour.precipitation = hour.rain_probability / 20.0f;
     hour.condition = hour.rain_probability >= 30 ? hours : Condition::kOvercast;
     f.hours.push_back(hour);
   }
@@ -306,6 +308,82 @@ void test_chart_never_meets_the_rain_bars() {
   TEST_ASSERT_TRUE(flat.curve_bottom > wet.curve_bottom);
 }
 
+wx::Forecast savedForecast(const char* fixture) {
+  std::ifstream file(std::string("test/fixtures/weather/") + fixture, std::ios::binary);
+  JsonDocument doc;
+  deserializeJson(doc, file, DeserializationOption::Filter(wx::forecastFilter()));
+  wx::Forecast f;
+  TEST_ASSERT_TRUE(wx::parseForecast(doc, f));
+  return f;
+}
+
+void test_rain_bar_heights() {
+  // Square root scale, full from 5 mm per hour, nothing below 0.1 mm.
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0.05f));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(-1));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(NAN));
+  TEST_ASSERT_EQUAL_INT(4, wx::rainBarHeight(0.1f));
+  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.2f));
+  TEST_ASSERT_EQUAL_INT(9, wx::rainBarHeight(0.5f));
+  TEST_ASSERT_EQUAL_INT(13, wx::rainBarHeight(0.9f));
+  TEST_ASSERT_EQUAL_INT(19, wx::rainBarHeight(2));
+  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(5));
+  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(12));
+}
+
+void test_rain_bars_between_the_hour_marks() {
+  // Rain all day: 18 bars (6-23 h) of the same width with gaps of 2 px, from
+  // the left to the right end of the bottom line, centred in the column.
+  const struct {
+    int width, pitch;
+  } widths[] = {{214, 11}, {232, 12}, {240, 12}};
+  for (const auto& w : widths) {
+    const wx::ColumnChart chart =
+        wx::columnChart(forecast(course(8, 12), rainFrom(0, 100)), kMorning, w.width);
+    TEST_ASSERT_EQUAL_INT(w.pitch, chart.pitch);
+    TEST_ASSERT_EQUAL_size_t(18, chart.bars.size());
+    TEST_ASSERT_EQUAL_INT(chart.line_x0, chart.bars.front().x0);
+    TEST_ASSERT_EQUAL_INT(chart.line_x1, chart.bars.back().x1);
+    TEST_ASSERT_TRUE(chart.line_x0 >= 0 && chart.line_x1 < w.width);
+    TEST_ASSERT_INT_WITHIN(1, chart.line_x0, w.width - 1 - chart.line_x1);
+    for (size_t i = 0; i < chart.bars.size(); i++) {
+      const auto& b = chart.bars[i];
+      TEST_ASSERT_EQUAL_INT(w.pitch - 2, b.x1 - b.x0 + 1);
+      TEST_ASSERT_EQUAL_INT(wx::kColumnRainMax, b.height);
+      if (i > 0) TEST_ASSERT_EQUAL_INT(2, b.x0 - chart.bars[i - 1].x1 - 1);
+    }
+  }
+  // The value of 17 h (rain from 16 to 17 h) stands left of the mark 17.
+  std::vector<int> rain(24, 0);
+  rain[17] = 100;
+  wx::ColumnChart chart = wx::columnChart(forecast(course(8, 12), rain), kMorning, 214);
+  TEST_ASSERT_EQUAL_size_t(1, chart.bars.size());
+  int mark = -1;
+  for (const auto& l : chart.labels) {
+    if (l.hour == 17) mark = l.x;
+  }
+  TEST_ASSERT_EQUAL_INT(mark - chart.pitch + 1, chart.bars[0].x0);
+  TEST_ASSERT_EQUAL_INT(mark - 2, chart.bars[0].x1);
+  // The value of 5 h (rain from 4 to 5 h) is not shown; dry hours have no
+  // bar, but the bottom line stays.
+  rain.assign(24, 0);
+  rain[5] = 100;
+  chart = wx::columnChart(forecast(course(8, 12), rain), kMorning, 214);
+  TEST_ASSERT_EQUAL_size_t(0, chart.bars.size());
+  TEST_ASSERT_TRUE(chart.line_x1 > chart.line_x0);
+  // The real day of steady rain: a bar for every hour from 6 to 18 h, also
+  // for 0.1 mm (read as 0.0999999 from the JSON).
+  chart = wx::columnChart(savedForecast("muenchen_20261025.json"), 1792910460, 214);
+  TEST_ASSERT_EQUAL_size_t(13, chart.bars.size());
+  TEST_ASSERT_EQUAL_INT(4, chart.bars[8].height);    // 0.1 mm from 13 to 14 h
+  TEST_ASSERT_EQUAL_INT(14, chart.bars[11].height);  // 1.1 mm from 16 to 17 h
+  // Without data the line still has its place.
+  const wx::ColumnChart empty = wx::columnChart(wx::Forecast{}, kMorning, 214);
+  TEST_ASSERT_EQUAL_INT(chart.line_x0, empty.line_x0);
+  TEST_ASSERT_EQUAL_INT(chart.line_x1, empty.line_x1);
+}
+
 // Saved response of 2026-10-22 07:30 with values every 15 minutes.
 wx::Forecast quarterForecast() {
   std::ifstream file("test/fixtures/weather/muenchen_20261022.json", std::ios::binary);
@@ -344,15 +422,17 @@ void test_chart_from_values_every_15_minutes() {
 }
 
 void test_preview_weather_extremes() {
-  const auto list = extremes();
-  ui::Bitmap bitmap(4 * 214 + 3 * 20, 259);
+  auto list = extremes();
+  // A real day of steady rain (2026-10-25, 07:41): amounts of 0.1-1.1 mm.
+  list.push_back(savedForecast("muenchen_20261025.json"));
+  ui::Bitmap bitmap(5 * 214 + 4 * 20, 260);
   bitmap.clear(ui::Color::kWhite);
-  const char* notes[] = {"Frost", "Hitze", "Flach", "Sprung"};
+  const char* notes[] = {"Frost", "Hitze", "Flach", "Sprung", "Dauerregen"};
   for (size_t i = 0; i < list.size(); i++) {
-    ui::BitmapCanvas column(bitmap, static_cast<int>(i) * 234, 0, 214, 259);
+    ui::BitmapCanvas column(bitmap, static_cast<int>(i) * 234, 0, 214, 260);
     wx::ColumnOptions options;
     options.note = notes[i];
-    options.now_s = kMorning;
+    options.now_s = i < 4 ? kMorning : 1792910460;
     wx::drawWeatherColumn(column, list[i], options);
   }
   check(bitmap, "briefing_weather_extremes");
@@ -371,7 +451,7 @@ cal::Occurrences occurrences(const char* fixture, int64_t now) {
 
 void drawCalendar(ui::Bitmap& bitmap, int x, const char* fixture, int64_t now,
                   const char* note = "KW 43", bool alert = false) {
-  ui::BitmapCanvas column(bitmap, x, 0, 214, 259);
+  ui::BitmapCanvas column(bitmap, x, 0, 214, 260);
   cal::ColumnOptions options;
   options.note = note;
   options.note_alert = alert;
@@ -380,7 +460,7 @@ void drawCalendar(ui::Bitmap& bitmap, int x, const char* fixture, int64_t now,
 }
 
 void test_preview_calendar_columns() {
-  ui::Bitmap bitmap(4 * 214 + 3 * 20, 259);
+  ui::Bitmap bitmap(4 * 214 + 3 * 20, 260);
   bitmap.clear(ui::Color::kWhite);
   drawCalendar(bitmap, 0, "week.ics", kMorning);                // Tuesday morning
   drawCalendar(bitmap, 234, "week.ics", kMorning + 13 * 3600);  // evening: past events stay
@@ -407,24 +487,24 @@ std::vector<widgets::mvg::Section> pasing(bool sections) {
 }
 
 void test_preview_departure_columns() {
-  ui::Bitmap bitmap(3 * 264 + 2 * 20, 259);
+  ui::Bitmap bitmap(3 * 280 + 2 * 20, 260);
   bitmap.clear(ui::Color::kWhite);
   widgets::mvg::ColumnOptions options;
   options.station = "Pasing";
   options.now_s = kMvgNow;
-  ui::BitmapCanvas a(bitmap, 0, 0, 264, 259);
+  ui::BitmapCanvas a(bitmap, 0, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(6, widgets::mvg::drawDeparturesColumn(a, pasing(true), options));
-  ui::BitmapCanvas b(bitmap, 284, 0, 264, 259);
+  ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(8, widgets::mvg::drawDeparturesColumn(b, pasing(false), options));
-  ui::BitmapCanvas c(bitmap, 568, 0, 264, 259);
+  ui::BitmapCanvas c(bitmap, 600, 0, 280, 260);
   options.note = "Stand 22:21";
   options.note_alert = true;
   std::vector<widgets::mvg::Section> empty = pasing(true);
   empty[1].departures.clear();
   widgets::mvg::drawDeparturesColumn(c, empty, options);
   check(bitmap, "briefing_departure_columns");
-  TEST_ASSERT_EQUAL_INT(7, widgets::mvg::columnRowsThatFit(259, 2));
-  TEST_ASSERT_EQUAL_INT(8, widgets::mvg::columnRowsThatFit(259, 1));
+  TEST_ASSERT_EQUAL_INT(7, widgets::mvg::columnRowsThatFit(260, 2));
+  TEST_ASSERT_EQUAL_INT(8, widgets::mvg::columnRowsThatFit(260, 1));
 }
 
 // Saved responses of two stations; counts the requests.
@@ -450,7 +530,7 @@ widgets::mvg::Config mvgConfig(const char* json) {
 }
 
 void test_preview_departure_incidents() {
-  ui::Bitmap bitmap(3 * 264 + 2 * 20, 259);
+  ui::Bitmap bitmap(3 * 280 + 2 * 20, 260);
   bitmap.clear(ui::Color::kWhite);
   widgets::mvg::ColumnOptions options;
   options.station = "Pasing";
@@ -471,7 +551,7 @@ void test_preview_departure_incidents() {
       "S6: Technische Störung am Zug. S4, S6, S8: Verspätung eines vorausfahrenden Zuges.",
       widgets::mvg::incidentText(directions.incidents()).c_str());
   options.incidents = directions.incidents();
-  ui::BitmapCanvas a(bitmap, 0, 0, 264, 259);
+  ui::BitmapCanvas a(bitmap, 0, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(4, widgets::mvg::drawDeparturesColumn(a, directions.sections(), options));
 
   // Two stations: one request each, the sections in the configured order.
@@ -491,7 +571,7 @@ void test_preview_departure_incidents() {
   TEST_ASSERT_FALSE(directions.sections()[0].own_station);
   TEST_ASSERT_EQUAL_STRING("4 min zu Fuß", stations.sections()[1].note.c_str());
   options.incidents.clear();
-  ui::BitmapCanvas b(bitmap, 284, 0, 264, 259);
+  ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(b, stations.sections(), options));
 
   // One list with one message, in English; the age badge stays on the title.
@@ -499,7 +579,7 @@ void test_preview_departure_incidents() {
   options.language = ui::Language::kEnglish;
   options.note = "Stand 22:21";
   options.note_alert = true;
-  ui::BitmapCanvas c(bitmap, 568, 0, 264, 259);
+  ui::BitmapCanvas c(bitmap, 600, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(5, widgets::mvg::drawDeparturesColumn(c, pasing(false), options));
   check(bitmap, "briefing_departure_incidents");
 
@@ -618,12 +698,13 @@ void test_sentence_parts_by_rank() {
       "mehr "
       "Zeit ein.",
       used.c_str());
-  TEST_ASSERT_TRUE(layout.small);
+  TEST_ASSERT_FALSE(layout.small);  // fits in Fraunces 38 since the band is 590 px wide
   // A part that does not fit is skipped; a shorter one of a lower rank is
   // still taken.
   const std::vector<br::Part> skip = {
       {br::Topic::kCancellation, "Die S6 um\u00a007:53 nach Ebersberg fällt aus."},
-      {br::Topic::kDisruption, "Störungen bei S4, S6 und S8 – plane mehr Zeit ein."},
+      {br::Topic::kDisruption,
+       "Störungen bei S1, S2, S3, S4, S6, S7 und S8 – plane deutlich mehr Zeit für den Weg ein."},
       {br::Topic::kEvent, "Um\u00a018:30 Kino mit Lena."}};
   br::layoutParts("Guten Morgen.", skip, &used);
   TEST_ASSERT_EQUAL_STRING(
@@ -730,6 +811,8 @@ int main() {
   RUN_TEST(test_sentence_parts_in_detail);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
   RUN_TEST(test_chart_from_values_every_15_minutes);
+  RUN_TEST(test_rain_bar_heights);
+  RUN_TEST(test_rain_bars_between_the_hour_marks);
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
   RUN_TEST(test_preview_departure_columns);

@@ -100,7 +100,7 @@ void drawWifiScreen(ui::Canvas& canvas, const DrawContext& context,
   std::string header = ui::toUpper(ui::text(lang, ui::Text::kSetupHeading));
   const std::string now = clockText(context.now_s);
   if (!now.empty()) header += " \u00b7 " + now;
-  ui::drawTrackedText(canvas, fonts::kRobotoCondensedBold16, kLeft, kHeaderBaseline, header, 16);
+  ui::drawTrackedText(canvas, headerFont(), kLeft, kHeaderBaseline, header, 16);
 
   const ui::Text title = saved ? ui::Text::kWifiNotConnectedTitle : ui::Text::kWifiNotSetUpTitle;
   ui::drawText(canvas, fonts::kFraunces38, kSentenceX, 88, ui::text(lang, title));

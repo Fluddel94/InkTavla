@@ -43,6 +43,10 @@ struct Hour {
   int64_t time = 0;  // start of the hour, Unix seconds
   float temperature = 0;
   int rain_probability = 0;  // %, 0 if unknown
+  // Precipitation (rain and snow as water) of the preceding hour in mm, as
+  // Open-Meteo gives it: the value of 17:00 fell from 16:00 to 17:00. 0 if
+  // unknown.
+  float precipitation = 0;
   Condition condition = Condition::kUnknown;
   bool day = true;
 };

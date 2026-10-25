@@ -90,7 +90,7 @@ void tearDown() {}
 // clock at a busy station (Donnersbergerbrücke) and the hand-written split
 // trains with buses (07:00 local time, before the first departure).
 void test_departure_columns_from_real_data() {
-  ui::Bitmap bitmap(ui::kScreenWidth, 259);
+  ui::Bitmap bitmap(3 * 280 + 2 * 4, 260);
   bitmap.clear(ui::Color::kWhite);
   struct Case {
     const char* fixture;
@@ -103,13 +103,13 @@ void test_departure_columns_from_real_data() {
       {"donnersbergerbruecke_20261019.json", "Donnersbergerbrücke", TimeFormat::kClock, kNow},
       {"rules_split_trains.json", "Split trains", TimeFormat::kClock, 1792386000 - 60}};
   for (int i = 0; i < 3; i++) {
-    ui::BitmapCanvas column(bitmap, i * 268, 0, 264, 259);
+    ui::BitmapCanvas column(bitmap, i * 284, 0, 280, 260);
     widgets::mvg::ColumnOptions options;
     options.station = cases[i].station;
     options.time_format = cases[i].format;
     options.now_s = cases[i].now;
     TEST_ASSERT_EQUAL_INT(
-        widgets::mvg::columnRowsThatFit(259, 1),
+        widgets::mvg::columnRowsThatFit(260, 1),
         widgets::mvg::drawDeparturesColumn(column, list(cases[i].fixture), options));
   }
   check(bitmap, "mvg_columns");
