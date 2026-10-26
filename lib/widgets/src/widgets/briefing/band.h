@@ -2,13 +2,14 @@
 
 // The band at the top of the "Briefing" layout (800 x 205): header line
 // with date and time, the sentence (Fraunces, up to three lines) and the
-// weather picture with today's low and high on the right, the rule below.
+// weather picture with the temperature of now ("Jetzt 8°") on the right, the
+// rule below.
 //
 // The band always shows the clock; parts whose source has no fresh data are
 // left out. A lost connection (after the grace period) is shown with a
 // struck-through Wi-Fi symbol after the time and first in the sentence. The
-// sentence reads the weather, the departures and the calendar (see
-// sentence.h); the picture always shows the weather.
+// sentence reads the weather and the departures (see sentence.h); the
+// picture always shows the weather of now.
 
 #include <string>
 #include <vector>
@@ -18,7 +19,6 @@
 #include "ui/i18n.h"
 #include "ui/layout.h"
 #include "widgets/briefing/sentence.h"
-#include "widgets/calendar/widget.h"
 #include "widgets/mvg/widget.h"
 #include "widgets/weather/widget.h"
 #include "widgets/widget.h"
@@ -37,9 +37,9 @@ inline constexpr int kSentenceX = ui::kMargin - 2;  // Fraunces has a small left
 inline constexpr int kPictureX = ui::kScreenWidth - ui::kMargin - 150;
 inline constexpr int kSentenceWidth = kPictureX - 32 - kSentenceX;
 inline constexpr int kPictureY = 18;
-// Low and high: centred under the drawn part of the picture, at most up to
-// the right edge of the rule.
-inline constexpr int kRangeBaseline = 186;
+// "Jetzt 8°": centred under the drawn part of the picture, at most up to the
+// right edge of the rule.
+inline constexpr int kNowBaseline = 186;
 inline constexpr int kRuleY = 204;
 
 // Font of the header line (date and clock; also the heading of the Wi-Fi
@@ -56,9 +56,9 @@ SentenceLayout layoutSentence(const std::string& sentence);
 
 // The sentence from the greeting and the parts (ordered by rank) in three
 // lines, in Fraunces 38 or else 34: the parts are taken by rank as long as
-// the sentence fits; a part that does not fit is left out, a shorter one of
-// a lower rank may still be taken. The greeting with the most important part
-// is shortened with "…" if necessary.
+// the sentence fits; a part that does not fit is taken in its shorter form
+// (the weather without the temperature) or else left out. The greeting with
+// the most important part is shortened with "…" if necessary.
 // *text (if given) is set to the sentence used.
 SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>& parts,
                            std::string* text = nullptr);
@@ -68,8 +68,6 @@ struct BandData {
   const weather::Forecast* forecast = nullptr;
   std::string as_of;  // time of the last weather data ("" if unknown)
   const std::vector<mvg::Section>* departures = nullptr;
-  const std::vector<mvg::Incident>* incidents = nullptr;
-  const calendar::Occurrences* events = nullptr;
 };
 
 // The whole sentence before fitting: the greeting and all parts.
@@ -87,9 +85,8 @@ class BandView : public View {
   // Any source may be nullptr (widget not on the screen or not available):
   // then its parts are left out. Without weather only the greeting and the
   // other parts.
-  BandView(const weather::WeatherSource* weather, const mvg::MvgSource* departures,
-           const calendar::CalendarSource* calendar)
-      : weather_(weather), departures_(departures), calendar_(calendar) {}
+  BandView(const weather::WeatherSource* weather, const mvg::MvgSource* departures)
+      : weather_(weather), departures_(departures) {}
 
   std::vector<const DataSource*> sources() const override;
   bool handlesStates() const override { return true; }
@@ -99,7 +96,6 @@ class BandView : public View {
  private:
   const weather::WeatherSource* weather_;
   const mvg::MvgSource* departures_;
-  const calendar::CalendarSource* calendar_;
 };
 
 }  // namespace widgets::briefing

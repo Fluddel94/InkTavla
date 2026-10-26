@@ -25,17 +25,21 @@ constexpr int kTimeRightMargin = 30;  // right edge of the time from the column 
 constexpr int kTimeGap = 10;          // between destination and time
 constexpr int kDelayGap = 3;          // between time and delay
 constexpr int kWarningHeight = 15;
+constexpr int kSignGap = 6;  // between the warning sign and the time column
 
-// Disruption messages (design D, stoerung.py).
+// Disruption messages (2026-10-26, variant M1): the first line 24 px below
+// the title above, the text indented after the warning sign.
 constexpr int kIncidentSignHeight = 18;
-constexpr int kIncidentHeadingX = 24;
+constexpr int kIncidentTextX = 24;
+constexpr int kIncidentFirstStep = 24;  // title above to the first line
 constexpr int kIncidentLineStep = 20;
-constexpr int kIncidentTitleGap = 28;  // last text line to the first title
+constexpr int kIncidentTitleGap = 28;  // last text line to the next title
+// One list has no title below the messages: the rows start right below.
+constexpr int kIncidentListGap = 2;
 
 const ui::Font& destinationFont() { return ui::fonts::kRobotoCondensedMedium20; }
 const ui::Font& timeFont() { return ui::fonts::kRobotoCondensedBold21; }
 const ui::Font& delayFont() { return ui::fonts::kRobotoCondensedBold15; }
-const ui::Font& incidentHeadingFont() { return ui::fonts::kRobotoCondensedBold17; }
 const ui::Font& incidentTextFont() { return ui::fonts::kRobotoCondensedMedium17; }
 
 std::string joinLines(const std::vector<std::string>& lines) {
@@ -47,34 +51,38 @@ std::string joinLines(const std::vector<std::string>& lines) {
   return text;
 }
 
-// Draws the disruption messages from the top of the column; returns the
-// baseline of the first title below them. `below` is the space the station
-// title takes between them and the sections.
-int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int sections, int below,
-                  ui::Language language) {
-  const int baseline = ui::kColumnTitleBaseline;
-  ui::drawWarningSign(c, 0, baseline, kIncidentSignHeight);
-  ui::drawText(c, incidentHeadingFont(), kIncidentHeadingX, baseline,
-               ui::fitTextEllipsis(incidentHeadingFont(), incidentHeading(incidents, language),
-                                   c.width() - kIncidentHeadingX));
-  // As many lines as leave every section kIncidentMinRows rows, if need be
-  // only the heading; with sections at most kIncidentMaxLinesSections.
+std::string withFullStop(const std::string& message) {
+  const char last = message.empty() ? '.' : message.back();
+  return last == '.' || last == '!' || last == '?' ? message : message + ".";
+}
+
+// Draws the disruption messages with the first line kIncidentFirstStep below
+// the baseline `above` (the station title; -kIncidentFirstStep + title
+// baseline if there is none); returns the baseline of the next title (for
+// one list: the baseline the rows start below, like below a title).
+int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int above, int sections,
+                  bool list) {
+  const int first = above + kIncidentFirstStep;
+  const int gap = list ? kIncidentListGap : kIncidentTitleGap;
+  // As many lines as leave every section kIncidentMinRows rows, but at least
+  // one; with sections at most kIncidentMaxLinesSections.
   int max_lines = sections > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
-  while (max_lines > 0 &&
-         columnRowsThatFit(c.height() - below - kIncidentLineStep * max_lines - kIncidentTitleGap,
-                           sections) < kIncidentMinRows * sections) {
+  const auto used = [&](int lines) {
+    return first - ui::kColumnTitleBaseline + kIncidentLineStep * (lines - 1) + gap;
+  };
+  while (max_lines > 1 &&
+         columnRowsThatFit(c.height() - used(max_lines), sections) < kIncidentMinRows * sections) {
     max_lines--;
   }
-  std::vector<std::string> lines;
-  if (max_lines > 0) {
-    lines = ui::wrapText(incidentTextFont(), incidentText(incidents), c.width(), max_lines);
+  const std::vector<std::string> lines = ui::wrapText(incidentTextFont(), incidentText(incidents),
+                                                      c.width() - kIncidentTextX, max_lines);
+  ui::drawWarningSign(c, 0, first, kIncidentSignHeight);
+  int y = first;
+  for (size_t i = 0; i < lines.size(); i++) {
+    if (i > 0) y += kIncidentLineStep;
+    ui::drawText(c, incidentTextFont(), kIncidentTextX, y, lines[i]);
   }
-  int y = baseline;
-  for (const std::string& line : lines) {
-    y += kIncidentLineStep;
-    ui::drawText(c, incidentTextFont(), 0, y, line);
-  }
-  return y + kIncidentTitleGap;
+  return y + gap;
 }
 
 std::string timeText(const TimeDisplay& t, ui::Language language) {
@@ -103,13 +111,17 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
   const int time_right = c.width() - kTimeRightMargin;
   const int dest_x = symbol_width + kDestinationGap;
   int dest_width = time_right - time_width - kTimeGap - dest_x;
-  if (t.warning_after_destination) dest_width -= ui::warningSignWidth(kWarningHeight) + 4;
+  // The warning sign stands right before the time column, in the same
+  // place in every row.
+  const int sign_width = ui::warningSignWidth(kWarningHeight);
+  if (t.warning_before_time) dest_width -= sign_width + kSignGap;
   const std::string dest = d.multi_destination
                                ? ui::fitEvenly(destinationFont(), d.destination, dest_width)
                                : ui::fitText(destinationFont(), d.destination, dest_width);
-  const int dest_end = ui::drawText(c, destinationFont(), dest_x, baseline, dest);
-  if (t.warning_after_destination) {
-    ui::drawWarningSign(c, dest_end + 4, centre + 8, kWarningHeight);
+  ui::drawText(c, destinationFont(), dest_x, baseline, dest);
+  if (t.warning_before_time) {
+    ui::drawWarningSign(c, time_right - time_width - kSignGap - sign_width, centre + 8,
+                        kWarningHeight);
   }
 
   const std::string time = timeText(t, options.language);
@@ -135,21 +147,17 @@ int columnRowsThatFit(int canvas_height, int sections) {
                          kColumnSectionGap + 6);
 }
 
-std::string incidentHeading(const std::vector<Incident>& incidents, ui::Language language) {
-  std::string heading = ui::text(language, ui::Text::kDisruption);
-  const std::string lines = joinLines(incidentLines(incidents));
-  if (!lines.empty()) heading += " " + lines;
-  return heading;
-}
-
 std::string incidentText(const std::vector<Incident>& incidents) {
+  bool same_lines = true;
+  for (const Incident& i : incidents) same_lines = same_lines && i.lines == incidents[0].lines;
   std::string text;
+  if (same_lines && !incidents.empty() && !incidents[0].lines.empty()) {
+    text = joinLines(incidentLines({incidents[0]})) + ":";
+  }
   for (const Incident& i : incidents) {
     if (!text.empty()) text += " ";
-    if (incidents.size() > 1 && !i.lines.empty()) text += joinLines(incidentLines({i})) + ": ";
-    text += i.message;
-    const char last = i.message.empty() ? '.' : i.message.back();
-    if (last != '.' && last != '!' && last != '?') text += ".";
+    if (!same_lines && !i.lines.empty()) text += joinLines(incidentLines({i})) + ": ";
+    text += withFullStop(i.message);
   }
   return text;
 }
@@ -163,16 +171,21 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   // Two directions get the station title above their section titles.
   const bool station_above = !sections.empty() && !list && !own_stations;
   const bool age = !options.note.empty();
+  // The station title stays at the top; the disruption messages follow
+  // below it (two stations: at the top, their sections have the pins).
   int first_title = ui::kColumnTitleBaseline;
-  if (!options.incidents.empty()) {
-    first_title = drawIncidents(canvas, options.incidents, n, station_above ? kStationTitleStep : 0,
-                                options.language);
-  }
-  if (sections.empty() || list || station_above) {
+  const bool station_title = sections.empty() || list || station_above;
+  if (station_title) {
     ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station,
                         age ? options.note : options.station_note, ui::TitleIcon::kPin,
                         age && options.note_alert);
-    if (station_above) first_title += kStationTitleStep;
+  }
+  if (!options.incidents.empty() && !sections.empty()) {
+    first_title =
+        drawIncidents(canvas, options.incidents,
+                      station_title ? first_title : first_title - kIncidentFirstStep, n, list);
+  } else if (station_above) {
+    first_title += kStationTitleStep;
   }
   if (sections.empty()) return 0;
 

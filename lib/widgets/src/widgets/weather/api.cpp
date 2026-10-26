@@ -16,7 +16,8 @@ std::string forecastUrl(const Config& config) {
   url += coordinates;
   url +=
       "&current=temperature_2m,weather_code,is_day"
-      "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,is_day"
+      "&hourly=temperature_2m,precipitation_probability,precipitation,sunshine_duration,"
+      "weather_code,is_day"
       "&minutely_15=temperature_2m&past_minutely_15=96&forecast_minutely_15=96"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
       "&timezone=auto&timeformat=unixtime&forecast_days=4";

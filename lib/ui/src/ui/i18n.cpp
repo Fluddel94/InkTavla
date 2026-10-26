@@ -84,10 +84,8 @@ const char* text(Language language, Text id) {
       return de ? "Kalender-Adresse fehlt" : "Calendar address missing";
     case Text::kDoesNotFit:
       return de ? "Passt hier nicht" : "Does not fit here";
-    case Text::kDisruption:
-      return de ? "Störung" : "Disruption";
     case Text::kSettingsOpen:
-      return de ? "Die Einstellungen sind offen." : "The settings are open.";
+      return de ? "Die Einstellungsseite ist offen." : "The settings page is open.";
     case Text::kSettingsBrowser:
       return de ? "Im Browser:" : "In a browser:";
     case Text::kSettingsCode:

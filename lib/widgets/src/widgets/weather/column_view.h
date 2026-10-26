@@ -4,7 +4,10 @@
 // (2026-10-21): the course of today (temperature curve from the values every
 // 15 minutes, or hourly if there are none, with five labelled points; the
 // precipitation of every hour as a screened bar between its hour marks), the
-// next three days and the credit "Open-Meteo".
+// next three days with the symbol of their daytime hours (dayCondition()).
+// Title (2026-10-26): the place with the location pin, the credit
+// "Open-Meteo" on the right (the age badge takes its place while the data is
+// old).
 //
 // The bars show the amount, not the probability (2026-10-25): a bar of the
 // value of 17:00 stands between the marks 16 and 17, because Open-Meteo gives
@@ -27,8 +30,9 @@
 
 namespace widgets::weather {
 
-// Credit shown under the column: the terms of Open-Meteo ask for it
-// wherever their data is shown.
+// Credit on the right of the title: the terms of Open-Meteo (CC BY 4.0) ask
+// for it wherever their data is shown; the full credit with links is in the
+// documentation and on the settings page.
 inline constexpr char kAttribution[] = "Open-Meteo";
 
 // Hours on the time axis of the chart (local time of the current day).
@@ -78,7 +82,8 @@ struct ColumnChart {
 ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width);
 
 struct ColumnOptions {
-  std::string note;  // place, or the age badge
+  std::string place;  // title with the pin; "" = "Wetter" without the pin
+  std::string note;   // age badge instead of the credit, "" = the credit
   bool note_alert = false;
   ui::Language language = ui::Language::kGerman;
   int64_t now_s = 0;
@@ -92,8 +97,11 @@ class ForecastColumnView : public View {
   explicit ForecastColumnView(const WeatherSource& source) : source_(source) {}
 
   std::vector<const DataSource*> sources() const override { return {&source_}; }
+  // The place, or "Wetter" if none is set.
   std::string title(ui::Language language) const override;
   void draw(ui::Canvas& canvas, const DrawContext& context) override;
+  // The place with the pin (messages without data, no credit).
+  void drawTitle(ui::Canvas& canvas, ui::Language language) override;
 
  private:
   const WeatherSource& source_;

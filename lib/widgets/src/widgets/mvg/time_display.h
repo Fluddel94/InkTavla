@@ -45,8 +45,9 @@ struct TimeDisplay {
   bool struck = false;
   bool warning_in_time_column = false;
 
-  // Warning sign after the destination (warning, but not cancelled).
-  bool warning_after_destination = false;
+  // Warning sign right before the time (warning, but not cancelled); the
+  // signs of all rows line up in one column (2026-10-26).
+  bool warning_before_time = false;
 
   // Delay text "+3" / "-4" (clock time only, never "+0"), limited to
   // +/-kMaxShownDelay.

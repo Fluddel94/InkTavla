@@ -36,9 +36,9 @@ TimeDisplay timeDisplay(const Departure& departure, TimeFormat format, int64_t n
     }
   }
 
-  // With a cancellation the warning sign is in the time column, not after
-  // the destination (otherwise it would be there twice).
-  t.warning_after_destination = departure.warning && !departure.cancelled;
+  // With a cancellation the warning sign is in the time column, not before
+  // the time (otherwise it would be there twice).
+  t.warning_before_time = departure.warning && !departure.cancelled;
   if (departure.cancelled) {
     t.struck = true;
     t.warning_in_time_column = true;

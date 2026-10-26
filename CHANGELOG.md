@@ -230,9 +230,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line symbols; rain outlook and weather texts of the tile; weather symbols
   in 26, 30, 32 and 50 px; unused fonts (Roboto Condensed Bold 18, 22, 26,
   30, 56 and Medium 18, 22, 24, 26); the felt temperature in the request.
+- Band sentence: disruption messages, events, the calm part ("Heute bleibt
+  es trocken.") and the separate part about tomorrow's temperature; the
+  band no longer reads the calendar.
+- Departure column: the heading "Störung S3, S4" above the disruption
+  messages.
+- Weather column: the credit at the bottom (it is in the title now) and
+  today's low and high under the picture of the band.
 
 ### Changed
 
+- Band sentence: always a sentence about the weather, by the time of day:
+  until 11:00 the whole day, 11:00-18:00 the afternoon and the evening, from
+  18:00 tomorrow, with several wordings per weather (fixed for each time of
+  day). Before it only "Keine Verbindung …" and a cancelled departure among
+  the next two departures within the hour (at most one). If the sentence
+  does not fit, the weather leaves out its temperature first.
+- Band picture: "Jetzt 8°" (temperature of now) instead of today's low and
+  high; rain is an umbrella with drops falling on it.
+- Day symbols (weather column and band): made from the hours from 8 to 18
+  o'clock (thunderstorm, precipitation of 1 mm or 3 wet hours, fog in half
+  of the hours, else the most frequent sky, sunny with 70 % sunshine)
+  instead of the daily code of Open-Meteo, which is the worst weather of
+  the whole day. The request asks for the hourly sunshine.
+- Weather column: the place with the location pin as title and the credit
+  "Open-Meteo" on the right; the settings page shows the full credit with
+  links.
+- Departure column: the disruption messages follow the station title, with
+  the warning sign and the lines in front of the text ("S2: …", once if all
+  messages have the same lines), up to two lines above two sections while
+  every section keeps two departures. The warning sign of a departure stands
+  right before its time, in the same place in every row (cancelled
+  departures keep the sign after the struck-through time).
+- Settings notice on the display: "Die Einstellungsseite ist offen." ("The
+  settings page is open.") instead of "Die Einstellungen sind offen.".
 - Weather column: a small clock symbol at the left edge of the chart, on the
   line of the hour labels below the rain bars, so the numbers read as times.
 - A column waiting for its first data shows "Wird geladen …" without a

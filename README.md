@@ -218,8 +218,9 @@ Nothing user-specific is compiled in.
   service that publishes it.
 - **Weather data by [Open-Meteo.com](https://open-meteo.com/)**, licensed
   under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The free
-  API is for non-commercial use only; the source is named under the
-  weather column.
+  API is for non-commercial use only; the source is named in the title of
+  the weather column. Changes: values are rounded, and the symbol of a day
+  is computed from its hourly values.
 
 ## Third-party libraries
 

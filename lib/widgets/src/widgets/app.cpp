@@ -138,13 +138,11 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
     views.push_back(views_.back().get());
   }
   // The band reads the weather even if the weather column is not on the
-  // screen; departures and calendar only if they are (nothing is fetched
-  // just for the sentence).
+  // screen; the departures only if they are (nothing is fetched just for the
+  // sentence).
   const auto* weather = static_cast<const weather::WeatherSource*>(builder.sourceById("weather"));
   const auto* departures = static_cast<const mvg::MvgSource*>(builder.existingSource("mvg"));
-  const auto* calendar =
-      static_cast<const calendar::CalendarSource*>(builder.existingSource("calendar"));
-  views_.push_back(std::make_unique<briefing::BandView>(weather, departures, calendar));
+  views_.push_back(std::make_unique<briefing::BandView>(weather, departures));
   views[0] = views_.back().get();
   sources_ = std::move(builder.sources());
 

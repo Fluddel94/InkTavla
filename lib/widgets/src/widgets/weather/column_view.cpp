@@ -112,8 +112,9 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
     core::toLocalTime(days[i]->time + 12 * 3600, t);
     ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + 24,
                  ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
-    ui::drawIcon(c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
-                 ui::weatherIcon(conditionIcon(days[i]->condition, true), kColumnDayIconSize));
+    ui::drawIcon(
+        c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
+        ui::weatherIcon(conditionIcon(dayCondition(f, *days[i]), true), kColumnDayIconSize));
     const std::string high = degreesText(days[i]->high);
     const std::string low = " " + degreesText(days[i]->low);
     const ui::Font& hf = ui::fonts::kRobotoCondensedBold17;
@@ -244,26 +245,30 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
 }
 
 void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const ColumnOptions& options) {
+  const bool place = !options.place.empty();
   ui::drawColumnTitle(canvas, 0, canvas.width(), ui::kColumnTitleBaseline,
-                      ui::text(options.language, ui::Text::kTitleWeather), options.note,
-                      ui::TitleIcon::kNone, options.note_alert);
+                      place ? options.place : ui::text(options.language, ui::Text::kTitleWeather),
+                      options.note.empty() ? kAttribution : options.note,
+                      place ? ui::TitleIcon::kPin : ui::TitleIcon::kNone, options.note_alert);
   drawChart(canvas, columnChart(forecast, options.now_s, canvas.width()));
   drawDays(canvas, forecast, options.now_s, options.language);
-  // Credit asked for by the terms of Open-Meteo; its descenders ("p") stay
-  // above the bottom edge of the column.
-  const ui::Font& credit = ui::fonts::kRobotoCondensedMedium13;
-  ui::drawText(canvas, credit, canvas.width(), canvas.height() - credit.descent, kAttribution,
-               Color::kBlack, ui::Align::kRight);
 }
 
 std::string ForecastColumnView::title(ui::Language language) const {
-  return ui::text(language, ui::Text::kTitleWeather);
+  const std::string& place = source_.config().name;
+  return place.empty() ? std::string(ui::text(language, ui::Text::kTitleWeather)) : place;
+}
+
+void ForecastColumnView::drawTitle(ui::Canvas& canvas, ui::Language language) {
+  ui::drawColumnTitle(canvas, 0, canvas.width(), ui::kColumnTitleBaseline, title(language), "",
+                      source_.config().name.empty() ? ui::TitleIcon::kNone : ui::TitleIcon::kPin);
 }
 
 void ForecastColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
   ColumnOptions options;
-  // The age badge replaces the place while the data is old.
-  options.note = context.note.empty() ? source_.config().name : context.note;
+  options.place = source_.config().name;
+  // The age badge replaces the credit while the data is old.
+  options.note = context.note;
   options.note_alert = context.note_alert;
   options.language = context.language;
   options.now_s = context.now_s;

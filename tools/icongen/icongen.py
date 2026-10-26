@@ -45,7 +45,8 @@ TIGHT_SIZES = [(38, 2.6)]
 
 # Large weather pictures for the band of the "Briefing" layout: drawn in
 # their final size (not scaled up) into a box of BAND_W x BAND_H. Rain is an
-# umbrella with drops instead of the rain cloud.
+# umbrella with four drops falling on it (2026-10-26) instead of the rain
+# cloud.
 BAND_W, BAND_H = 156, 132
 BAND_SYMBOL = 124  # size of the weather symbols in the box
 BAND_STROKE = 8
@@ -189,14 +190,12 @@ def umbrella(size):
     return mask(size, painter)
 
 
-def drops(size):
-    """Five falling drops."""
+def drop(size):
+    """One falling drop, its round end at the bottom."""
     def painter(d, n):
-        for (x, y) in ((0.2, 0.15), (0.55, 0.0), (0.85, 0.3), (0.35, 0.55), (0.7, 0.7)):
-            cx, cy, r = n * x, n * y + n * 0.12, n * 0.06
-            d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
-            d.polygon([(cx - r, cy - r * 0.2), (cx, cy - r * 2.6), (cx + r, cy - r * 0.2)],
-                      fill=255)
+        cx, cy, r = n / 2, n * 0.68, n * 0.28
+        d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+        d.polygon([(cx - r, cy - r * 0.2), (cx, cy - r * 2.4), (cx + r, cy - r * 0.2)], fill=255)
     return mask(size, painter)
 
 
@@ -223,8 +222,9 @@ def band(kind):
     """Weather picture for the band (BAND_W x BAND_H, 1 bit)."""
     img = Image.new("1", (BAND_W, BAND_H), 0)
     if kind == "rain":
-        img.paste(1, (0, 0), umbrella(112))
-        img.paste(1, (108, 86), drops(46))
+        img.paste(1, ((BAND_W - 104) // 2, BAND_H - 104), umbrella(104))
+        for x, y in ((30, 2), (58, 12), (86, 0), (114, 10)):
+            img.paste(1, (x, y), drop(18))
         return img
     if kind == "snow":
         symbol = snowflake(BAND_SYMBOL - 8, BAND_STROKE * 0.85)

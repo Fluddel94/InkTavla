@@ -47,6 +47,8 @@ struct Hour {
   // Open-Meteo gives it: the value of 17:00 fell from 16:00 to 17:00. 0 if
   // unknown.
   float precipitation = 0;
+  // Sunshine of the preceding hour in seconds (0-3600), -1 if unknown.
+  float sunshine = -1;
   Condition condition = Condition::kUnknown;
   bool day = true;
 };
@@ -85,5 +87,36 @@ bool parseForecast(JsonDocument& doc, Forecast& forecast);
 
 // Temperature as shown: rounded, without "-0".
 int displayTemperature(float t);
+
+// --- Weather of a span of hours (2026-10-26) ---------------------------------
+// The daily code of Open-Meteo is the "worst" weather of the whole day (fog
+// at 22 h makes a sunny day foggy). The symbol of a day is made from its
+// hours from kDayFirstHour to kDayLastHour instead, by these rules:
+//  1. a thunderstorm in at least one hour: thunderstorm;
+//  2. precipitation of kSymbolRainMm or more in all, or in at least
+//     kSymbolRainHours hours (kRainHourMm or more each): rain, or snow if
+//     most of those hours have snow;
+//  3. fog in at least half of the hours: fog;
+//  4. otherwise the most frequent of clear, partly cloudy (codes 1 and 2) and
+//     overcast (the cloudier one on a tie);
+//  5. partly cloudy, but sunshine in at least kSunnyShare of the time: clear.
+inline constexpr int kDayFirstHour = 8;
+inline constexpr int kDayLastHour = 17;  // the hour from 17 to 18 h
+inline constexpr float kSymbolRainMm = 1.0f;
+inline constexpr int kSymbolRainHours = 3;
+inline constexpr float kRainHourMm = 0.1f;
+inline constexpr double kSunnyShare = 0.7;
+
+// The rules above for any hours (Condition::kUnknown if there are none).
+Condition spanCondition(const std::vector<const Hour*>& hours);
+
+// The hours of the forecast with local times on the day of `day_time` (any
+// time of that day) from first_hour to last_hour.
+std::vector<const Hour*> hoursOfDay(const Forecast& forecast, int64_t day_time, int first_hour,
+                                    int last_hour);
+
+// The symbol of a day by the rules above; the daily code if fewer than half
+// of the hours are in the forecast.
+Condition dayCondition(const Forecast& forecast, const Day& day);
 
 }  // namespace widgets::weather

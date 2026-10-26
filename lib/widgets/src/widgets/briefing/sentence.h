@@ -1,35 +1,33 @@
 #pragma once
 
 // The sentence at the top of the "Briefing" layout, built from fixed rules
-// and text blocks (no AI): a greeting by the time of day, then parts on
-// different topics. By rank (the lowest is left out first when the sentence
-// does not fit into three lines, see band.h):
+// and text blocks (no AI): a greeting by the time of day, then (2026-10-26)
 //  1. no connection ("Keine Verbindung – die Angaben sind von 07:12.")
-//  2. a cancelled departure of the shown lines in the next hour ("Die S6 um
-//     07:54 nach Ebersberg fällt aus.")
-//  3. disruption messages of the shown lines ("Störung bei der S3 – plane
-//     mehr Zeit ein.")
-//  4. rain, snow, thunderstorms or heat today (rules below)
-//  5. in the evening a big change of tomorrow's high ("Morgen wird es
-//     deutlich kälter, höchstens 6°.")
-//  6. the next event (today; in the evening also tomorrow's first)
-//  7. the calm part when nothing else is to say ("Heute bleibt es trocken.")
-// Sources without fresh data leave their parts out. Severe weather warnings
-// (DWD) are not available yet.
+//  2. a cancelled departure among the next kCancellationDepartures of the
+//     shown lines within the next hour, at most one ("Die S2 um 07:54 nach
+//     Dachau fällt aus.")
+//  3. always a sentence about the weather, by the time of day:
+//     - before 11 h the whole day ("Heute wird es sonnig, bis 16°."),
+//     - 11-18 h the afternoon and the evening ("Ab 16 Uhr regnet es –
+//       Schirm mit. Am Abend 9°."),
+//     - from 18 h tomorrow ("Morgen früh Nebel, später sonnig, bis 12°.").
+// Disruption messages and events are not in the sentence any more; they are
+// in their columns. Sources without fresh data leave their parts out.
 //
-// Rules for the weather part, for the hours still ahead today:
-//  - rain probability of 70 % or more: rain (snow, thunderstorm) "from 14 h"
-//    or "now", with "Schirm mit" for rain and thunderstorms;
-//  - 30-69 %: "vielleicht Regen" (snow, thunderstorm);
-//  - below 30 %: it stays dry;
-//  - a high of 30° or more: "Heiß, bis 32°".
+// Rules for rain (snow, thunderstorms) in the weather sentence, for the
+// hours still ahead: a probability of kRainPercent or more is rain (with
+// "Schirm mit"), kMaybeRainPercent-69 % "vielleicht", less is dry. The
+// weather words (sunny, cloudy, foggy) follow the rules of the day symbol
+// (weather::spanCondition()). Of several wordings for the same weather the
+// date and the time of day pick one, so it stays the same until the next
+// change of the time of day.
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "ui/i18n.h"
 #include "ui/icons.h"
-#include "widgets/calendar/agenda.h"
 #include "widgets/mvg/departure.h"
 #include "widgets/weather/forecast.h"
 
@@ -40,79 +38,65 @@ inline constexpr int kRainPercent = 70;
 inline constexpr int kHotDegrees = 30;
 // Difference of tomorrow's high to today's that is mentioned in the evening.
 inline constexpr int kTemperatureJumpDegrees = 8;
-// Cancellations are mentioned up to this long before the departure.
+// Cancellations: only among the next departures, up to this long ahead.
+inline constexpr int kCancellationDepartures = 2;
 inline constexpr int64_t kCancellationAheadS = 3600;
-// Event titles in the sentence are shortened to this many characters.
-inline constexpr size_t kEventTitleChars = 32;
+// "Am Abend 9°": the temperature at this hour.
+inline constexpr int kEveningHour = 20;
+// Snow, or rain at or below this temperature: "Es kann glatt werden."
+inline constexpr int kSlipperyDegrees = 1;
 
 enum class Greeting { kMorning, kDay, kEvening };
 
 // Before 11 h morning, before 18 h day, then evening.
 Greeting greetingFor(int hour);
 
+const char* greetingText(Greeting greeting, ui::Language language);
+
+// What the picture of the band shows: the weather of now (today's weather
+// during the day, the current one in the evening), the umbrella (snowflake,
+// thunderstorm) for likely rain today.
 struct WeatherSummary {
   bool valid = false;  // today's values are in the forecast
-  int low = 0;         // today's low and high (rounded)
-  int high = 0;
-  enum class Rain { kNone, kMaybe, kLikely } rain = Rain::kNone;
-  enum class Kind { kRain, kSnow, kThunder } kind = Kind::kRain;
-  int from_hour = -1;  // first hour of the rain; -1: it starts now
-  bool hot = false;
-  ui::WeatherIcon picture = ui::WeatherIcon::kSun;  // for the band
+  int current = 0;     // temperature now (rounded)
+  ui::WeatherIcon picture = ui::WeatherIcon::kSun;
 };
 
 // Today's weather from the forecast as of now_s (local time of the device).
 WeatherSummary summarize(const weather::Forecast& forecast, int64_t now_s);
 
-// The weather part of the sentence ("Ab 14 Uhr regnet es – Schirm mit.").
-std::string weatherText(const WeatherSummary& summary, Greeting greeting, ui::Language language);
+// "Jetzt 8°" / "Now 8°" below the picture.
+std::string nowText(const WeatherSummary& summary, ui::Language language);
 
-const char* greetingText(Greeting greeting, ui::Language language);
+// The weather sentence for the time of day of now_s (see above); "" without
+// values for the day it is about. *shorter (if given) gets a shorter form
+// without the temperature, for when the whole sentence does not fit.
+std::string weatherSentence(const weather::Forecast& forecast, int64_t now_s, ui::Language language,
+                            std::string* shorter = nullptr);
 
 // "Keine Verbindung – die Angaben sind von 07:12." (as_of = "" if unknown).
 std::string offlineText(const std::string& as_of, ui::Language language);
 
-// "7° bis 14°" / "7° to 14°".
-std::string rangeText(const WeatherSummary& summary, ui::Language language);
-
-// True if the weather part is the calm one (dry, not hot).
-bool isCalm(const WeatherSummary& summary);
-
-// "Morgen wird es deutlich wärmer, bis 22°." in the evening if tomorrow's
-// high differs from today's by kTemperatureJumpDegrees or more; else "".
-std::string temperatureJumpText(const weather::Forecast& forecast, int64_t now_s,
-                                ui::Language language);
-
-// "Die S6 um 07:54 nach Ebersberg fällt aus." for the first cancelled
-// departure within kCancellationAheadS; "" if none.
+// "Die S2 um 07:54 nach Dachau fällt aus." if one of the next
+// kCancellationDepartures departures (from now on, all sections together)
+// is cancelled and leaves within kCancellationAheadS; the first such one.
+// "" if none.
 std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t now_s,
                              ui::Language language);
 
-// "Störung bei der S3 – plane mehr Zeit ein." / "Störungen bei S3 und S8 –
-// …"; "" without messages.
-std::string disruptionText(const std::vector<mvg::Incident>& incidents, ui::Language language);
-
-// The next event that has not started yet today ("Um 09:30 Zahnarzt."),
-// else an all-day event of today ("Heute: Geburtstag Oma."); in the evening
-// tomorrow's first event ("Morgen um 08:00 Zahnarzt."). "" if none.
-std::string eventText(const calendar::Occurrences& events, int64_t now_s, ui::Language language);
-
 // --- The whole sentence -----------------------------------------------------
 
-// Topics of the parts; the order is the rank (kOffline first).
+// Topics of the parts; the order is the rank and the reading order.
 enum class Topic {
   kOffline,
   kCancellation,
-  kDisruption,
   kWeather,
-  kTemperatureJump,
-  kEvent,
-  kCalm,
 };
 
 struct Part {
   Topic topic;
   std::string text;
+  std::string shorter;  // shorter form, "" = none
 };
 
 // What the sentence is built from; nullptr for a source without fresh data.
@@ -123,15 +107,12 @@ struct SentenceInput {
   std::string as_of;  // time of the last weather data for the offline part
   const weather::Forecast* forecast = nullptr;
   const std::vector<mvg::Section>* departures = nullptr;
-  const std::vector<mvg::Incident>* incidents = nullptr;
-  const calendar::Occurrences* events = nullptr;
 };
 
 // The parts that apply, ordered by rank.
 std::vector<Part> sentenceParts(const SentenceInput& input);
 
-// Greeting and the first `count` parts by rank, in reading order (offline,
-// departures, weather, the calm part, tomorrow's temperature, the event).
-std::string joinSentence(const std::string& greeting, const std::vector<Part>& parts, size_t count);
+// Greeting and the parts, in order.
+std::string joinSentence(const std::string& greeting, const std::vector<Part>& parts);
 
 }  // namespace widgets::briefing

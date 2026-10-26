@@ -197,34 +197,45 @@ margins are two constants in the firmware (`kMargin` and `kMarginBottom` in
 departure column gets the width that is left.
 
 At the top a band with the date and time, a sentence and a weather picture
-with today's low and high; below three columns without frames that are
-filled down to the bottom edge. The sentence follows fixed rules (no AI):
-a greeting by the time of day ("Guten Morgen" until 11:00, "Guten Tag"
-until 18:00, then "Guten Abend"), then parts on these topics, by rank:
+with the temperature of now ("Jetzt 8°"); below three columns without frames
+that are filled down to the bottom edge. The sentence follows fixed rules
+(no AI): a greeting by the time of day ("Guten Morgen" until 11:00, "Guten
+Tag" until 18:00, then "Guten Abend"), then
 
 1. without a connection for 60 s: "Keine Verbindung – die Angaben sind von
    07:12." (and a struck-through Wi-Fi symbol after the time);
-2. a cancelled departure of the shown lines in the next hour: "Die S6 um
-   07:54 nach Ebersberg fällt aus.";
-3. disruption messages of the shown lines: "Störung bei der S3 – plane mehr
-   Zeit ein." (several lines: "Störungen bei S3 und S8 …");
-4. today's weather for the hours still ahead: a rain probability of 70 % or
-   more gives "Ab 14 Uhr regnet es – Schirm mit." (or snow, thunderstorms)
-   and the umbrella as picture; 30–69 % gives "Ab 14 Uhr vielleicht
-   Regen."; a high of 30° or more adds "Heiß, bis 32°.";
-5. in the evening, if tomorrow's high differs by 8° or more: "Morgen wird es
-   deutlich kälter, höchstens 6°.";
-6. the next event of today ("Um 09:30 Zahnarzt.", else an all-day event:
-   "Heute: Geburtstag Oma."); in the evening tomorrow's first event;
-7. only if there is nothing else to say: "Heute bleibt es trocken."
+2. a cancelled departure among the next two departures of the shown lines,
+   within the next hour, at most one: "Die S2 um 07:54 nach Dachau fällt
+   aus.";
+3. always a sentence about the weather, by the time of day:
+   - until 11:00 the whole day: "Heute wird es sonnig, bis 16°.", "Erst
+     trocken, ab 16 Uhr Regen – Schirm mit. Bis 14°.", "Heute regnet es den
+     ganzen Tag – Schirm mit. Höchstens 9°.", "Ab 9 Uhr schneit es, um 0°.
+     Es kann glatt werden.", "Sonnig und heiß, bis 32°.";
+   - 11:00–18:00 the afternoon and the evening (temperature at 20:00): "Der
+     Nachmittag bleibt sonnig, am Abend 11°.", "Ab 16 Uhr regnet es –
+     Schirm mit. Am Abend 9°.", "Es regnet noch bis etwa 17 Uhr, danach
+     trocken. Am Abend 8°.";
+   - from 18:00 tomorrow: "Morgen wird es sonnig, 4° bis 15°.", "Morgen früh
+     Nebel, später sonnig, bis 12°.", "Morgen ab 10 Uhr Regen – Schirm
+     einpacken. Bis 11°.", and if tomorrow's high differs by 8° or more
+     "Morgen wird es deutlich kälter: höchstens 6°, wolkig.".
 
-The sentence has at most three lines (Fraunces 38, else 34 px). Parts are
-taken by rank as long as they fit; a part that does not fit is left out, a
-shorter one of a lower rank may still be taken. Parts of sources without
-fresh data are left out. The band reads the weather section
-(`widgets.weather`) even if the weather column is not on the screen;
-departures and calendar only if they are on the screen. The picture always
-shows the weather (in the evening the weather of now).
+   Rain (snow, thunderstorms) counts from a probability of 70 % ("Schirm
+   mit"), 30–69 % is "vielleicht Regen"; the weather words follow the rules
+   of the day symbol (see [`weather`](#weather-weather-forecast)). For the
+   same weather there are several wordings; the date and the time of day
+   pick one, so it does not change with every refresh.
+
+Disruption messages and events are not part of the sentence; they are shown
+in their columns. The sentence has at most three lines (Fraunces 38, else
+34 px). If it does not fit, the weather sentence leaves out the temperature,
+and if it still does not fit, it is left out (offline and a cancellation
+come first). Parts of sources without fresh data are left out. The band
+reads the weather section (`widgets.weather`) even if the weather column is
+not on the screen, the departures only if they are on the screen. The
+picture shows the weather of now: during the day the symbol of today (the
+umbrella with drops for likely rain), in the evening the current weather.
 
 The calendar column shows today (past events stay until midnight, "Keine
 Termine" without any), then the next day that has events ("MORGEN" or its
@@ -232,8 +243,8 @@ weekday) if there is room, then the following events of the week, one line
 each, as many as fit. The departure column shows one list (title: the
 station) or the two `sections` (titles with an arrow, or with the location
 pin for two stations), 28 px per row. Disruption messages of the shown lines
-come first: a warning sign, the heading "Störung S3, S4" and the texts of
-the API (each once, at most three lines, two with sections).
+follow the station title: a warning sign and the texts of the API with
+their lines (each once, at most three lines, two with sections).
 
 ## Widgets
 
@@ -339,15 +350,18 @@ door and one a short walk away:
 #### Disruption messages
 
 Messages of the type "INCIDENT" that the API reports for the shown lines
-appear above the departures: a warning sign, the heading "Störung" with the
-lines ("Störung S3, S4") and the texts below it. The API only gives short
-texts such as "Verspätung eines vorausfahrenden Zuges" without a heading;
-the same text for several lines is shown once (with several texts each
-gets its lines: "S6: Technische Störung am Zug."). The text has at most
-three lines (two above two sections) and gets shorter, if need be down to
-the heading alone, so that every section keeps at least two departures. The affected departures keep their
-warning sign; notes on early terminations stay in the row, fare notes are
-not shown.
+appear below the station title (two stations: at the top), with a warning
+sign and the lines in front: "S2: Verspätung eines vorausfahrenden Zuges.".
+The API only gives short texts without a heading; the same text for several
+lines is shown once. If all messages are about the same lines, the lines
+are named once ("S2: Reparatur an einem Signal. Verspätung eines
+vorausfahrenden Zuges."), otherwise in front of every message ("S6:
+Technische Störung am Zug. S4, S6, S8: Verspätung …"). The text has at most
+three lines (two above two sections) and gets shorter, down to one line, so
+that every section keeps at least two departures. The affected departures
+keep a warning sign, right before the time and in the same place in every
+row; a cancelled departure has its time struck through and the sign after
+it. Notes on early terminations stay in the row, fare notes are not shown.
 
 ### `weather`: Weather forecast
 
@@ -356,7 +370,20 @@ every 30 minutes. The column shows the course of the day from 5 to 23
 o'clock (temperature curve from the values every 15 minutes with five
 labelled hours, the amount of rain per hour as bars) and the next three
 days; the band at the top uses the same data for its sentence and picture.
-Temperatures are in degrees Celsius.
+Temperatures are in degrees Celsius. The column title is the place (`name`)
+with the location pin and the credit "Open-Meteo" on the right.
+
+The symbol of a day is made from its hours from 8 to 18 o'clock, not from
+the daily code of Open-Meteo (that one is the "worst" weather of the whole
+day, so fog at 22:00 made a sunny day foggy):
+
+1. a thunderstorm in at least one hour: thunderstorm;
+2. 1 mm of precipitation or more in all, or at least three hours with
+   0.1 mm or more: rain (snow if most of those hours have snow);
+3. fog in at least half of the hours: fog;
+4. otherwise the most frequent of sunny, partly cloudy and overcast (the
+   cloudier one on a tie);
+5. partly cloudy, but with sunshine in at least 70 % of the time: sunny.
 
 Each bar shows the precipitation (rain and snow as water) of one hour and
 stands between its hour marks: Open-Meteo gives the sum of the preceding
@@ -369,7 +396,7 @@ sentence in the band still uses the rain probability.
 |---|---|---|---|
 | `latitude` | −90 to 90 | none | Latitude of the place in decimal degrees, e.g. `48.137`. |
 | `longitude` | −180 to 180 | none | Longitude of the place in decimal degrees, e.g. `11.575`. |
-| `name` | text (≤ 32 bytes) | `""` | Name of the place, shown on the right of the column title. |
+| `name` | text (≤ 32 bytes) | `""` | Name of the place, the title of the column (without a name: "Wetter"). |
 
 Without `latitude` and `longitude` the column shows "Standort fehlt".
 
@@ -386,7 +413,9 @@ from hourly values. If they are missing, the curve uses the hourly values.
 
 Open-Meteo is free for non-commercial use; the data is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the
-source ("Open-Meteo") is named under the weather column.
+source ("Open-Meteo") is named in the title of the weather column (the age
+badge takes its place while the data is old). The values are shown rounded,
+and the day symbols are computed from the hourly values as described above.
 
 ### `calendar`: Calendar agenda
 

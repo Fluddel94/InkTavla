@@ -38,9 +38,8 @@ enum class Text {
   kWeekShort,               // week number in the column title: "KW 43"
   kCalendarAddressMissing,  // calendar widget without an iCal address
   kDoesNotFit,              // a widget in a column of a size it is not made for
-  kDisruption,              // heading of disruption messages: "Störung S3, S4"
   // Settings page open (band instead of the sentence).
-  kSettingsOpen,     // "Einstellungen sind offen."
+  kSettingsOpen,     // "Die Einstellungsseite ist offen."
   kSettingsBrowser,  // before the address: "Im Browser:"
   kSettingsCode,     // before the one-time code: "Code:"
   kSettingsQr,       // "Oder den QR-Code scannen."

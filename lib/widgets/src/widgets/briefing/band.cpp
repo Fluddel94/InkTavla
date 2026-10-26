@@ -68,11 +68,14 @@ SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>&
   std::vector<Part> kept;
   for (const Part& part : parts) {
     kept.push_back(part);
-    if (!fits(joinSentence(greeting, kept, kept.size()), nullptr) && kept.size() > 1) {
-      kept.pop_back();
+    if (fits(joinSentence(greeting, kept), nullptr) || kept.size() == 1) continue;
+    if (!part.shorter.empty()) {
+      kept.back().text = part.shorter;
+      if (fits(joinSentence(greeting, kept), nullptr)) continue;
     }
+    kept.pop_back();
   }
-  const std::string sentence = joinSentence(greeting, kept, kept.size());
+  const std::string sentence = joinSentence(greeting, kept);
   if (text != nullptr) *text = sentence;
   SentenceLayout out;
   fits(sentence, &out);  // the most important part alone is shortened if needed
@@ -83,7 +86,6 @@ std::vector<const DataSource*> BandView::sources() const {
   std::vector<const DataSource*> list;
   if (weather_ != nullptr) list.push_back(weather_);
   if (departures_ != nullptr) list.push_back(departures_);
-  if (calendar_ != nullptr) list.push_back(calendar_);
   return list;
 }
 
@@ -97,8 +99,6 @@ SentenceInput sentenceInput(const DrawContext& context, const BandData& data) {
   in.as_of = data.as_of;
   in.forecast = data.forecast;
   in.departures = data.departures;
-  in.incidents = data.incidents;
-  in.events = data.events;
   return in;
 }
 
@@ -111,8 +111,7 @@ std::string greetingNow(const DrawContext& context) {
 }  // namespace
 
 std::string bandSentence(const DrawContext& context, const BandData& data) {
-  const std::vector<Part> parts = sentenceParts(sentenceInput(context, data));
-  return joinSentence(greetingNow(context), parts, parts.size());
+  return joinSentence(greetingNow(context), sentenceParts(sentenceInput(context, data)));
 }
 
 void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context) {
@@ -147,18 +146,18 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
     ui::drawText(canvas, font, kSentenceX, first + step * static_cast<int>(i), layout.lines[i]);
   }
 
-  // Weather picture with today's low and high.
+  // Weather picture with the temperature of now.
   if (data.forecast != nullptr) {
     const WeatherSummary s = summarize(*data.forecast, context.now_s);
     if (s.valid) {
       const ui::Icon& picture = ui::bandIcon(s.picture);
       ui::drawIcon(canvas, kPictureX, kPictureY, picture);
       const ui::Font& font = ui::fonts::kFraunces24Medium;
-      const std::string range = rangeText(s, context.language);
-      const int width = ui::textWidth(font, range);
+      const std::string now = nowText(s, context.language);
+      const int width = ui::textWidth(font, now);
       const int x =
           std::min(kPictureX + inkCentre(picture) - width / 2, ui::kScreenWidth - kHeaderX - width);
-      ui::drawText(canvas, font, x, kRangeBaseline, range);
+      ui::drawText(canvas, font, x, kNowBaseline, now);
     }
   }
 
@@ -188,11 +187,7 @@ void BandView::draw(ui::Canvas& canvas, const DrawContext& context) {
     data.as_of = buffer;
   }
   if (fresh(weather_)) data.forecast = &weather_->forecast();
-  if (fresh(departures_)) {
-    data.departures = &departures_->sections();
-    data.incidents = &departures_->incidents();
-  }
-  if (fresh(calendar_)) data.events = &calendar_->occurrences();
+  if (fresh(departures_)) data.departures = &departures_->sections();
   drawBand(canvas, context, data);
 }
 
