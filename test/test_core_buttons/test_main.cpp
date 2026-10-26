@@ -36,6 +36,48 @@ ButtonSample released(int64_t at_ms) {
   return s;
 }
 
+// The interrupt of hal/trmnl_buttons.cpp on the PC: records the edges of
+// one button, sample() is read by the main loop.
+struct EdgeSim {
+  bool latched = false;
+  int64_t press_at_ms = 0;
+  int64_t last_edge_ms = -100000;
+  bool last_pressed = false;
+  bool level = false;  // level of the pin (pressed = true)
+
+  // An edge; read = level the interrupt reads (while bouncing it can differ
+  // from the new level of the pin).
+  void edge(int64_t now_ms, bool new_level, bool read) {
+    level = new_level;
+    if (hal::acceptPressEdge(read, now_ms, last_edge_ms, last_pressed)) {
+      latched = true;
+      press_at_ms = now_ms;
+    }
+    last_edge_ms = now_ms;
+    last_pressed = read;
+  }
+  void edge(int64_t now_ms, bool new_level) { edge(now_ms, new_level, new_level); }
+
+  ButtonSample sample() {
+    ButtonSample s;
+    s.press_latched = latched;
+    s.press_at_ms = press_at_ms;
+    s.last_edge_ms = last_edge_ms;
+    s.pressed_now = level;
+    latched = false;
+    return s;
+  }
+};
+
+// Runs the main loop every 10 ms from from_ms to to_ms; counts short presses.
+int shortPresses(ButtonLogic& b, EdgeSim& pin, int64_t from_ms, int64_t to_ms) {
+  int n = 0;
+  for (int64_t t = from_ms; t <= to_ms; t += 10) {
+    if (b.update(t, pin.sample()) == ButtonEvent::kShort) n++;
+  }
+  return n;
+}
+
 }  // namespace
 
 void setUp() {}
@@ -43,10 +85,45 @@ void tearDown() {}
 
 void test_edge_rule_of_the_interrupt() {
   // A press counts only after the button was released for 30 ms.
-  TEST_ASSERT_TRUE(hal::acceptPressEdge(true, 1000, 900));
-  TEST_ASSERT_TRUE(hal::acceptPressEdge(true, 1030, 1000));
-  TEST_ASSERT_FALSE(hal::acceptPressEdge(true, 1029, 1000));   // bouncing
-  TEST_ASSERT_FALSE(hal::acceptPressEdge(false, 2000, 1000));  // release
+  TEST_ASSERT_TRUE(hal::acceptPressEdge(true, 1000, 900, false));
+  TEST_ASSERT_TRUE(hal::acceptPressEdge(true, 1030, 1000, false));
+  TEST_ASSERT_FALSE(hal::acceptPressEdge(true, 1029, 1000, false));   // bouncing
+  TEST_ASSERT_FALSE(hal::acceptPressEdge(false, 2000, 1000, false));  // release
+  // The previous edge read "pressed": no new press, however long ago.
+  TEST_ASSERT_FALSE(hal::acceptPressEdge(true, 6000, 1000, true));
+}
+
+void test_long_hold_of_a_key_without_long_press_counts_once() {
+  // Bug of 25.10.2026: KEY3 held for 5 s opened the settings page and closed
+  // it again. When released, the first bouncing edge read "pressed"; the
+  // previous edge was 5 s ago, so it counted as a second press.
+  ButtonLogic b(false);
+  EdgeSim pin;
+  pin.edge(1000, true);
+  TEST_ASSERT_EQUAL(1, shortPresses(b, pin, 1000, 6000));
+  pin.edge(6000, false, true);  // released, interrupt still reads "pressed"
+  pin.edge(6002, true);
+  pin.edge(6004, false);
+  TEST_ASSERT_EQUAL(0, shortPresses(b, pin, 6010, 8000));
+  // The next real press still counts.
+  pin.edge(9000, true);
+  pin.edge(9150, false);
+  TEST_ASSERT_EQUAL(1, shortPresses(b, pin, 9000, 9500));
+}
+
+void test_bouncing_press_and_release_count_once() {
+  // Bouncing at the press (the interrupt reads "released" once) and at the
+  // release after a long hold.
+  ButtonLogic b(false);
+  EdgeSim pin;
+  pin.edge(1000, true);
+  pin.edge(1003, false);
+  pin.edge(1005, true);
+  TEST_ASSERT_EQUAL(1, shortPresses(b, pin, 1010, 2990));
+  pin.edge(3000, false, true);
+  pin.edge(3001, true, false);
+  pin.edge(3004, false);
+  TEST_ASSERT_EQUAL(0, shortPresses(b, pin, 3010, 4000));
 }
 
 void test_short_press_on_release() {
@@ -135,6 +212,8 @@ void test_requested_full_refresh() {
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_edge_rule_of_the_interrupt);
+  RUN_TEST(test_long_hold_of_a_key_without_long_press_counts_once);
+  RUN_TEST(test_bouncing_press_and_release_count_once);
   RUN_TEST(test_short_press_on_release);
   RUN_TEST(test_press_during_a_blocked_loop_is_not_lost);
   RUN_TEST(test_long_press_while_held);

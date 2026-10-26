@@ -315,6 +315,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Buttons: a long press of a button without a long-press function (KEY3)
+  opened the settings page and closed it again at once. When the button was
+  released after a long hold, the first bouncing edge could read "pressed"
+  and count as a new press. A press now only counts if the button was
+  released at the previous edge.
 - Configuration over USB: the receive buffer of the USB serial line holds a
   whole configuration file; before, everything after the first 256 bytes was
   lost and `put` ended with "timeout while receiving".
