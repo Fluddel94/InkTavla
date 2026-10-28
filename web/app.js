@@ -18,7 +18,7 @@ const TEXTS = {
     openUntil: "Offen bis",
     saveHint: "Änderungen gelten nach dem Speichern; das Display startet dann neu.",
     departures: "Abfahrten",
-    tabGeneral: "Allgemein", tabMvg: "Abfahrten MVG", tabWeather: "Wetter", tabCalendar: "Kalender", tabDevice: "Gerät",
+    tabGeneral: "Allgemein", tabMvg: "Abfahrten - MVG", tabWeather: "Wetter - Open Meteo", tabCalendar: "Kalender - Google", tabDevice: "Gerät",
     transportModes: "Verkehrsmittel an dieser Haltestelle",
     transportHint: "Abwählen blendet die Linien des Verkehrsmittels aus; schon gewählte Linien bleiben gewählt (Zahl am Knopf).",
     sectionDefault1: "Zentrum", sectionDefault2: "Auswärts",
@@ -56,6 +56,7 @@ const TEXTS = {
     retry: "Nochmal",
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regionalbus", typeZ: "Regionalzug",
     timeFormat: "Abfahrtszeit als",
+    mvgIncidents: "Störungsmeldungen unter der Haltestelle anzeigen",
     clock: "Uhrzeit",
     minutes: "Minuten",
     mvgUnofficial: "Inoffizielle MVG-Schnittstelle; sie kann sich jederzeit ändern.",
@@ -167,7 +168,7 @@ const TEXTS = {
     openUntil: "Open until",
     saveHint: "Changes apply after saving; the display then restarts.",
     departures: "Departures",
-    tabGeneral: "General", tabMvg: "Departures MVG", tabWeather: "Weather", tabCalendar: "Calendar", tabDevice: "Device",
+    tabGeneral: "General", tabMvg: "Departures - MVG", tabWeather: "Weather - Open Meteo", tabCalendar: "Calendar - Google", tabDevice: "Device",
     transportModes: "Modes of transport at this station",
     transportHint: "Switching one off hides its lines; lines already chosen stay chosen (number on the button).",
     sectionDefault1: "Centre", sectionDefault2: "Outbound",
@@ -205,6 +206,7 @@ const TEXTS = {
     retry: "Retry",
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regional bus", typeZ: "Regional train",
     timeFormat: "Departure time as",
+    mvgIncidents: "Show disruption messages under the station",
     clock: "Clock time",
     minutes: "Minutes",
     mvgUnofficial: "Unofficial MVG interface; it may change at any time.",
@@ -578,6 +580,7 @@ function fillMvg() {
   $("mvgNote").value = c.note || "";
   segSet($("mvgMode"), mvg.mode);
   segSet($("mvgTime"), c.time_format === "minutes" ? "minutes" : "clock");
+  $("mvgIncidents").checked = c.incidents !== false;
   renderStation($("mvgStation"), () => mvg.station, (s) => {
     mvg.station = s;
     mvg.pick = {};
@@ -1188,6 +1191,7 @@ function buildConfig() {
   setOrDelete(m, "name", check("mvgName", 64));
   setOrDelete(m, "note", check("mvgNote", 24));
   m.time_format = segValue($("mvgTime")) || "clock";
+  if ($("mvgIncidents").checked) delete m.incidents; else m.incidents = false;
   const usesMvg = [0, 1, 2].some((i) => $("slot" + i) && $("slot" + i).value === "mvg");
   const lineError = (msg) => errors.push(["mvgLinesError", msg]);
   if (mvg.mode === "list") {

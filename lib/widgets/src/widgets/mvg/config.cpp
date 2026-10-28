@@ -165,7 +165,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   if (section.isNull()) return c;
   core::reportUnknownKeys(section,
                           {"station", "name", "note", "transport_types", "lines", "direction",
-                           "sections", "time_format"},
+                           "sections", "time_format", "incidents"},
                           kPath, issues);
 
   const std::string station = core::readString(section, "station", "", 32, kPath, issues);
@@ -217,6 +217,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
       core::readChoice(section, "time_format", {"clock", "minutes"}, 0, kPath, issues) == 1
           ? TimeFormat::kMinutes
           : TimeFormat::kClock;
+  c.show_incidents = core::readBool(section, "incidents", c.show_incidents, kPath, issues);
   return c;
 }
 

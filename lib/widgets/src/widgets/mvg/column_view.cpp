@@ -260,7 +260,7 @@ void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) 
   options.time_format = source_.config().time_format;
   options.language = context.language;
   options.now_s = context.now_s;
-  options.incidents = source_.incidents();
+  if (source_.config().show_incidents) options.incidents = source_.incidents();
   drawDeparturesColumn(canvas, withoutDeparted(source_.sections(), context.now_s), options);
 }
 

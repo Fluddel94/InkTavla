@@ -666,6 +666,47 @@ widgets::mvg::Config mvgConfig(const char* json) {
   return c;
 }
 
+// The switch "incidents": false hides only the disruption text of the view;
+// the warning signs at the departures stay.
+void test_view_incidents_switch() {
+  const char* base = R"("station":"de:09162:10","name":"Pasing","sections":[
+        {"name":"In die Stadt","lines":["S3:H:S","S4:H:S","S6:H:S","S8:H:S"]},
+        {"name":"Raus","lines":["S3:R:S","S4:R:S","S6:R:S","S8:R:S"]}])";
+  auto render = [&](const std::string& extra, bool* has_incidents) {
+    TwoStations api;
+    widgets::mvg::MvgSource source(mvgConfig(("{" + std::string(base) + extra + "}").c_str()), api);
+    TEST_ASSERT_TRUE(source.fetch(kMvgNow));
+    *has_incidents = !source.incidents().empty();
+    ui::Bitmap bitmap(280, 260);
+    bitmap.clear(ui::Color::kWhite);
+    ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+    widgets::mvg::DeparturesColumnView view(source);
+    widgets::DrawContext context;
+    context.now_s = kMvgNow;
+    view.draw(canvas, context);
+    return std::vector<uint8_t>(bitmap.data(), bitmap.data() + bitmap.size());
+  };
+  bool on_has = false, off_has = false;
+  const auto on = render("", &on_has);
+  const auto off = render(R"(,"incidents":false)", &off_has);
+  TEST_ASSERT_TRUE(on_has);
+  TEST_ASSERT_TRUE(off_has);  // data is still fetched, only drawing is switched off
+  TEST_ASSERT_TRUE(on != off);
+
+  // Off looks like a column without any disruption message.
+  TwoStations api;
+  widgets::mvg::MvgSource source(mvgConfig(("{" + std::string(base) + "}").c_str()), api);
+  TEST_ASSERT_TRUE(source.fetch(kMvgNow));
+  ui::Bitmap bitmap(280, 260);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+  widgets::mvg::ColumnOptions options;
+  options.station = "Pasing";
+  options.now_s = kMvgNow;
+  widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options);
+  TEST_ASSERT_TRUE(off == std::vector<uint8_t>(bitmap.data(), bitmap.data() + bitmap.size()));
+}
+
 void test_preview_departure_incidents() {
   ui::Bitmap bitmap(3 * 280 + 2 * 20, 260);
   bitmap.clear(ui::Color::kWhite);
@@ -919,6 +960,7 @@ int main() {
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
   RUN_TEST(test_preview_departure_columns);
+  RUN_TEST(test_view_incidents_switch);
   RUN_TEST(test_preview_departure_incidents);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);

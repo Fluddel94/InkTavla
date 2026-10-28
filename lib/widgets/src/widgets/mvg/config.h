@@ -56,6 +56,10 @@ struct Config {
 
   TimeFormat time_format = TimeFormat::kClock;
 
+  // Disruption text under the station title (on by default). Off hides only
+  // the text; the warning signs at the departures stay.
+  bool show_incidents = true;
+
   Config();
 
   // Station of section i (its own or the widget's).

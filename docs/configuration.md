@@ -37,7 +37,7 @@ has five tabs:
   same width can be tried out below); the current Wi-Fi network and **WLAN
   wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
   if the display can connect (otherwise it goes back to the old one).
-- **Abfahrten MVG / Departures MVG:** station search; the display name
+- **Abfahrten - MVG / Departures - MVG:** station search; the display name
   follows the chosen station (and can still be edited); note; one list, two
   directions or two stations; buttons for the means of transport that serve
   the station (all on at first; switching one off hides its lines in the
@@ -45,9 +45,9 @@ has five tabs:
   The example destinations come from the departures of the next 12 hours;
   the names of two directions are suggested as "Zentrum" / "Auswärts"
   ("Centre" / "Outbound" in English).
-- **Wetter / Weather:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
+- **Wetter - Open Meteo / Weather - Open Meteo:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
   display name, coordinates under **Koordinaten**.
-- **Kalender / Calendar:** replace or remove the private iCal address. The
+- **Kalender - Google / Calendar - Google:** replace or remove the private iCal address. The
   page only shows whether one is set.
 - **Gerät / Device:** download and load `config.json` (a backup; secrets are
   never in it), **Firmware aktualisieren** / **Update firmware** (see below),
@@ -266,6 +266,7 @@ time.
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
 | `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
+| `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: tab *Abfahrten - MVG*. |
 
 Line entries (`lines`):
 

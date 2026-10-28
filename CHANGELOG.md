@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Setting `widgets.mvg.incidents` (on by default) and a checkbox in the
+  settings tab "Abfahrten - MVG" to show or hide the disruption text under
+  the station title; the warning signs at the departures stay.
 - PlatformIO project for the XIAO ESP32-S3 Plus (pioarduino 55.03.312-1,
   Arduino-ESP32 3.3.12, board `seeed_xiao_esp32_s3_plus`).
 - 16 MB partition table: NVS, two 4 MB OTA app slots, ~7.9 MB LittleFS,
@@ -321,8 +324,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   26, 30 px) instead of 19, 23 and 27 px.
 - Screen previews compare only the critical PNG chunks, so reference images
   stay valid when a tool adds metadata to them.
-- Settings page in five tabs (General, Departures MVG, Weather, Calendar,
-  Device); the display name follows the chosen station and stays editable;
+- Settings page in five tabs (General, Departures - MVG, Weather - Open Meteo,
+  Calendar - Google, Device); the display name follows the chosen station and stays editable;
   buttons for the means of transport of the station before the line table
   (all on at first, switching one off hides its lines); names of two
   directions suggested as "Zentrum" / "Auswärts" ("Centre" / "Outbound").

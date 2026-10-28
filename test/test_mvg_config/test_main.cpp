@@ -69,6 +69,7 @@ void test_example_file_section() {
   TEST_ASSERT_EQUAL_STRING("Pasing", c.name.c_str());
   TEST_ASSERT_EQUAL_STRING("S3:B:S,RE80:R:Z", c.lines.toString().c_str());
   TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
+  TEST_ASSERT_TRUE(c.show_incidents);  // disruption text on by default
   // With a line selection the request uses the types of the selected lines.
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
 }
@@ -88,6 +89,17 @@ void test_values_are_read() {
   // Duplicates dropped, fixed order in the request.
   TEST_ASSERT_EQUAL_size_t(2, c.transport_types.size());
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
+}
+
+void test_incidents_switch() {
+  ConfigIssues issues;
+  TEST_ASSERT_FALSE(parse(R"({"station":"de:09162:10","incidents":false})", issues).show_incidents);
+  TEST_ASSERT_TRUE(parse(R"({"station":"de:09162:10","incidents":true})", issues).show_incidents);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  // A wrong type is reported and keeps the default (on).
+  const Config c = parse(R"({"station":"de:09162:10","incidents":"no"})", issues);
+  TEST_ASSERT_TRUE(c.show_incidents);
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.incidents"));
 }
 
 void test_station_id_format() {
@@ -270,6 +282,7 @@ int main() {
   RUN_TEST(test_lines_not_a_list);
   RUN_TEST(test_sections_are_read);
   RUN_TEST(test_sections_replace_lines_and_direction);
+  RUN_TEST(test_incidents_switch);
   RUN_TEST(test_invalid_sections_give_one_list);
   RUN_TEST(test_sections_with_stations_of_their_own);
   RUN_TEST(test_invalid_section_station_gives_one_list);
