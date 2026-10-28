@@ -56,26 +56,121 @@ std::string withFullStop(const std::string& message) {
   return last == '.' || last == '!' || last == '?' ? message : message + ".";
 }
 
-// Draws the disruption messages with the first line kIncidentFirstStep below
-// the baseline `above` (the station title; -kIncidentFirstStep + title
-// baseline if there is none); returns the baseline of the next title (for
-// one list: the baseline the rows start below, like below a title).
-int drawIncidents(ui::Canvas& c, const std::vector<Incident>& incidents, int above, int sections,
-                  bool list) {
-  const int first = above + kIncidentFirstStep;
-  const int gap = list ? kIncidentListGap : kIncidentTitleGap;
-  // As many lines as leave every section kIncidentMinRows rows, but at least
-  // one; with sections at most kIncidentMaxLinesSections.
-  int max_lines = sections > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
-  const auto used = [&](int lines) {
-    return first - ui::kColumnTitleBaseline + kIncidentLineStep * (lines - 1) + gap;
-  };
-  while (max_lines > 1 &&
-         columnRowsThatFit(c.height() - used(max_lines), sections) < kIncidentMinRows * sections) {
-    max_lines--;
+// Messages of the departures that are really drawn: the first `rows[s]`
+// departures of every section, in the order of the sections.
+std::vector<Incident> visibleIncidents(const std::vector<Section>& sections,
+                                       const std::vector<int>& rows) {
+  std::vector<Incident> result;
+  for (size_t s = 0; s < sections.size() && s < rows.size(); s++) {
+    const std::vector<Departure>& deps = sections[s].departures;
+    const size_t count = std::min(static_cast<size_t>(std::max(0, rows[s])), deps.size());
+    for (size_t i = 0; i < count; i++) {
+      for (const DepartureIncident& m : deps[i].incidents) {
+        mergeIncidents(result, {{m.message, {m.line}}});
+      }
+    }
   }
-  const std::vector<std::string> lines = ui::wrapText(incidentTextFont(), incidentText(incidents),
-                                                      c.width() - kIncidentTextX, max_lines);
+  return result;
+}
+
+// The text lines of the disruption messages and the rows the sections get
+// below them. The text and the rows depend on each other (the rows decide
+// which departures, and so which messages, are shown), so the text gets the
+// fewest lines it needs, at most kIncidentMaxLines(Sections); with more
+// lines every section would get fewer than kIncidentMinRows rows, the text
+// ends with "..." instead.
+// Wraps the text (hyphenating long words) and puts `more` at the end of the
+// last line, on a line of its own if there is a line left, or by shortening
+// the last line. *complete is false if the text had to be cut.
+std::vector<std::string> wrapIncident(const IncidentLabel& label, int width, int max_lines,
+                                      bool* complete) {
+  std::vector<std::string> lines =
+      ui::wrapText(incidentTextFont(), label.text, width, max_lines, complete, true);
+  if (label.more.empty() || lines.empty()) return lines;
+  const int more_width = ui::textWidth(incidentTextFont(), " " + label.more);
+  if (ui::textWidth(incidentTextFont(), lines.back()) + more_width <= width) {
+    lines.back() += " " + label.more;
+    return lines;
+  }
+  if (static_cast<int>(lines.size()) < max_lines) {
+    lines.push_back(label.more);
+    return lines;
+  }
+  // No line left: the last line is shortened to make room (ending with "…").
+  constexpr char kEllipsis[] = "\u2026";
+  std::string last = lines.back();
+  if (last.size() >= 3 && last.compare(last.size() - 3, 3, kEllipsis) == 0) {
+    last.resize(last.size() - 3);
+  }
+  while (!last.empty() &&
+         ui::textWidth(incidentTextFont(), last + kEllipsis) + more_width > width) {
+    const size_t space = last.find_last_of(' ');
+    if (space != std::string::npos) {
+      last.resize(space);
+    } else {
+      last.pop_back();
+      while (!last.empty() && (static_cast<unsigned char>(last.back()) & 0xC0) == 0x80) {
+        last.pop_back();
+      }
+    }
+    while (!last.empty() && (last.back() == ' ' || last.back() == ',')) last.pop_back();
+  }
+  lines.back() = last + kEllipsis + " " + label.more;
+  if (complete != nullptr) *complete = false;
+  return lines;
+}
+
+// True if the departures drawn belong to more than one line.
+bool showsSeveralLines(const std::vector<Section>& sections, const std::vector<int>& rows) {
+  std::string first;
+  for (size_t s = 0; s < sections.size() && s < rows.size(); s++) {
+    const std::vector<Departure>& deps = sections[s].departures;
+    const size_t count = std::min(static_cast<size_t>(std::max(0, rows[s])), deps.size());
+    for (size_t i = 0; i < count; i++) {
+      if (first.empty()) first = deps[i].line;
+      if (deps[i].line != first) return true;
+    }
+  }
+  return false;
+}
+
+struct IncidentPlan {
+  std::vector<std::string> lines;  // empty: no message to show
+  std::vector<int> rows;           // rows of the sections below the text
+};
+
+// `first`: baseline of the first line; `gap`: from the last line to the next
+// title (one list: to the rows).
+IncidentPlan planIncidents(int canvas_height, int text_width, const std::vector<Section>& sections,
+                           int first, int gap, ui::Language language) {
+  const int n = std::max(1, static_cast<int>(sections.size()));
+  std::vector<int> available;
+  for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
+  const int cap = n > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
+  IncidentPlan plan;
+  for (int lines = 1; lines <= cap; lines++) {
+    const int height = first - ui::kColumnTitleBaseline + kIncidentLineStep * (lines - 1) + gap;
+    const int fit = columnRowsThatFit(canvas_height - height, n);
+    if (lines > 1 && fit < kIncidentMinRows * n) break;
+    const std::vector<int> rows = ui::distributeRows(fit, available);
+    const std::vector<Incident> incidents = visibleIncidents(sections, rows);
+    if (incidents.empty()) {
+      if (plan.lines.empty()) return IncidentPlan();
+      break;
+    }
+    bool complete = true;
+    plan.lines = wrapIncident(incidentLabel(incidents, showsSeveralLines(sections, rows), language),
+                              text_width, lines, &complete);
+    plan.rows = rows;
+    if (complete) break;
+  }
+  return plan;
+}
+
+// Draws the warning sign and the lines, the first with its baseline at
+// `first`; returns the baseline of the next title (for one list: the baseline
+// the rows start below, like below a title).
+int drawIncidentLines(ui::Canvas& c, const std::vector<std::string>& lines, int first, int gap) {
   ui::drawWarningSign(c, 0, first, kIncidentSignHeight);
   int y = first;
   for (size_t i = 0; i < lines.size(); i++) {
@@ -131,9 +226,7 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
     const int y = baseline - timeFont().cap_height / 2 - 1;
     c.fillRect(time_right - w - 2, y, w + 4, 2, Color::kBlack);
   }
-  if (t.warning_in_time_column) {
-    ui::drawWarningSign(c, time_right + 8, centre + 8, kWarningHeight);
-  } else if (t.show_delay) {
+  if (t.show_delay) {
     char delay[8];
     std::snprintf(delay, sizeof(delay), "%+d", t.delay);
     ui::drawText(c, delayFont(), time_right + kDelayGap, baseline, delay);
@@ -147,23 +240,23 @@ int columnRowsThatFit(int canvas_height, int sections) {
                          kColumnSectionGap + 6);
 }
 
-std::string incidentText(const std::vector<Incident>& incidents) {
-  bool same_lines = true;
-  for (const Incident& i : incidents) same_lines = same_lines && i.lines == incidents[0].lines;
-  std::string text;
-  if (same_lines && !incidents.empty() && !incidents[0].lines.empty()) {
-    text = joinLines(incidentLines({incidents[0]})) + ":";
+IncidentLabel incidentLabel(const std::vector<Incident>& incidents, bool with_lines,
+                            ui::Language language) {
+  IncidentLabel label;
+  if (incidents.empty()) return label;
+  const Incident& first = incidents[0];
+  if (with_lines && !first.lines.empty()) label.text = joinLines(incidentLines({first})) + ": ";
+  label.text += withFullStop(first.message);
+  if (incidents.size() > 1) {
+    label.more = "+" + std::to_string(incidents.size() - 1) + " " +
+                 ui::text(language, ui::Text::kMoreIncidents);
   }
-  for (const Incident& i : incidents) {
-    if (!text.empty()) text += " ";
-    if (!same_lines && !i.lines.empty()) text += joinLines(incidentLines({i})) + ": ";
-    text += withFullStop(i.message);
-  }
-  return text;
+  return label;
 }
 
 int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& sections,
-                         const ColumnOptions& options) {
+                         const ColumnOptions& options, std::vector<std::string>* incident_lines) {
+  if (incident_lines != nullptr) incident_lines->clear();
   const bool list = sections.size() == 1 && sections[0].name.empty();
   const int n = std::max(1, static_cast<int>(sections.size()));
   bool own_stations = false;
@@ -172,7 +265,8 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   const bool station_above = !sections.empty() && !list && !own_stations;
   const bool age = !options.note.empty();
   // The station title stays at the top; the disruption messages follow
-  // below it (two stations: at the top, their sections have the pins).
+  // below it (two stations: below the pin title of the first section, the
+  // rows of that section follow the text).
   int first_title = ui::kColumnTitleBaseline;
   const bool station_title = sections.empty() || list || station_above;
   if (station_title) {
@@ -180,19 +274,32 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
                         age ? options.note : options.station_note, ui::TitleIcon::kPin,
                         age && options.note_alert);
   }
-  if (!options.incidents.empty() && !sections.empty()) {
-    first_title =
-        drawIncidents(canvas, options.incidents,
-                      station_title ? first_title : first_title - kIncidentFirstStep, n, list);
-  } else if (station_above) {
-    first_title += kStationTitleStep;
-  }
-  if (sections.empty()) return 0;
-
   std::vector<int> available;
   for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
-  const std::vector<int> rows = ui::distributeRows(
-      columnRowsThatFit(canvas.height() - (first_title - ui::kColumnTitleBaseline), n), available);
+  std::vector<int> rows;
+  IncidentPlan plan;
+  // Two stations: the text follows the title of the first section and the
+  // rows come right after it (like below the station title of one list).
+  const bool text_in_section = own_stations && !list;
+  const int text_first = ui::kColumnTitleBaseline + kIncidentFirstStep;
+  const int text_gap = list || text_in_section ? kIncidentListGap : kIncidentTitleGap;
+  int text_end = 0;  // baseline the rows of the first section start below
+  if (options.show_incidents && !sections.empty()) {
+    plan = planIncidents(canvas.height(), canvas.width() - kIncidentTextX, sections, text_first,
+                         text_gap, options.language);
+  }
+  if (!plan.lines.empty()) {
+    if (incident_lines != nullptr) *incident_lines = plan.lines;
+    rows = plan.rows;
+    if (!text_in_section) first_title = drawIncidentLines(canvas, plan.lines, text_first, text_gap);
+  } else {
+    if (station_above) first_title += kStationTitleStep;
+    if (sections.empty()) return 0;
+    rows = ui::distributeRows(
+        columnRowsThatFit(canvas.height() - (first_title - ui::kColumnTitleBaseline), n),
+        available);
+  }
+  if (sections.empty()) return 0;
 
   // The destinations line up after the widest visible symbol.
   int symbol_width = kLineIconWidth;
@@ -224,6 +331,10 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
                           badge && options.note_alert);
     }
     int top = title + 6;
+    if (s == 0 && text_in_section && !plan.lines.empty()) {
+      text_end = drawIncidentLines(canvas, plan.lines, text_first, text_gap);
+      top = text_end + 6;
+    }
     const std::vector<Departure>& deps = sections[s].departures;
     if (deps.empty() && rows[s] > 0) {
       ui::drawText(canvas, destinationFont(), 0, top + kColumnRowHeight / 2 + 7,
@@ -260,7 +371,7 @@ void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) 
   options.time_format = source_.config().time_format;
   options.language = context.language;
   options.now_s = context.now_s;
-  if (source_.config().show_incidents) options.incidents = source_.incidents();
+  options.show_incidents = source_.config().show_incidents;
   drawDeparturesColumn(canvas, withoutDeparted(source_.sections(), context.now_s), options);
 }
 

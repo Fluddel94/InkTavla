@@ -31,6 +31,14 @@ enum class Direction : char {
 
 inline constexpr int kNoPlatform = -1;
 
+// A disruption message ("INCIDENT" in the MVG API) of one trip and the line
+// the API reported it for (as shown: "S3", "RB6", "SEV"). The text is
+// cleaned like Incident::message.
+struct DepartureIncident {
+  std::string message;
+  std::string line;
+};
+
 // One departure, fully processed and ready to be shown.
 //
 // Times are kept as numbers; formatting (local time, minutes until
@@ -66,6 +74,10 @@ struct Departure {
 
   // Destination lists several destinations "A/B/C"; shorten each evenly.
   bool multi_destination = false;
+
+  // Disruption messages of this trip, each text once per line. The view
+  // builds the disruption text from the departures it really shows.
+  std::vector<DepartureIncident> incidents;
 
   // Expected departure (planned + delay), seconds since 1970-01-01 UTC.
   int64_t expected() const { return planned + static_cast<int64_t>(delay_minutes) * 60; }

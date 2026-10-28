@@ -243,8 +243,9 @@ weekday) if there is room, then the following events of the week, one line
 each, as many as fit. The departure column shows one list (title: the
 station) or the two `sections` (titles with an arrow, or with the location
 pin for two stations), 28 px per row. Disruption messages of the shown lines
-follow the station title: a warning sign and the texts of the API with
-their lines (each once, at most three lines, two with sections).
+follow the station title: a warning sign and the texts of the API for the
+departures drawn, with their lines (each once, at most three lines, two with
+sections).
 
 ## Widgets
 
@@ -350,19 +351,23 @@ door and one a short walk away:
 
 #### Disruption messages
 
-Messages of the type "INCIDENT" that the API reports for the shown lines
-appear below the station title (two stations: at the top), with a warning
-sign and the lines in front: "S2: Verspätung eines vorausfahrenden Zuges.".
-The API only gives short texts without a heading; the same text for several
-lines is shown once. If all messages are about the same lines, the lines
-are named once ("S2: Reparatur an einem Signal. Verspätung eines
-vorausfahrenden Zuges."), otherwise in front of every message ("S6:
-Technische Störung am Zug. S4, S6, S8: Verspätung …"). The text has at most
-three lines (two above two sections) and gets shorter, down to one line, so
-that every section keeps at least two departures. The affected departures
-keep a warning sign, right before the time and in the same place in every
-row; a cancelled departure has its time struck through and the sign after
-it. Notes on early terminations stay in the row, fare notes are not shown.
+Messages of the type "INCIDENT" that the API reports for the departures
+that are drawn (not for the ones that do not fit on the display) appear
+below the station title (two stations: below the title of the first one,
+its rows follow the text), with a warning sign: "S2: Verspätung eines
+vorausfahrenden Zuges.". The API only gives short texts without a heading.
+Only the first message is shown (the one of the earliest departure drawn);
+if there are more, the end of the text says how many: "+2 weitere". The
+line in front ("S2: ") is left out when the departures drawn belong to one
+line only; for several lines it names the lines of the message. Long
+German words are hyphenated at the end of a line. The text has at most
+three lines above one list and two above two sections, and gets shorter,
+down to one line, so that every section keeps at least two departures. The
+affected departures keep a warning sign, right before the time and in the
+same place in every row; a cancelled departure has the same sign and its
+time struck through. Notes on early terminations stay in the row, fare notes
+are not shown. `widgets.mvg.incidents: false` hides the text only; the
+warning signs and the cancellations stay.
 
 ### `weather`: Weather forecast
 

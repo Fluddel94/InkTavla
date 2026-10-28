@@ -676,7 +676,10 @@ void test_view_incidents_switch() {
     TwoStations api;
     widgets::mvg::MvgSource source(mvgConfig(("{" + std::string(base) + extra + "}").c_str()), api);
     TEST_ASSERT_TRUE(source.fetch(kMvgNow));
-    *has_incidents = !source.incidents().empty();
+    *has_incidents = false;
+    for (const auto& s : source.sections()) {
+      for (const auto& d : s.departures) *has_incidents = *has_incidents || !d.incidents.empty();
+    }
     ui::Bitmap bitmap(280, 260);
     bitmap.clear(ui::Color::kWhite);
     ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
@@ -705,6 +708,29 @@ void test_view_incidents_switch() {
   options.now_s = kMvgNow;
   widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options);
   TEST_ASSERT_TRUE(off == std::vector<uint8_t>(bitmap.data(), bitmap.data() + bitmap.size()));
+  TEST_ASSERT_FALSE(options.show_incidents);  // the default draws no text
+}
+
+// Only the first message is shown; the others as "+2 weitere". The lines
+// stand in front only if the column shows more than one line.
+void test_incident_label() {
+  const std::vector<widgets::mvg::Incident> three = {
+      {"Reparatur an einem Signal", {"S2"}},
+      {"Verspätung eines vorausfahrenden Zuges.", {"S2", "S3"}},
+      {"Technische Störung am Zug", {"S3"}}};
+  auto label = widgets::mvg::incidentLabel(three, true, ui::Language::kGerman);
+  TEST_ASSERT_EQUAL_STRING("S2: Reparatur an einem Signal.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("+2 weitere", label.more.c_str());
+  label = widgets::mvg::incidentLabel(three, false, ui::Language::kEnglish);
+  TEST_ASSERT_EQUAL_STRING("Reparatur an einem Signal.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("+2 more", label.more.c_str());
+  label = widgets::mvg::incidentLabel({three[1]}, true, ui::Language::kGerman);
+  TEST_ASSERT_EQUAL_STRING("S2, S3: Verspätung eines vorausfahrenden Zuges.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("", label.more.c_str());
+  label = widgets::mvg::incidentLabel({three[0], three[2]}, true, ui::Language::kGerman);
+  TEST_ASSERT_EQUAL_STRING("+1 weitere", label.more.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "", widgets::mvg::incidentLabel({}, true, ui::Language::kGerman).text.c_str());
 }
 
 void test_preview_departure_incidents() {
@@ -713,8 +739,9 @@ void test_preview_departure_incidents() {
   widgets::mvg::ColumnOptions options;
   options.station = "Pasing";
   options.now_s = kMvgNow;
+  options.show_incidents = true;
 
-  // Two directions with the disruption messages of their lines.
+  // Two directions with the disruption messages of the departures drawn.
   TwoStations api;
   widgets::mvg::MvgSource directions(mvgConfig(R"({"station":"de:09162:10","sections":[
         {"name":"In die Stadt","lines":["S3:H:S","S4:H:S","S6:H:S","S8:H:S"]},
@@ -722,18 +749,11 @@ void test_preview_departure_incidents() {
                                      api);
   TEST_ASSERT_TRUE(directions.fetch(kMvgNow));
   TEST_ASSERT_EQUAL_size_t(1, api.requests.size());
-  TEST_ASSERT_EQUAL_STRING(
-      "S6: Technische Störung am Zug. S4, S6, S8: Verspätung eines vorausfahrenden Zuges.",
-      widgets::mvg::incidentText(directions.incidents()).c_str());
-  // The same lines for all messages: named once in front.
-  TEST_ASSERT_EQUAL_STRING(
-      "S2: Reparatur an einem Signal. Verspätung eines vorausfahrenden Zuges.",
-      widgets::mvg::incidentText({{"Reparatur an einem Signal", {"S2"}},
-                                  {"Verspätung eines vorausfahrenden Zuges.", {"S2"}}})
-          .c_str());
-  options.incidents = directions.incidents();
+  std::vector<std::string> text;
   ui::BitmapCanvas a(bitmap, 0, 0, 280, 260);
-  TEST_ASSERT_EQUAL_INT(4, widgets::mvg::drawDeparturesColumn(a, directions.sections(), options));
+  TEST_ASSERT_EQUAL_INT(
+      4, widgets::mvg::drawDeparturesColumn(a, directions.sections(), options, &text));
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
 
   // Two stations: one request each, the sections in the configured order.
   api.requests.clear();
@@ -751,17 +771,19 @@ void test_preview_departure_incidents() {
   TEST_ASSERT_TRUE(stations.sections()[1].own_station);
   TEST_ASSERT_FALSE(directions.sections()[0].own_station);
   TEST_ASSERT_EQUAL_STRING("4 min zu Fuß", stations.sections()[1].note.c_str());
-  options.incidents.clear();
+  options.show_incidents = false;
   ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(b, stations.sections(), options));
 
-  // One list with one message, in English; the age badge stays on the title.
-  options.incidents = {{"Verspätungen wegen einer Signalstörung", {"S8"}}};
+  // One list with the messages of its departures, in English; the age badge
+  // stays on the title.
+  options.show_incidents = true;
   options.language = ui::Language::kEnglish;
   options.note = "Stand 22:21";
   options.note_alert = true;
   ui::BitmapCanvas c(bitmap, 600, 0, 280, 260);
-  TEST_ASSERT_EQUAL_INT(6, widgets::mvg::drawDeparturesColumn(c, pasing(false), options));
+  TEST_ASSERT_EQUAL_INT(6, widgets::mvg::drawDeparturesColumn(c, pasing(false), options, &text));
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
   check(bitmap, "briefing_departure_incidents");
 
   // A failed request keeps the old data.
@@ -771,7 +793,187 @@ void test_preview_departure_incidents() {
   } failing;
   widgets::mvg::MvgSource none(mvgConfig(R"({"station":"de:09162:10"})"), failing);
   TEST_ASSERT_FALSE(none.fetch(kMvgNow));
-  TEST_ASSERT_TRUE(none.incidents().empty());
+  TEST_ASSERT_TRUE(none.sections().empty());
+}
+
+// Hand-written response (test/fixtures/mvg/rules_incidents.json, times from
+// 2026-10-19 05:00 UTC like the other rules_*.json), one minute before the
+// first departure.
+constexpr int64_t kIncidentsNow = 1792386000 - 60;
+
+class IncidentsFixture : public widgets::mvg::Source {
+ public:
+  bool fetchDepartures(const widgets::mvg::Config&, JsonDocument& doc) override {
+    std::ifstream in("test/fixtures/mvg/rules_incidents.json", std::ios::binary);
+    return widgets::mvg::readDepartures(in, doc) == DeserializationError::Ok;
+  }
+};
+
+// The disruption text is made from the departures that are drawn, not from
+// everything the API sent (2026-10-28: three messages above two trains).
+void test_incidents_only_of_drawn_departures() {
+  IncidentsFixture api;
+  widgets::mvg::MvgSource source(mvgConfig(R"({"station":"de:09162:10","sections":[
+        {"name":"Zentrum","lines":["S2:H:S"]},{"name":"Auswaerts","lines":["S2:R:S"]}]})"),
+                                 api);
+  TEST_ASSERT_TRUE(source.fetch(kIncidentsNow));
+  // The response has three different texts for S2, in all departures ...
+  std::vector<widgets::mvg::Incident> all;
+  for (const auto& s : source.sections()) {
+    for (const auto& d : s.departures) {
+      for (const auto& m : d.incidents) widgets::mvg::mergeIncidents(all, {{m.message, {m.line}}});
+    }
+  }
+  TEST_ASSERT_EQUAL_size_t(3, all.size());
+
+  // ... but with three and two rows only two of them are on the display: the
+  // first one and "+1 weitere".
+  widgets::mvg::ColumnOptions options;
+  options.station = "Test";
+  options.now_s = kIncidentsNow;
+  options.show_incidents = true;
+  ui::Bitmap bitmap(280, 260);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+  std::vector<std::string> text;
+  const int drawn = widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options, &text);
+  TEST_ASSERT_EQUAL_INT(5, drawn);
+  TEST_ASSERT_EQUAL_size_t(1, text.size());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +1 weitere", text[0].c_str());  // no "S2: "
+
+  // Fewer rows (a lower column): only the first message, nothing else.
+  ui::Bitmap low(280, 214);
+  low.clear(ui::Color::kWhite);
+  ui::BitmapCanvas low_canvas(low, 0, 0, 280, 214);
+  widgets::mvg::drawDeparturesColumn(low_canvas, source.sections(), options, &text);
+  TEST_ASSERT_EQUAL_size_t(1, text.size());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk.", text[0].c_str());
+
+  // More rows (a taller column): the further messages are counted.
+  ui::Bitmap tall(280, 400);
+  tall.clear(ui::Color::kWhite);
+  ui::BitmapCanvas tall_canvas(tall, 0, 0, 280, 400);
+  widgets::mvg::drawDeparturesColumn(tall_canvas, source.sections(), options, &text);
+  TEST_ASSERT_EQUAL_size_t(1, text.size());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +2 weitere", text[0].c_str());
+}
+
+// A long message above two sections gets two lines of text and every
+// section keeps two departures (2026-10-28: the text must not be cut to one
+// line while the display has the room).
+void test_incident_text_two_lines_with_two_departures_each() {
+  const std::string message =
+      "Wegen einer Stellwerksstörung kommt es zu Verspätungen und Ausfällen auf der gesamten "
+      "Strecke zwischen Petershausen und München Hbf";
+  auto sections = [&](bool own_stations) {
+    std::vector<widgets::mvg::Section> result(2);
+    result[0].name = "Zentrum";
+    result[1].name = "Auswärts";
+    for (auto& s : result) {
+      s.own_station = own_stations;
+      for (int i = 0; i < 6; i++) {
+        widgets::mvg::Departure d;
+        d.line = "S2";
+        d.destination = "Dachau";
+        d.planned = kIncidentsNow + 600 * i;
+        d.incidents = {{message, "S2"}};
+        s.departures.push_back(d);
+      }
+    }
+    return result;
+  };
+  widgets::mvg::ColumnOptions options;
+  options.station = "Test";
+  options.now_s = kIncidentsNow;
+  options.show_incidents = true;
+  for (const bool own_stations : {false, true}) {
+    ui::Bitmap bitmap(280, 260);
+    bitmap.clear(ui::Color::kWhite);
+    ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+    std::vector<std::string> text;
+    const int drawn =
+        widgets::mvg::drawDeparturesColumn(canvas, sections(own_stations), options, &text);
+    TEST_ASSERT_EQUAL_size_t(2, text.size());
+    TEST_ASSERT_TRUE(drawn >= 4);
+  }
+  // One list: three lines of text, and still more than two rows.
+  std::vector<widgets::mvg::Section> list(1);
+  list[0] = sections(false)[0];
+  list[0].name.clear();
+  ui::Bitmap bitmap(280, 260);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+  std::vector<std::string> text;
+  const int drawn = widgets::mvg::drawDeparturesColumn(canvas, list, options, &text);
+  TEST_ASSERT_EQUAL_size_t(3, text.size());
+  TEST_ASSERT_TRUE(drawn >= 4);
+}
+
+// Departures of the made-up cases below: `incident` on the departures with
+// a "!" in the pattern, "x" = cancelled.
+widgets::mvg::Section incidentSection(const char* name, bool own_station, const char* line,
+                                      const char* destination, const char* pattern,
+                                      const std::string& incident) {
+  widgets::mvg::Section s;
+  s.name = name;
+  s.own_station = own_station;
+  int minute = 0;
+  for (const char* p = pattern; *p != '\0'; p++, minute += 10) {
+    widgets::mvg::Departure d;
+    d.line = line;
+    d.destination = destination;
+    d.planned = kIncidentsNow + 60 + minute * 60;
+    d.transport = widgets::mvg::TransportType::kSBahn;
+    d.cancelled = *p == 'x';
+    d.warning = *p == 'x' || *p == '!';
+    if (d.warning) d.incidents = {{incident, line}};
+    s.departures.push_back(d);
+  }
+  return s;
+}
+
+// Long messages: pin line on top and the text below it (two directions and
+// two stations), hyphenation, "+1 weitere", the cancellation sign before the
+// time (2026-10-28).
+void test_incident_variants() {
+  const std::string long_message =
+      "Wegen einer Stellwerksstörung kommt es zu Verspätungen und Ausfällen";
+  ui::Bitmap bitmap(3 * 280 + 2 * 20, 260);
+  bitmap.clear(ui::Color::kWhite);
+  widgets::mvg::ColumnOptions options;
+  options.station = "Karlsfeld";
+  options.station_note = "Bahnhof";
+  options.now_s = kIncidentsNow;
+  options.show_incidents = true;
+  std::vector<std::string> text;
+
+  // Two directions of one line: no prefix; a second message: "+1 weitere".
+  std::vector<widgets::mvg::Section> directions = {
+      incidentSection("München", false, "S2", "Markt Schwaben", "x!..", long_message),
+      incidentSection("Dachau", false, "S2", "Petershausen", "x!..", long_message)};
+  directions[1].departures[1].incidents = {{"Bauarbeiten", "S2"}};
+  ui::BitmapCanvas a(bitmap, 0, 0, 280, 260);
+  TEST_ASSERT_EQUAL_INT(4, widgets::mvg::drawDeparturesColumn(a, directions, options, &text));
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
+  TEST_ASSERT_TRUE(text[0].rfind("S2:", 0) == std::string::npos);
+  TEST_ASSERT_TRUE(text[1].size() > 10 && text[1].find(" +1 weitere") == text[1].size() - 11);
+
+  // Two stations: the text stands below the pin title of the first one.
+  std::vector<widgets::mvg::Section> stations = {
+      incidentSection("Karlsfeld", true, "S2", "Dachau", "x!..", long_message),
+      incidentSection("Dachau Bf", true, "S2", "München", "!...", long_message)};
+  ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
+  TEST_ASSERT_TRUE(widgets::mvg::drawDeparturesColumn(b, stations, options, &text) >= 4);
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
+
+  // One list with two lines: the line in front of the message.
+  widgets::mvg::Section list = incidentSection("", false, "S2", "Dachau", "!x..", long_message);
+  list.departures[2].line = "S3";
+  list.departures[3].line = "S3";
+  ui::BitmapCanvas c(bitmap, 600, 0, 280, 260);
+  widgets::mvg::drawDeparturesColumn(c, {list}, options, &text);
+  TEST_ASSERT_TRUE(text[0].rfind("S2: ", 0) == 0);
+  check(bitmap, "briefing_departure_incidents_long");
 }
 
 // --- Band ---------------------------------------------------------------------------
@@ -961,7 +1163,11 @@ int main() {
   RUN_TEST(test_preview_calendar_columns);
   RUN_TEST(test_preview_departure_columns);
   RUN_TEST(test_view_incidents_switch);
+  RUN_TEST(test_incident_label);
   RUN_TEST(test_preview_departure_incidents);
+  RUN_TEST(test_incident_variants);
+  RUN_TEST(test_incidents_only_of_drawn_departures);
+  RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);
   return UNITY_END();

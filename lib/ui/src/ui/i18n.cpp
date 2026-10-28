@@ -38,6 +38,8 @@ const char* text(Language language, Text id) {
       return "min";
     case Text::kNoDepartures:
       return de ? "Keine Abfahrten" : "No departures";
+    case Text::kMoreIncidents:
+      return de ? "weitere" : "more";
     case Text::kAsOf:
       return de ? "Stand" : "As of";
     case Text::kNoConnection:

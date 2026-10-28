@@ -12,6 +12,7 @@ Data from the unofficial MVG API (`https://www.mvg.de/api/bgw-pt/v3/`).
 | `hk_lines.json` | Lines serving Holzkirchen |
 | `parse_deps.json` | Hand-written full departure records for edge cases: rail replacement services (SEV) and coupled regional trains |
 | `rules_messages.json` | Hand-written: message types (INFO, INCIDENT), missing `realtime`/`infos` fields, `product` instead of `transportType`, unknown transport type |
+| `rules_incidents.json` | Hand-written: S2 and S3 departures of a made-up station with three different INCIDENT texts spread over the trips (also on a cancelled trip), to check that the disruption text only uses the departures that are drawn |
 | `rules_early_termination.json` | Hand-written: early termination (still stopping here / cancelled here / message without stop name) and a cancelled trip replaced by the real one |
 | `rules_split_trains.json` | Hand-written: split trains (S1 short form, coupled regional trains), duplicates, delays of combined trips and all cases that must not be combined |
 | `rules_sorting.json` | Hand-written: order by planned time plus delay |

@@ -25,15 +25,6 @@ std::vector<Section> departureSections(const JsonDocument& doc, const Config& co
   return result;
 }
 
-std::vector<Incident> departureIncidents(const JsonDocument& doc, const Config& config) {
-  if (config.sections.empty()) return parseIncidents(doc, config.direction, config.lines);
-  std::vector<Incident> result;
-  for (const SectionConfig& s : config.sections) {
-    mergeIncidents(result, parseIncidents(doc, DirectionFilter::kAll, s.lines));
-  }
-  return result;
-}
-
 std::vector<Section> withoutDeparted(const std::vector<Section>& sections, int64_t now_s) {
   if (!core::isValidUnixTime(now_s)) return sections;
   std::vector<Section> result;

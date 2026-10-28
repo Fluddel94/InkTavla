@@ -9,6 +9,7 @@
 #include "ui/bitmap.h"
 #include "ui/elements.h"
 #include "ui/fonts.h"
+#include "ui/hyphen.h"
 #include "ui/i18n.h"
 #include "ui/icons.h"
 #include "ui/layout.h"
@@ -572,8 +573,84 @@ void test_briefing_icons() {
   TEST_ASSERT_EQUAL_INT(16, ui::kPinIcon.height);
 }
 
+// The word with "|" at every break the hyphenator allows (a hyphen that the
+// word has already counts as a break after it).
+std::string hyphenated(const std::string& word) {
+  std::string result;
+  size_t last = 0;
+  for (const ui::HyphenPoint& p : ui::hyphenationPoints(word)) {
+    result += word.substr(last, p.offset - last) + "|";
+    last = p.offset;
+  }
+  return result + word.substr(last);
+}
+
+void test_hyphenation_of_railway_words() {
+  // Compound boundaries first, then syllables; a linking "s" stays in front.
+  TEST_ASSERT_EQUAL_STRING("Stell|werks|stö|rung", hyphenated("Stellwerksstörung").c_str());
+  TEST_ASSERT_EQUAL_STRING("Ver|spä|tung", hyphenated("Verspätung").c_str());
+  TEST_ASSERT_EQUAL_STRING("Bahn|über|gang", hyphenated("Bahnübergang").c_str());
+  TEST_ASSERT_EQUAL_STRING("Zug|aus|fall", hyphenated("Zugausfall").c_str());
+  // Existing hyphens are kept (no second one is added).
+  TEST_ASSERT_EQUAL_STRING("S-|Bahn-|Stre|cke", hyphenated("S-Bahn-Strecke").c_str());
+  // Words not in the dictionary: syllable rules ("ck" and "ch" stay together).
+  TEST_ASSERT_EQUAL_STRING("Fens|ter", hyphenated("Fenster").c_str());
+  TEST_ASSERT_EQUAL_STRING("Zu|cker", hyphenated("Zucker").c_str());
+  // Short words and numbers stay whole: two letters before, three after.
+  TEST_ASSERT_EQUAL_STRING("Hbf", hyphenated("Hbf").c_str());
+  TEST_ASSERT_EQUAL_STRING("Mün|chen", hyphenated("München").c_str());
+  TEST_ASSERT_EQUAL_STRING("2026", hyphenated("2026").c_str());
+  TEST_ASSERT_EQUAL_STRING("S2", hyphenated("S2").c_str());
+  // The hyphen is added only where the word has none.
+  const auto points = ui::hyphenationPoints("S-Bahn-Strecke");
+  TEST_ASSERT_TRUE(points[0].at_hyphen);
+}
+
+void test_wrap_with_hyphenation_does_not_cut_words() {
+  const ui::Font& f = ui::fonts::kRobotoCondensedMedium17;
+  const std::string text = "Signalstörung Donnersbergerbrücke";
+  // Without hyphenation the long word is cut off with "…".
+  const auto cut = ui::wrapText(f, text, 90, 0, nullptr, false);
+  TEST_ASSERT_TRUE(cut.back().find("\xE2\x80\xA6") != std::string::npos);
+  // With it nothing is lost: the lines joined (hyphens removed) are the text.
+  bool complete = false;
+  const auto lines = ui::wrapText(f, text, 90, 0, &complete, true);
+  TEST_ASSERT_TRUE(complete);
+  std::string joined;
+  bool hyphenated_end = false;
+  for (const std::string& line : lines) {
+    TEST_ASSERT_TRUE(ui::textWidth(f, line) <= 90);
+    if (!joined.empty() && !hyphenated_end) joined += " ";
+    hyphenated_end = line.back() == '-';
+    joined += hyphenated_end ? line.substr(0, line.size() - 1) : line;
+  }
+  TEST_ASSERT_EQUAL_STRING(text.c_str(), joined.c_str());
+  TEST_ASSERT_TRUE(lines.size() >= 3);
+  // A short text is wrapped as before.
+  const auto same = ui::wrapText(f, "Bauarbeiten am Bahnhof", 256, 0, nullptr, true);
+  TEST_ASSERT_EQUAL_size_t(1, same.size());
+}
+
+// The last line may not be hyphenated into a line that is not there: with
+// max_lines the text ends with "…" after a whole word or part.
+void test_wrap_with_hyphenation_respects_max_lines() {
+  const ui::Font& f = ui::fonts::kRobotoCondensedMedium17;
+  bool complete = true;
+  const auto lines = ui::wrapText(
+      f,
+      "Wegen einer Stellwerksstörung kommt es zu Verspätungen und Ausfällen zwischen Dachau "
+      "und Petershausen",
+      200, 2, &complete, true);
+  TEST_ASSERT_EQUAL_size_t(2, lines.size());
+  TEST_ASSERT_FALSE(complete);
+  for (const std::string& line : lines) TEST_ASSERT_TRUE(ui::textWidth(f, line) <= 200);
+}
+
 int main() {
   UNITY_BEGIN();
+  RUN_TEST(test_hyphenation_of_railway_words);
+  RUN_TEST(test_wrap_with_hyphenation_does_not_cut_words);
+  RUN_TEST(test_wrap_with_hyphenation_respects_max_lines);
   RUN_TEST(test_bitmap_layout_msb_first_black_is_set);
   RUN_TEST(test_canvas_area_offset_and_clipping);
   RUN_TEST(test_canvas_area_is_clipped_to_bitmap);

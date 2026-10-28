@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Disruption text of the departure column: only the first message, with
+  "+2 weitere" for the others; "S2: " in front only if the departures drawn
+  belong to more than one line; with two stations the text follows the pin
+  title of the first one. German hyphenation (a small dictionary of railway
+  words plus syllable rules, no pattern tables) so that long words are not
+  cut off.
 - Setting `widgets.mvg.incidents` (on by default) and a checkbox in the
   settings tab "Abfahrten - MVG" to show or hide the disruption text under
   the station title; the warning signs at the departures stay.
@@ -349,6 +355,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cancelled departures show the warning sign before the time, in the same
+  place as every other warning (it was after the struck-through time), and
+  never twice.
+- Disruption text of the departure column: the messages now come from the
+  departures that are really drawn, not from the whole API response (before,
+  three messages could stand above two visible trains). Text and rows are
+  planned together, so a long message keeps two lines above two sections
+  and every section keeps two departures.
 - Buttons: a long press of a button without a long-press function (KEY3)
   opened the settings page and closed it again at once. When the button was
   released after a long hold, the first bouncing edge could read "pressed"

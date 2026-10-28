@@ -106,16 +106,15 @@ void test_minutes_without_valid_time_falls_back_to_clock() {
   TEST_ASSERT_TRUE(t.show_delay);
 }
 
-void test_cancelled_is_struck_with_warning_in_time_column() {
+void test_cancelled_is_struck_with_the_warning_before_the_time() {
   TimeDisplay t = clock(departure(5, true, true));
   TEST_ASSERT_TRUE(t.struck);
-  TEST_ASSERT_TRUE(t.warning_in_time_column);
-  TEST_ASSERT_FALSE(t.warning_before_time);  // not twice
+  TEST_ASSERT_TRUE(t.warning_before_time);  // once, with or without a message
   TEST_ASSERT_FALSE(t.show_delay);
   t = minutes(departure(0, true));
   TEST_ASSERT_TRUE(t.kind == TimeDisplay::Kind::kMinutes);
   TEST_ASSERT_TRUE(t.struck);
-  TEST_ASSERT_TRUE(t.warning_in_time_column);  // also without a message
+  TEST_ASSERT_TRUE(t.warning_before_time);  // also without a message
 }
 
 void test_warning_before_time() {
@@ -133,7 +132,7 @@ int main() {
   RUN_TEST(test_minutes_now);
   RUN_TEST(test_minutes_from_60_show_clock_time);
   RUN_TEST(test_minutes_without_valid_time_falls_back_to_clock);
-  RUN_TEST(test_cancelled_is_struck_with_warning_in_time_column);
+  RUN_TEST(test_cancelled_is_struck_with_the_warning_before_the_time);
   RUN_TEST(test_warning_before_time);
   return UNITY_END();
 }

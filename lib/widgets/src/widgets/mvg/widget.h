@@ -3,7 +3,7 @@
 // The MVG departures widget: a data source that fetches the departures of
 // one station (or one per section: "two stations") once a minute and a view
 // that shows them as one list or in two named sections, with the disruption
-// messages of the shown lines above them.
+// messages of the shown departures above them.
 
 #include <ArduinoJson.h>
 
@@ -54,8 +54,6 @@ class MvgSource : public DataSource {
 
   const Config& config() const { return config_; }
   const std::vector<Section>& sections() const { return sections_; }
-  // Disruption messages of the shown lines (of all stations).
-  const std::vector<Incident>& incidents() const { return incidents_; }
   // Name of the station: from the configuration, else from the API; "" if
   // neither is known (yet).
   const std::string& stationName() const;
@@ -64,7 +62,6 @@ class MvgSource : public DataSource {
   Config config_;
   Source& api_;
   std::vector<Section> sections_;
-  std::vector<Incident> incidents_;
   std::string station_name_;  // from the API if the configuration has no name
 };
 

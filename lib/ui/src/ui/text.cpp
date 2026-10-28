@@ -1,5 +1,7 @@
 #include "ui/text.h"
 
+#include "ui/hyphen.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -262,30 +264,81 @@ std::string fitTextEllipsis(const Font& font, std::string_view text, int max_wid
   return result + kEllipsis;
 }
 
+namespace {
+
+// Words with fewer characters are not hyphenated unless they are wider than
+// a whole line.
+constexpr size_t kMinHyphenatedWord = 7;
+
+// Breaks `word` so that the first part with its hyphen fits into `room`
+// pixels; compound boundaries are preferred to syllable breaks. False if no
+// break fits.
+bool splitForHyphen(const Font& font, const std::string& word, int room, int line_width,
+                    std::string& head, std::string& tail) {
+  if (utf8Length(word) < kMinHyphenatedWord && textWidth(font, word) <= line_width) return false;
+  const std::vector<HyphenPoint> points = hyphenationPoints(word);
+  int best = -1;
+  bool best_compound = false;
+  for (size_t k = 0; k < points.size(); k++) {
+    const HyphenPoint& p = points[k];
+    const std::string first = word.substr(0, p.offset) + (p.at_hyphen ? "" : "-");
+    if (textWidth(font, first) > room) continue;
+    if (best < 0 || (p.compound && !best_compound) || (p.compound == best_compound)) {
+      best = static_cast<int>(k);
+      best_compound = p.compound;
+    }
+  }
+  if (best < 0) return false;
+  const HyphenPoint& p = points[best];
+  head = word.substr(0, p.offset) + (p.at_hyphen ? "" : "-");
+  tail = word.substr(p.offset);
+  return true;
+}
+
+}  // namespace
+
 std::vector<std::string> wrapText(const Font& font, std::string_view text, int max_width,
-                                  int max_lines, bool* complete) {
+                                  int max_lines, bool* complete, bool hyphenate) {
   if (complete != nullptr) *complete = true;
   const std::vector<std::string_view> list = words(text);
   std::vector<std::string> lines;
   std::string line;
-  size_t i = 0;
-  for (; i < list.size(); i++) {
-    const std::string candidate =
-        line.empty() ? std::string(list[i]) : line + " " + std::string(list[i]);
-    if (textWidth(font, candidate) <= max_width) {
-      line = candidate;
-      continue;
+  std::string leftover;  // the word that did not fit into the last line
+  bool overflow = false;
+  for (size_t i = 0; i < list.size() && !overflow; i++) {
+    std::string word(list[i]);
+    while (true) {
+      const std::string candidate = line.empty() ? word : line + " " + word;
+      if (textWidth(font, candidate) <= max_width) {
+        line = candidate;
+        break;
+      }
+      const bool last_line = max_lines > 0 && static_cast<int>(lines.size()) + 1 == max_lines;
+      if (hyphenate && !last_line) {
+        const std::string start = line.empty() ? "" : line + " ";
+        std::string head;
+        std::string tail;
+        if (splitForHyphen(font, word, max_width - textWidth(font, start), max_width, head, tail)) {
+          lines.push_back(start + head);
+          line.clear();
+          word = tail;
+          continue;
+        }
+      }
+      if (line.empty()) {  // a single word wider than the line
+        line = fitTextEllipsis(font, word, max_width);
+        break;
+      }
+      if (last_line) {
+        overflow = true;
+        leftover = word;
+        break;
+      }
+      lines.push_back(line);
+      line.clear();  // the word starts the next line (next round)
     }
-    if (line.empty()) {  // a single word wider than the line
-      line = fitTextEllipsis(font, list[i], max_width);
-      continue;
-    }
-    if (max_lines > 0 && static_cast<int>(lines.size()) + 1 == max_lines) break;
-    lines.push_back(line);
-    line = std::string(list[i]);
-    if (textWidth(font, line) > max_width) line = fitTextEllipsis(font, line, max_width);
   }
-  if (i < list.size()) {
+  if (overflow) {
     // Text left over: the last line ends with "…" after a whole word.
     if (complete != nullptr) *complete = false;
     std::vector<std::string_view> last = words(line);
@@ -297,7 +350,7 @@ std::vector<std::string> wrapText(const Font& font, std::string_view text, int m
       if (textWidth(font, shortened + kEllipsis) <= max_width) break;
       last.pop_back();
     }
-    line = last.empty() ? fitTextEllipsis(font, line + " " + std::string(list[i]), max_width)
+    line = last.empty() ? fitTextEllipsis(font, line + " " + leftover, max_width)
                         : shortened + kEllipsis;
   }
   if (!line.empty()) lines.push_back(line);

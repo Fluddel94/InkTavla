@@ -40,13 +40,13 @@ struct TimeDisplay {
   int minute = 0;
   int minutes = 0;
 
-  // Cancelled: strike the time through and show the warning sign where the
-  // delay would be.
+  // Cancelled: strike the time through (and show the warning sign before
+  // it, like for any other warning).
   bool struck = false;
-  bool warning_in_time_column = false;
 
-  // Warning sign right before the time (warning, but not cancelled); the
-  // signs of all rows line up in one column (2026-10-26).
+  // Warning sign right before the time (a message, an early termination or a
+  // cancellation, once, never twice); the signs of all rows line up in one
+  // column (2026-10-26, cancelled trips 2026-10-28).
   bool warning_before_time = false;
 
   // Delay text "+3" / "-4" (clock time only, never "+0"), limited to

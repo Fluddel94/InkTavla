@@ -27,6 +27,7 @@ struct RawEntry {
   bool has_platform = false;  // "platform" only exists for rail
   int platform = kNoPlatform;
   bool multi_destination = false;  // destination is "A/B/C"
+  std::vector<DepartureIncident> incidents;
   Direction direction = Direction::kUnknown;
   TransportType transport = TransportType::kUnknown;
   long long planned_ms = 0;
@@ -88,6 +89,25 @@ int splitTrainGroup(const std::string& line) {
 
 void removeSpaces(std::string& text) {
   text.erase(std::remove(text.begin(), text.end(), ' '), text.end());
+}
+
+// Trailing spaces and dots of the API text are dropped (the view adds the
+// punctuation); long texts are cut at a character boundary.
+std::string cleanIncidentMessage(std::string message) {
+  while (!message.empty() && (message.back() == ' ' || message.back() == '.')) message.pop_back();
+  if (message.length() > kMaxIncidentLength) {
+    size_t cut = kMaxIncidentLength;
+    while (cut > 0 && (static_cast<unsigned char>(message[cut]) & 0xC0) == 0x80) cut--;
+    message.resize(cut);
+  }
+  return message;
+}
+
+void addTripIncident(std::vector<DepartureIncident>& into, const DepartureIncident& incident) {
+  for (const DepartureIncident& i : into) {
+    if (i.message == incident.message && i.line == incident.line) return;
+  }
+  into.push_back(incident);
 }
 
 }  // namespace
@@ -187,7 +207,12 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
       const char* type = info["type"];
       if (type == nullptr) continue;
       const bool early_termination = std::strcmp(type, "EARLY_TERMINATION") == 0;
-      if (early_termination || std::strcmp(type, "INCIDENT") == 0) r.warning = true;
+      const bool incident = std::strcmp(type, "INCIDENT") == 0;
+      if (early_termination || incident) r.warning = true;
+      if (incident && info["message"].is<const char*>()) {
+        const std::string message = cleanIncidentMessage(info["message"].as<const char*>());
+        if (!message.empty()) addTripIncident(r.incidents, {message, r.line});
+      }
       if (early_termination) {
         r.early_termination = true;
         const char* message = info["message"];  // "Fährt nur bis <stop>"
@@ -217,6 +242,7 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
       if (raw[j].direction != raw[i].direction) continue;
       // Matching real trip found.
       raw[j].warning = true;
+      for (const DepartureIncident& m : raw[i].incidents) addTripIncident(raw[j].incidents, m);
       raw[i].superseded = true;
       break;
     }
@@ -293,6 +319,7 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
         min_realtime_delay = raw[j].delay_minutes;
       }
       raw[i].warning = raw[i].warning || raw[j].warning;
+      for (const DepartureIncident& m : raw[j].incidents) addTripIncident(raw[i].incidents, m);
       raw[i].selected = raw[i].selected || raw[j].selected;
       raw[i].realtime = raw[i].realtime || raw[j].realtime;
       raw[j].superseded = true;
@@ -344,6 +371,7 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
     d.replacement = r.replacement;
     d.bus = r.bus;
     d.multi_destination = r.multi_destination;
+    d.incidents = r.incidents;
     result.push_back(std::move(d));
   }
   // The API returns trips by planned time; delayed trips can be overtaken.
@@ -364,15 +392,8 @@ void addLine(std::vector<std::string>& lines, const std::string& line) {
 
 void addIncident(std::vector<Incident>& incidents, std::string message,
                  const std::vector<std::string>& lines) {
-  // Trailing spaces and dots of the API text are dropped; the view adds
-  // the punctuation.
-  while (!message.empty() && (message.back() == ' ' || message.back() == '.')) message.pop_back();
+  message = cleanIncidentMessage(std::move(message));
   if (message.empty()) return;
-  if (message.length() > kMaxIncidentLength) {
-    size_t cut = kMaxIncidentLength;
-    while (cut > 0 && (static_cast<unsigned char>(message[cut]) & 0xC0) == 0x80) cut--;
-    message.resize(cut);
-  }
   for (Incident& i : incidents) {
     if (i.message != message) continue;
     for (const std::string& l : lines) addLine(i.lines, l);
@@ -407,40 +428,6 @@ LineOrder lineOrder(const std::string& line) {
 }
 
 }  // namespace
-
-std::vector<Incident> parseIncidents(const JsonDocument& doc, DirectionFilter filter,
-                                     const LineSelection& lines) {
-  std::vector<Incident> incidents;
-  size_t records = 0;
-  for (JsonObjectConst dep : doc.as<JsonArrayConst>()) {
-    if (records++ >= kMaxRawEntries) break;
-    // The same selection as step 1 of parseDepartures(); parts of coupled
-    // regional trains that are not selected themselves are left out.
-    const Direction direction = lineDirection(dep["lineId"]);
-    if (filter == DirectionFilter::kH && direction != Direction::kH) continue;
-    if (filter == DirectionFilter::kR && direction != Direction::kR) continue;
-    const char* transport_type = dep["transportType"];
-    if (transport_type == nullptr) transport_type = dep["product"];
-    const bool sev = dep["sev"] | false;
-    const bool is_train = transport_type != nullptr && std::strcmp(transport_type, "BAHN") == 0;
-    const std::string key = lineKey(dep["label"]);
-    const bool train_replacement = sev && (is_train || key.empty());
-    if (!lines.empty() && !lines.matches(key, direction) &&
-        !(train_replacement && lines.hasType(TransportType::kTrain))) {
-      continue;
-    }
-    std::string label = dep["label"] | "";
-    if (is_train) removeSpaces(label);
-    if (sev) label = "SEV";
-    for (JsonObjectConst info : dep["infos"].as<JsonArrayConst>()) {
-      const char* type = info["type"];
-      const char* message = info["message"];
-      if (type == nullptr || message == nullptr || std::strcmp(type, "INCIDENT") != 0) continue;
-      addIncident(incidents, message, {label});
-    }
-  }
-  return incidents;
-}
 
 void mergeIncidents(std::vector<Incident>& into, const std::vector<Incident>& more) {
   for (const Incident& i : more) addIncident(into, i.message, i.lines);

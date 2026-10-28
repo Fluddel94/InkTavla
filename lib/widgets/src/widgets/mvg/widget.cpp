@@ -25,7 +25,6 @@ bool MvgSource::fetch(int64_t wall_s) {
   // station, then a section with a station of its own (two requests a minute
   // for two stations). If one fails, the old data stays.
   std::vector<Section> sections(config_.sections.empty() ? 1 : config_.sections.size());
-  std::vector<Incident> incidents;
   std::vector<std::string> done;
   const size_t count = config_.sections.empty() ? 1 : config_.sections.size();
   for (size_t i = 0; i < count; i++) {
@@ -55,14 +54,12 @@ bool MvgSource::fetch(int64_t wall_s) {
         sections[index[j]] = std::move(result[j]);
       }
     }
-    mergeIncidents(incidents, departureIncidents(doc, part));
   }
   // Two stations: every section title gets the location pin.
   if (config_.hasOwnStations()) {
     for (Section& s : sections) s.own_station = true;
   }
   sections_ = std::move(sections);
-  incidents_ = std::move(incidents);
   // The station name once, after the departures (a failure here is not a
   // failure of the update; it is tried again next time).
   if (config_.name.empty() && station_name_.empty() && !config_.station.empty()) {

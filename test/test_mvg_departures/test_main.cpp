@@ -486,28 +486,58 @@ std::string describe(const std::vector<widgets::mvg::Incident>& incidents) {
   return out;
 }
 
+// All messages of the departures, every text once (as the view merges them).
+std::vector<widgets::mvg::Incident> mergedIncidents(const std::vector<Departure>& departures) {
+  std::vector<widgets::mvg::Incident> result;
+  for (const Departure& d : departures) {
+    for (const widgets::mvg::DepartureIncident& m : d.incidents) {
+      widgets::mvg::mergeIncidents(result, {{m.message, {m.line}}});
+    }
+  }
+  return result;
+}
+
 void test_incidents_from_real_data() {
-  JsonDocument doc;
-  load("pasing_20261019.json", doc);
-  // All lines: every text once with its lines, in the order of the response.
-  const auto all = widgets::mvg::parseIncidents(doc, DirectionFilter::kAll, LineSelection());
-  TEST_ASSERT_EQUAL_size_t(3, all.size());
+  // All lines: every text once with its lines.
+  const std::vector<Departure> all = parse("pasing_20261019.json");
   TEST_ASSERT_EQUAL_STRING(
       "S6 S4 S8 RB6 Verspätung eines vorausfahrenden Zuges | S6 Technische Störung am Zug | "
       "RE70 Bauarbeiten",
-      describe(all).c_str());
-  // Only the selected lines.
-  LineSelection lines;
-  lines.parse("S6:B:S");
-  const auto s6 = widgets::mvg::parseIncidents(doc, DirectionFilter::kAll, lines);
+      describe(mergedIncidents(all)).c_str());
+  // Only the selected lines: the other trips are not parsed at all.
   TEST_ASSERT_EQUAL_STRING(
       "S6 Verspätung eines vorausfahrenden Zuges | S6 Technische Störung am Zug",
-      describe(s6).c_str());
+      describe(mergedIncidents(parse("pasing_20261019.json", "S6:B:S"))).c_str());
   // EARLY_TERMINATION and INFO are no disruption messages.
-  JsonDocument gmund;
-  load("gmund_20261019.json", gmund);
-  TEST_ASSERT_EQUAL_size_t(
-      0, widgets::mvg::parseIncidents(gmund, DirectionFilter::kAll, LineSelection()).size());
+  TEST_ASSERT_EQUAL_size_t(0, mergedIncidents(parse("gmund_20261019.json")).size());
+}
+
+// Every departure keeps the messages of its own trip, so that the view can
+// show the messages of the departures it draws (and only those).
+void test_incidents_belong_to_their_trip() {
+  const std::vector<Departure> d = parse("rules_incidents.json");
+  TEST_ASSERT_EQUAL_size_t(11, d.size());
+  TEST_ASSERT_TRUE(d[0].cancelled);
+  TEST_ASSERT_EQUAL_size_t(1, d[0].incidents.size());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk", d[0].incidents[0].message.c_str());
+  TEST_ASSERT_EQUAL_STRING("S2", d[0].incidents[0].line.c_str());
+  TEST_ASSERT_EQUAL_STRING("Technische Störung am Zug", d[1].incidents[0].message.c_str());
+  TEST_ASSERT_EQUAL_STRING("S3", d[1].incidents[0].line.c_str());
+  TEST_ASSERT_EQUAL_size_t(0, d[4].incidents.size());  // S2 14 min: none
+  // Only the selected lines are parsed.
+  const std::vector<Departure> s2 = parse("rules_incidents.json", "S2:B:S");
+  TEST_ASSERT_EQUAL_size_t(10, s2.size());
+  TEST_ASSERT_EQUAL_size_t(3, mergedIncidents(s2).size());
+}
+
+// The text of a message is cleaned like in Incident, INFO messages are not
+// kept.
+void test_incident_text_is_cleaned() {
+  const std::vector<Departure> d = parse("rules_messages.json");
+  TEST_ASSERT_EQUAL_size_t(0, d[0].incidents.size());  // INFO only
+  TEST_ASSERT_EQUAL_size_t(1, d[1].incidents.size());
+  TEST_ASSERT_EQUAL_STRING("Verspätungen wegen einer Signalstörung",
+                           d[1].incidents[0].message.c_str());  // trailing dot dropped
 }
 
 void test_incidents_merged_and_lines_sorted() {
@@ -524,28 +554,10 @@ void test_incidents_merged_and_lines_sorted() {
   // Long texts are cut at a character boundary, at most kMaxIncidents texts.
   std::vector<widgets::mvg::Incident> many;
   std::vector<widgets::mvg::Incident> more;
-  for (int i = 0; i < 6; i++) more.push_back({std::to_string(i) + std::string(200, 'x'), {"S1"}});
+  for (int i = 0; i < 10; i++) more.push_back({std::to_string(i) + std::string(200, 'x'), {"S1"}});
   widgets::mvg::mergeIncidents(many, more);
   TEST_ASSERT_EQUAL_size_t(widgets::mvg::kMaxIncidents, many.size());
   TEST_ASSERT_EQUAL_size_t(widgets::mvg::kMaxIncidentLength, many[0].message.size());
-}
-
-void test_incidents_of_sections() {
-  JsonDocument doc;
-  load("donnersbergerbruecke_20261019.json", doc);
-  widgets::mvg::Config config;
-  config.station = "de:09162:8";
-  widgets::mvg::SectionConfig a;
-  a.name = "A";
-  a.lines.parse("S1:B:S");
-  widgets::mvg::SectionConfig b;
-  b.name = "B";
-  b.lines.parse("S2:B:S");
-  config.sections = {a, b};
-  TEST_ASSERT_EQUAL_STRING(
-      "S1 Verspätung eines vorausfahrenden Zuges | S1 technischer Defekt an einem Bahnübergang | "
-      "S2 Verspätung aus vorheriger Fahrt | S2 Technische Störung am Zug",
-      describe(widgets::mvg::departureIncidents(doc, config)).c_str());
 }
 
 int main() {
@@ -591,6 +603,7 @@ int main() {
   RUN_TEST(test_departed_trips_are_dropped_before_drawing);
   RUN_TEST(test_incidents_from_real_data);
   RUN_TEST(test_incidents_merged_and_lines_sorted);
-  RUN_TEST(test_incidents_of_sections);
+  RUN_TEST(test_incidents_belong_to_their_trip);
+  RUN_TEST(test_incident_text_is_cleaned);
   return UNITY_END();
 }

@@ -22,10 +22,6 @@ namespace widgets::mvg {
 std::vector<Section> departureSections(const JsonDocument& doc, const Config& config,
                                        size_t max_per_section);
 
-// The disruption messages of what departureSections() shows, merged (see
-// parseIncidents()).
-std::vector<Incident> departureIncidents(const JsonDocument& doc, const Config& config);
-
 // Departures that left more than this many seconds ago are dropped before
 // drawing, even if no newer data could be fetched.
 inline constexpr int64_t kKeepDepartedS = 60;

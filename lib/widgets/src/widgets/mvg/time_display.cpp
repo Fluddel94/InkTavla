@@ -36,12 +36,11 @@ TimeDisplay timeDisplay(const Departure& departure, TimeFormat format, int64_t n
     }
   }
 
-  // With a cancellation the warning sign is in the time column, not before
-  // the time (otherwise it would be there twice).
-  t.warning_before_time = departure.warning && !departure.cancelled;
+  // A cancellation shows the same warning sign as any other warning, before
+  // the time (once, even with a message on top).
+  t.warning_before_time = departure.warning || departure.cancelled;
   if (departure.cancelled) {
     t.struck = true;
-    t.warning_in_time_column = true;
   } else if (!as_minutes && delay != 0) {
     // A deviation of 0 (including -1/-2 set to 0) is never shown.
     t.show_delay = true;

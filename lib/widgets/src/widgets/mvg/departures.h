@@ -61,19 +61,15 @@ DeserializationError readDepartures(TInput& input, JsonDocument& doc) {
 std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter filter,
                                        const LineSelection& lines, size_t max_results);
 
-// At most this many different disruption messages are kept, each shortened
-// to kMaxIncidentLength bytes and with at most kMaxIncidentLines lines.
-inline constexpr size_t kMaxIncidents = 4;
+// Disruption messages ("INCIDENT"): every trip carries its own (Departure::
+// incidents); the view merges those of the departures it really shows. At
+// most this many different texts are merged, each shortened to
+// kMaxIncidentLength bytes and with at most kMaxIncidentLines lines. Other
+// message types are left out (EARLY_TERMINATION is shown in the row, INFO
+// are fare notes).
+inline constexpr size_t kMaxIncidents = 8;
 inline constexpr size_t kMaxIncidentLength = 160;
 inline constexpr size_t kMaxIncidentLines = 8;
-
-// The disruption messages ("INCIDENT") of the trips that parseDepartures()
-// would show with the same filter and line selection: every text once, with
-// the lines it was reported for, in the order of the response. Other message
-// types are left out (EARLY_TERMINATION is shown in the row, INFO are fare
-// notes).
-std::vector<Incident> parseIncidents(const JsonDocument& doc, DirectionFilter filter,
-                                     const LineSelection& lines);
 
 // Adds the messages of `more` to `into`: the same text once, lines merged.
 void mergeIncidents(std::vector<Incident>& into, const std::vector<Incident>& more);
