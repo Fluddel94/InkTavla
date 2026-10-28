@@ -355,6 +355,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Departures: a delayed train that the API listed twice under two planned
+  times (for example 20:27 +24 and 20:47 +4, both expected at 20:51, next
+  to a really cancelled 20:47 trip) is shown once, with the earlier planned
+  time. Only entries with the same line ID, destination, platform and
+  expected departure to the minute, both with real-time data and not
+  cancelled, are merged; a cancelled trip is never hidden.
 - Cancelled departures show the warning sign before the time, in the same
   place as every other warning (it was after the struck-through time), and
   never twice.

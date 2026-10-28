@@ -219,6 +219,68 @@ void test_combined_delay_without_realtime_keeps_first_part() {
   TEST_ASSERT_FALSE(d[3].realtime);
 }
 
+// --- Rule 4b: one real trip listed twice under different planned times -------------
+// rules_replacement_duplicate.json (made-up station, case seen on 2026-10-26).
+
+int countDestination(const std::vector<Departure>& d, const char* destination) {
+  int count = 0;
+  for (const Departure& row : d) count += row.destination == destination ? 1 : 0;
+  return count;
+}
+
+void test_replacement_duplicate_is_one_row_with_earlier_planned_time() {
+  const std::vector<Departure> d = parse("rules_replacement_duplicate.json");
+  // 05:27 +24 and 05:47 +4 are both expected 05:51: one row, the earlier
+  // planned time with its larger delay; plus the cancelled 05:47 and 06:07.
+  TEST_ASSERT_EQUAL_INT(3, countDestination(d, "Mammendorf"));
+  int merged = 0;
+  for (const Departure& row : d) {
+    if (row.destination != "Mammendorf" || row.cancelled) continue;
+    if (row.planned == kRulesStart + 27 * 60) {
+      merged++;
+      TEST_ASSERT_EQUAL_INT(24, row.delay_minutes);
+      TEST_ASSERT_TRUE(row.realtime);
+    } else {
+      TEST_ASSERT_EQUAL_INT64(kRulesStart + 67 * 60, row.planned);  // another train
+    }
+  }
+  TEST_ASSERT_EQUAL_INT(1, merged);
+}
+
+void test_replacement_duplicate_keeps_the_cancelled_trip() {
+  const std::vector<Departure> d = parse("rules_replacement_duplicate.json");
+  int cancelled = 0;
+  for (const Departure& row : d) {
+    if (row.destination != "Mammendorf" || !row.cancelled) continue;
+    cancelled++;
+    TEST_ASSERT_EQUAL_INT64(kRulesStart + 47 * 60, row.planned);
+    TEST_ASSERT_TRUE(row.warning);
+    TEST_ASSERT_EQUAL_INT(1, static_cast<int>(row.incidents.size()));
+  }
+  TEST_ASSERT_EQUAL_INT(1, cancelled);
+}
+
+void test_replacement_duplicate_other_trips_are_not_merged() {
+  const std::vector<Departure> d = parse("rules_replacement_duplicate.json");
+  // Same expected minute but different platform, destination, cancellation,
+  // real-time state, direction or no platform (bus): every trip stays.
+  TEST_ASSERT_EQUAL_INT(2, countDestination(d, "Wolfratshausen"));
+  TEST_ASSERT_EQUAL_INT(1, countDestination(d,
+                                            "Kreuzstra\xC3\x9F"
+                                            "e"));
+  TEST_ASSERT_EQUAL_INT(1, countDestination(d, "Geretsried"));
+  TEST_ASSERT_EQUAL_INT(2, countDestination(d, "Herrsching"));
+  TEST_ASSERT_EQUAL_INT(2, countDestination(d, "Holzkirchen"));
+  TEST_ASSERT_EQUAL_INT(2, countDestination(d, "Flughafen M\xC3\xBCnchen"));
+  TEST_ASSERT_EQUAL_INT(2, countDestination(d, "Giesing"));
+  TEST_ASSERT_EQUAL_INT(15, static_cast<int>(d.size()));  // 16 records, one merged
+}
+
+void test_replacement_duplicate_result_stays_sorted() {
+  const std::vector<Departure> d = parse("rules_replacement_duplicate.json");
+  for (size_t i = 1; i < d.size(); i++) TEST_ASSERT_TRUE(d[i - 1].expected() <= d[i].expected());
+}
+
 // --- Rule 6: rail replacement services and line selection ------------------------
 // Cases from the MVG departure display (fixture parse_deps.json).
 
@@ -578,6 +640,10 @@ int main() {
   RUN_TEST(test_split_train_not_combined);
   RUN_TEST(test_combined_delay_is_smallest_realtime_delay);
   RUN_TEST(test_combined_delay_without_realtime_keeps_first_part);
+  RUN_TEST(test_replacement_duplicate_is_one_row_with_earlier_planned_time);
+  RUN_TEST(test_replacement_duplicate_keeps_the_cancelled_trip);
+  RUN_TEST(test_replacement_duplicate_other_trips_are_not_merged);
+  RUN_TEST(test_replacement_duplicate_result_stays_sorted);
   RUN_TEST(test_sev_labels_and_flags);
   RUN_TEST(test_selection_none_shows_all_lines);
   RUN_TEST(test_selection_line_and_direction);

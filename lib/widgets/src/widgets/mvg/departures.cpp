@@ -13,6 +13,7 @@ namespace {
 // combine split trains.
 struct RawEntry {
   std::string line;
+  std::string line_id;  // API line ID, only compared in step 4b
   std::string destination;
   std::string actual_destination;
   int delay_minutes = 0;
@@ -175,6 +176,7 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
     r.direction = direction;
     r.transport = transportTypeFromApi(transport_type);
     r.line = dep["label"] | "";
+    r.line_id = dep["lineId"] | "";
     r.destination = dep["destination"] | "";
     r.actual_destination = r.destination;
     r.delay_minutes = dep["delayInMinutes"] | 0;
@@ -349,6 +351,50 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
         }
         raw[i].multi_destination = true;
       }
+    }
+  }
+
+  // --- Step 4b: one real trip listed twice under different planned times ---
+  // Observed 2026-10-26 during a disruption: the API listed the same train
+  // twice, as 20:27 +24 and as 20:47 +4, both expected at 20:51 (a trip
+  // normally planned for 20:47 was cancelled; the delayed 20:27 train took
+  // its slot). A little later only the 20:27 entry was left. Two entries
+  // are only treated as the same trip if everything that can be checked
+  // matches: line ID (line, direction and variant), destination, platform,
+  // real-time data on both, neither cancelled, and the same expected
+  // departure to the minute. Two trains cannot leave the same platform in
+  // the same minute, so this does not drop a real trip. Different planned
+  // times are the point (same planned time: step 4). Records without a
+  // platform (buses) are never matched. A cancelled trip is never touched:
+  // the cancellation of 20:47 stayed in the data and was real.
+  // The row of the earlier planned time stays (the larger delay): that is
+  // the entry that was left afterwards, so the row does not jump.
+  for (size_t i = 0; i < raw_count; i++) {
+    RawEntry& a = raw[i];
+    if (a.superseded || a.cancelled || !a.realtime || !a.has_platform || a.early_termination ||
+        a.line_id.empty()) {
+      continue;
+    }
+    for (size_t j = i + 1; j < raw_count; j++) {
+      RawEntry& b = raw[j];
+      if (b.superseded || b.cancelled || !b.realtime || !b.has_platform || b.early_termination) {
+        continue;
+      }
+      if (b.line_id != a.line_id || b.line != a.line || b.destination != a.destination) continue;
+      if (b.platform != a.platform || b.direction != a.direction) continue;
+      if (b.planned_ms == a.planned_ms) continue;
+      const long long expected_a = a.planned_ms / 60000 + a.delay_minutes;
+      const long long expected_b = b.planned_ms / 60000 + b.delay_minutes;
+      if (expected_a != expected_b) continue;
+
+      // Keep the entry with the earlier planned time, merge the rest into it.
+      RawEntry& keep = b.planned_ms < a.planned_ms ? b : a;
+      RawEntry& drop = b.planned_ms < a.planned_ms ? a : b;
+      keep.warning = keep.warning || drop.warning;
+      keep.selected = keep.selected || drop.selected;
+      for (const DepartureIncident& m : drop.incidents) addTripIncident(keep.incidents, m);
+      drop.superseded = true;
+      if (&keep == &b) break;  // a is gone; nothing left to match against it
     }
   }
 

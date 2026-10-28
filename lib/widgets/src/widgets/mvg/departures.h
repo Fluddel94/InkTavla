@@ -56,6 +56,10 @@ DeserializationError readDepartures(TInput& input, JsonDocument& doc) {
 //     regional train group, direction, planned time, platform and
 //     cancellation state); delay = smallest delay of the parts with real-time
 //     data
+//  4b. combines one real trip listed twice under different planned times
+//     (same line ID, destination, platform and expected departure to the
+//     minute, both with real-time data, neither cancelled): the row with
+//     the earlier planned time stays; a cancelled trip is never merged
 //  5. sorts by expected departure (planned + delay; stable) and returns at
 //     most max_results departures
 std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter filter,
