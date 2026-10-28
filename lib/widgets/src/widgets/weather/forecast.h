@@ -88,10 +88,11 @@ bool parseForecast(JsonDocument& doc, Forecast& forecast);
 // Temperature as shown: rounded, without "-0".
 int displayTemperature(float t);
 
-// --- Weather of a span of hours (2026-10-26) ---------------------------------
+// --- Weather of a span of hours ------------------------------------------------
 // The daily code of Open-Meteo is the "worst" weather of the whole day (fog
 // at 22 h makes a sunny day foggy). The symbol of a day is made from its
-// hours from kDayFirstHour to kDayLastHour instead, by these rules:
+// daylight hours instead (the hours Open-Meteo marks with is_day, so from
+// sunrise to sunset), by these rules:
 //  1. a thunderstorm in at least one hour: thunderstorm;
 //  2. precipitation of kSymbolRainMm or more in all, or in at least
 //     kSymbolRainHours hours (kRainHourMm or more each): rain, or snow if
@@ -100,8 +101,10 @@ int displayTemperature(float t);
 //  4. otherwise the most frequent of clear, partly cloudy (codes 1 and 2) and
 //     overcast (the cloudier one on a tie);
 //  5. partly cloudy, but sunshine in at least kSunnyShare of the time: clear.
-inline constexpr int kDayFirstHour = 8;
-inline constexpr int kDayLastHour = 17;  // the hour from 17 to 18 h
+// The night does not count, so fog at 22 h or at 5 h never shows in the symbol.
+inline constexpr int kDayFirstHour = 8;  // used if a day has no daylight hours
+inline constexpr int kDayLastHour = 17;  // (polar night): the hour from 17 to 18 h
+inline constexpr int kMinDayHours = 3;   // fewer hours: the daily code is used
 inline constexpr float kSymbolRainMm = 1.0f;
 inline constexpr int kSymbolRainHours = 3;
 inline constexpr float kRainHourMm = 0.1f;
@@ -115,8 +118,14 @@ Condition spanCondition(const std::vector<const Hour*>& hours);
 std::vector<const Hour*> hoursOfDay(const Forecast& forecast, int64_t day_time, int first_hour,
                                     int last_hour);
 
-// The symbol of a day by the rules above; the daily code if fewer than half
-// of the hours are in the forecast.
+// The daylight hours (Hour::day) of the local day of `day_time` that start at
+// first_hour or later. For a day without any daylight hour (polar night):
+// the hours kDayFirstHour to kDayLastHour.
+std::vector<const Hour*> daylightHours(const Forecast& forecast, int64_t day_time,
+                                       int first_hour = 0);
+
+// The symbol of a day by the rules above; the daily code if fewer than
+// kMinDayHours hours are in the forecast.
 Condition dayCondition(const Forecast& forecast, const Day& day);
 
 }  // namespace widgets::weather

@@ -348,6 +348,7 @@ void test_day_symbol() {
     wx::Hour x;
     x.time = kMidnight + h * 3600;
     x.condition = wx::conditionFromWmo(codes[h]);
+    x.day = h >= 8 && h <= 17;
     x.sunshine = h >= 9 && h <= 17 ? 3600 : 0;
     f.hours.push_back(x);
   }
@@ -355,6 +356,68 @@ void test_day_symbol() {
   TEST_ASSERT_TRUE(wx::dayCondition(f, f.days[0]) == Condition::kClear);
   // Without the hours of a day: its daily code.
   TEST_ASSERT_TRUE(wx::dayCondition(f, f.days[1]) == f.days[1].condition);
+}
+
+// Symbol and sentence follow the same hours and never contradict each other
+// (2026-10-28).
+void test_symbol_and_sentence_agree() {
+  const auto temps = course(7, 14);
+  const std::string nb = "\u00a0";
+  // Daylight from 8 to 17 h: sun in the morning, cloud from 12 h on. At 13 h
+  // the picture and the sentence talk about the rest of the day: cloudy.
+  wx::Forecast f = forecast(temps, {0}, Condition::kClear, Condition::kClear);
+  for (int h = 0; h < 24; h++) {
+    f.hours[h].day = h >= 8 && h <= 17;
+    f.hours[h].condition = h < 12 ? Condition::kClear : Condition::kOvercast;
+  }
+  const int64_t noon = kMidnight + 13 * 3600;
+  TEST_ASSERT_TRUE(br::summarize(f, noon).picture == ui::WeatherIcon::kCloudy);
+  TEST_ASSERT_EQUAL_size_t(0, text(f, noon).find("Bewölkt"));
+  // In the morning both talk about the whole day: 4 clear, 6 cloudy hours.
+  TEST_ASSERT_TRUE(br::summarize(f, kMorning).picture == ui::WeatherIcon::kCloudy);
+  // Rain by amount (3 hours with 0.4 mm) while every hour has a probability
+  // below 30 %: the symbol of the day is rain, so the sentence is not dry.
+  wx::Forecast wet = forecast(temps, {0}, Condition::kClear, Condition::kClear);
+  for (int h = 0; h < 24; h++) wet.hours[h].day = h >= 8 && h <= 17;
+  for (int h = 10; h < 13; h++) {
+    wet.hours[h].precipitation = 0.4f;
+    wet.hours[h].condition = Condition::kRain;
+  }
+  wet.days[0].condition = Condition::kClear;
+  TEST_ASSERT_TRUE(wx::dayCondition(wet, wet.days[0]) == Condition::kRain);
+  TEST_ASSERT_EQUAL_STRING(
+      ("Meist bewölkt, ab 10" + nb + "Uhr vielleicht Regen. Bis" + nb + "14°.").c_str(),
+      text(wet, kMorning).c_str());
+  // Without the wet hours the symbol would be dry and so is the sentence.
+  for (int h = 10; h < 13; h++) wet.hours[h].precipitation = 0.0f;
+  TEST_ASSERT_TRUE(wx::dayCondition(wet, wet.days[0]) != Condition::kRain);
+  TEST_ASSERT_TRUE(text(wet, kMorning).find("Regen") == std::string::npos);
+}
+
+// The band picture by daylight (2026-10-28): from sunrise to sunset the
+// weather of the rest of the daylight hours, at night the weather of now.
+void test_band_picture_by_daylight() {
+  const auto temps = course(7, 14);
+  // Daylight from 8 to 17 h; clear until 13 h, overcast from 14 h on.
+  auto make = [&](bool day_now, Condition now_condition) {
+    wx::Forecast f = forecast(temps, {0}, Condition::kClear, now_condition, kMidnight, day_now);
+    for (int h = 0; h < 24; h++) {
+      f.hours[h].day = h >= 8 && h <= 17;
+      f.hours[h].condition = h <= 13 ? Condition::kClear : Condition::kOvercast;
+    }
+    return f;
+  };
+  const wx::Forecast day = make(true, Condition::kClear);
+  // 9 h: rest of the day has 5 clear and 4 overcast hours; 15 h: overcast only.
+  TEST_ASSERT_TRUE(br::summarize(day, kMidnight + 9 * 3600).picture == ui::WeatherIcon::kSun);
+  TEST_ASSERT_TRUE(br::summarize(day, kMidnight + 15 * 3600).picture == ui::WeatherIcon::kCloudy);
+  // At night (the API says it is no day): the weather of now with the moon,
+  // whatever the daylight hours of the day look like.
+  const wx::Forecast night = make(false, Condition::kClear);
+  TEST_ASSERT_TRUE(br::summarize(night, kMidnight + 6 * 3600).picture == ui::WeatherIcon::kMoon);
+  TEST_ASSERT_TRUE(br::summarize(night, kMidnight + 20 * 3600).picture == ui::WeatherIcon::kMoon);
+  const wx::Forecast foggy = make(false, Condition::kFog);
+  TEST_ASSERT_TRUE(br::summarize(foggy, kMidnight + 20 * 3600).picture == ui::WeatherIcon::kFog);
 }
 
 void test_picture_follows_the_weather_of_now() {
@@ -1151,6 +1214,8 @@ int main() {
   RUN_TEST(test_afternoon_sentence);
   RUN_TEST(test_evening_sentence);
   RUN_TEST(test_day_symbol);
+  RUN_TEST(test_symbol_and_sentence_agree);
+  RUN_TEST(test_band_picture_by_daylight);
   RUN_TEST(test_picture_follows_the_weather_of_now);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
   RUN_TEST(test_sentence_parts);

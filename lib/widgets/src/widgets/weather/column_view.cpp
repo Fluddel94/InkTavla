@@ -112,9 +112,8 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
     core::toLocalTime(days[i]->time + 12 * 3600, t);
     ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + 24,
                  ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
-    ui::drawIcon(
-        c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
-        ui::weatherIcon(conditionIcon(dayCondition(f, *days[i]), true), kColumnDayIconSize));
+    ui::drawIcon(c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
+                 ui::weatherIcon(conditionIcon(days[i]->condition, true), kColumnDayIconSize));
     const std::string high = degreesText(days[i]->high);
     const std::string low = " " + degreesText(days[i]->low);
     const ui::Font& hf = ui::fonts::kRobotoCondensedBold17;

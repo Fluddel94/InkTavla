@@ -183,6 +183,153 @@ void test_temperature() {
   TEST_ASSERT_EQUAL_INT(13, widgets::weather::displayTemperature(12.5f));
 }
 
+// --- The symbol of a day from its daylight hours (2026-10-28) ------------------
+
+// 2026-10-27 00:00 CET, the day of the saved response muenchen_20261027.json.
+constexpr int64_t kMidnight = 1793055600;
+
+// One hour of the day at `hour` o'clock.
+widgets::weather::Hour makeHour(int hour, Condition condition, bool day, float precipitation = 0,
+                                float sunshine = -1) {
+  widgets::weather::Hour h;
+  h.time = kMidnight + hour * 3600;
+  h.condition = condition;
+  h.day = day;
+  h.precipitation = precipitation;
+  h.sunshine = sunshine;
+  return h;
+}
+
+// A forecast of one day with the given condition in every hour; daylight
+// from `sunrise` to `sunset` (the hours sunrise..sunset-1 have is_day).
+Forecast oneDay(Condition fill, int sunrise = 8, int sunset = 18,
+                Condition daily = Condition::kRain) {
+  Forecast f;
+  for (int h = 0; h < 24; h++) f.hours.push_back(makeHour(h, fill, h >= sunrise && h < sunset));
+  widgets::weather::Day d;
+  d.time = kMidnight;
+  d.condition = daily;
+  f.days.push_back(d);
+  return f;
+}
+
+Condition symbolOf(const Forecast& f) { return widgets::weather::dayCondition(f, f.days[0]); }
+
+void test_day_symbol_case_of_the_27th() {
+  // Sun from 10 to 18 h, grey before, grey again from 21 h: the daily code of
+  // Open-Meteo is "overcast", the symbol is the sun.
+  const Forecast f = load("muenchen_20261027.json");
+  TEST_ASSERT_TRUE(f.days[0].condition == Condition::kOvercast);
+  const auto day = widgets::weather::daylightHours(f, f.days[0].time + 12 * 3600);
+  TEST_ASSERT_EQUAL_size_t(11, day.size());  // 7 to 17 h
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+  TEST_ASSERT_TRUE(widgets::weather::conditionIcon(symbolOf(f), true) == ui::WeatherIcon::kSun);
+}
+
+void test_day_symbol_ignores_the_night() {
+  // Fog in the night and in the late evening never counts.
+  Forecast f = oneDay(Condition::kClear);
+  for (int h : {0, 1, 2, 3, 4, 5, 6, 22, 23}) f.hours[h] = makeHour(h, Condition::kFog, false);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+  // Neither do rain and a thunderstorm at night.
+  for (int h : {0, 1, 2, 3}) f.hours[h] = makeHour(h, Condition::kThunder, false, 2.0f);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+  // Fog in the day does: half of the day hours.
+  for (int h = 8; h < 13; h++) f.hours[h] = makeHour(h, Condition::kFog, true);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kFog);
+  // Four of ten day hours are not half.
+  f.hours[12] = makeHour(12, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+}
+
+void test_day_symbol_follows_the_daylight() {
+  // In winter the day is short: the hours before sunrise and after sunset
+  // do not count, whatever the hour is.
+  Forecast f = oneDay(Condition::kOvercast, 8, 16);
+  for (int h = 8; h < 16; h++) f.hours[h] = makeHour(h, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+  // In summer the day is long: the early and the late hours count.
+  Forecast s = oneDay(Condition::kOvercast, 5, 21);
+  for (int h = 8; h < 16; h++) s.hours[h] = makeHour(h, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(s) == Condition::kOvercast);  // 8 clear, 8 overcast: the cloudier one
+  // Counting is blunt: the most frequent weather wins.
+  s.hours[16] = makeHour(16, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(s) == Condition::kClear);
+}
+
+void test_day_symbol_rain_thunder_snow() {
+  // A thunderstorm for one hour of the day is shown.
+  Forecast f = oneDay(Condition::kClear);
+  f.hours[12] = makeHour(12, Condition::kThunder, true, 0.3f);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kThunder);
+  // Rain: three hours with 0.1 mm (rain although it is mostly sunny) ...
+  Forecast r = oneDay(Condition::kClear);
+  for (int h : {9, 12, 15}) r.hours[h] = makeHour(h, Condition::kDrizzle, true, 0.1f);
+  TEST_ASSERT_TRUE(symbolOf(r) == Condition::kRain);
+  // ... but not two.
+  r.hours[15] = makeHour(15, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(r) == Condition::kClear);
+  // 1 mm in a single hour is enough, 0.9 mm is not.
+  r.hours[12] = makeHour(12, Condition::kShowers, true, 1.0f);
+  TEST_ASSERT_TRUE(symbolOf(r) == Condition::kRain);
+  r.hours[12] = makeHour(12, Condition::kShowers, true, 0.9f);
+  r.hours[9] = makeHour(9, Condition::kClear, true);
+  TEST_ASSERT_TRUE(symbolOf(r) == Condition::kClear);
+  // Rain at night does not count.
+  Forecast n = oneDay(Condition::kClear);
+  for (int h = 0; h < 5; h++) n.hours[h] = makeHour(h, Condition::kRain, false, 1.0f);
+  TEST_ASSERT_TRUE(symbolOf(n) == Condition::kClear);
+  // Snow when most of the wet hours have snow.
+  Forecast s = oneDay(Condition::kOvercast);
+  for (int h = 10; h < 14; h++) s.hours[h] = makeHour(h, Condition::kSnow, true, 0.4f);
+  s.hours[14] = makeHour(14, Condition::kRain, true, 0.4f);
+  TEST_ASSERT_TRUE(symbolOf(s) == Condition::kSnow);
+}
+
+void test_day_symbol_ties_and_sunshine() {
+  // A tie between partly cloudy and overcast: overcast.
+  Forecast f = oneDay(Condition::kOvercast);
+  for (int h = 8; h < 13; h++) f.hours[h] = makeHour(h, Condition::kPartlyCloudy, true);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kOvercast);
+  // Partly cloudy wins with one more hour; clear only with 70 % sunshine.
+  f.hours[13] = makeHour(13, Condition::kPartlyCloudy, true);
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kPartlyCloudy);
+  for (int h = 8; h < 14; h++) f.hours[h].sunshine = 2700;  // 75 %
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kClear);
+  for (int h = 8; h < 14; h++) f.hours[h].sunshine = 2000;  // 56 %
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kPartlyCloudy);
+  // Unknown sunshine (-1) never makes it clear.
+  for (int h = 8; h < 14; h++) f.hours[h].sunshine = -1;
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kPartlyCloudy);
+}
+
+void test_day_symbol_missing_hours() {
+  // Fewer than three day hours in the forecast: the daily code.
+  Forecast f = oneDay(Condition::kClear, 8, 18, Condition::kSnow);
+  f.hours.erase(f.hours.begin() + 10, f.hours.end());  // only 8 and 9 h are day hours
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kSnow);
+  // No hours at all: the daily code.
+  f.hours.clear();
+  TEST_ASSERT_TRUE(symbolOf(f) == Condition::kSnow);
+  // Polar night (no day hour): the hours from 8 to 18 o'clock.
+  Forecast p = oneDay(Condition::kClear, 30, 30, Condition::kSnow);
+  for (int h : {0, 1, 2, 3, 4, 5, 6, 7, 19, 20, 21, 22, 23}) {
+    p.hours[h] = makeHour(h, Condition::kFog, false);
+  }
+  TEST_ASSERT_TRUE(symbolOf(p) == Condition::kClear);
+  // Midnight sun (every hour is a day hour): all hours count.
+  TEST_ASSERT_TRUE(symbolOf(oneDay(Condition::kOvercast, 0, 24)) == Condition::kOvercast);
+}
+
+void test_daylight_hours_from_an_hour() {
+  const Forecast f = oneDay(Condition::kClear, 8, 17);
+  const auto all = widgets::weather::daylightHours(f, kMidnight + 12 * 3600);
+  TEST_ASSERT_EQUAL_size_t(9, all.size());
+  const auto rest = widgets::weather::daylightHours(f, kMidnight + 12 * 3600, 13);
+  TEST_ASSERT_EQUAL_size_t(4, rest.size());  // 13 to 16 h
+  TEST_ASSERT_EQUAL_size_t(0, widgets::weather::daylightHours(f, kMidnight + 12 * 3600, 17).size());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_config);
@@ -193,5 +340,12 @@ int main() {
   RUN_TEST(test_parse_rejects_broken);
   RUN_TEST(test_conditions);
   RUN_TEST(test_temperature);
+  RUN_TEST(test_day_symbol_case_of_the_27th);
+  RUN_TEST(test_day_symbol_ignores_the_night);
+  RUN_TEST(test_day_symbol_follows_the_daylight);
+  RUN_TEST(test_day_symbol_rain_thunder_snow);
+  RUN_TEST(test_day_symbol_ties_and_sunshine);
+  RUN_TEST(test_day_symbol_missing_hours);
+  RUN_TEST(test_daylight_hours_from_an_hour);
   return UNITY_END();
 }

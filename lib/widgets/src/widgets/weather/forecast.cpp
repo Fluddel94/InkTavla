@@ -230,11 +230,26 @@ std::vector<const Hour*> hoursOfDay(const Forecast& forecast, int64_t day_time, 
   return list;
 }
 
+std::vector<const Hour*> daylightHours(const Forecast& forecast, int64_t day_time, int first_hour) {
+  const std::vector<const Hour*> all = hoursOfDay(forecast, day_time, 0, 23);
+  std::vector<const Hour*> list;
+  bool any_day = false;
+  for (const Hour* h : all) {
+    any_day = any_day || h->day;
+    core::LocalTime t;
+    if (h->day && core::toLocalTime(h->time, t) && t.hour >= first_hour) list.push_back(h);
+  }
+  // Polar night: no day hour at all, so a fixed window.
+  if (!all.empty() && !any_day) {
+    return hoursOfDay(forecast, day_time, std::max(first_hour, kDayFirstHour), kDayLastHour);
+  }
+  return list;
+}
+
 Condition dayCondition(const Forecast& forecast, const Day& day) {
   // Daily values start at midnight at the location; noon is safely inside.
-  const std::vector<const Hour*> hours =
-      hoursOfDay(forecast, day.time + 12 * 3600, kDayFirstHour, kDayLastHour);
-  if (static_cast<int>(hours.size()) * 2 < kDayLastHour - kDayFirstHour + 1) return day.condition;
+  const std::vector<const Hour*> hours = daylightHours(forecast, day.time + 12 * 3600);
+  if (static_cast<int>(hours.size()) < kMinDayHours) return day.condition;
   return spanCondition(hours);
 }
 

@@ -4,7 +4,7 @@
 // (2026-10-21): the course of today (temperature curve from the values every
 // 15 minutes, or hourly if there are none, with five labelled points; the
 // precipitation of every hour as a screened bar between its hour marks), the
-// next three days with the symbol of their daytime hours (dayCondition()).
+// next three days with the symbol of the daily code of Open-Meteo (2026-10-28).
 // Title (2026-10-26): the place with the location pin, the credit
 // "Open-Meteo" on the right (the age badge takes its place while the data is
 // old).

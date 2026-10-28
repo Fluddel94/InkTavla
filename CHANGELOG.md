@@ -249,6 +249,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Weather column: the symbols of the next three days show the daily code of
+  Open-Meteo again (no longer made from hours).
+- Band picture: from sunrise to sunset the weather of the rest of the
+  daylight hours (the hours Open-Meteo marks `is_day`; the most frequent
+  weather wins, with the thunderstorm, rain and fog rules), at night the
+  weather of now, as before. The umbrella for likely rain stays. The sentence
+  until 18 o'clock talks about the same hours, and rain that the symbol shows
+  by its amounts (at least 1 mm or three wet hours) but that is below 30 %
+  likely in every hour is a "maybe rain" in it instead of a dry day.
 - Band sentence: always a sentence about the weather, by the time of day:
   until 11:00 the whole day, 11:00-18:00 the afternoon and the evening, from
   18:00 tomorrow, with several wordings per weather (fixed for each time of

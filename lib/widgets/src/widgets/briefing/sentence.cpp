@@ -107,6 +107,34 @@ RainSpell rainSpell(const Forecast& forecast, int64_t day_time, int first, int l
   return s;
 }
 
+// The symbol of a day can show rain, snow or a thunderstorm by the amounts
+// (weather::dayCondition) while no hour reaches even the probability for
+// "maybe". A dry sentence would contradict the symbol, so the first wet hour
+// of the span makes it a "maybe" (never "likely": that stays with the
+// probability).
+RainSpell followSymbol(const Forecast& forecast, int64_t day_time, int first, int last,
+                       Condition symbol, RainSpell spell) {
+  if (spell.level != Wet::kNone) return spell;
+  if (symbol != Condition::kRain && symbol != Condition::kSnow && symbol != Condition::kThunder) {
+    return spell;
+  }
+  for (const Hour* h : weather::hoursOfDay(forecast, day_time, first, last)) {
+    const bool thunder = symbol == Condition::kThunder && h->condition == Condition::kThunder;
+    if (h->precipitation < weather::kRainHourMm - 0.001f && !thunder) continue;
+    RainSpell s;
+    s.level = Wet::kMaybe;
+    s.kind = symbol == Condition::kSnow      ? Kind::kSnow
+             : symbol == Condition::kThunder ? Kind::kThunder
+                                             : Kind::kRain;
+    s.temperature = weather::displayTemperature(h->temperature);
+    core::LocalTime t;
+    core::toLocalTime(h->time, t);
+    s.from = t.hour <= first ? -1 : t.hour;
+    return s;
+  }
+  return spell;
+}
+
 // --- Wordings -------------------------------------------------------------------
 
 struct Text {
@@ -163,6 +191,14 @@ Sky skyOf(Condition c) {
     default:
       return Sky::kOvercast;
   }
+}
+
+// Weather of the daylight hours of today from `hour` on (the whole day if
+// none is left); the band picture and the afternoon sentence both use it.
+Condition remainingCondition(const Forecast& f, int64_t now_s, int hour) {
+  std::vector<const Hour*> hours = weather::daylightHours(f, now_s, hour);
+  if (hours.empty()) hours = weather::daylightHours(f, now_s);
+  return weather::spanCondition(hours);
 }
 
 Sky skyOfSpan(const Forecast& f, int64_t day_time, int first, int last) {
@@ -334,7 +370,8 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
   v.hi = weather::displayTemperature(today->high);
   v.lo = weather::displayTemperature(today->low);
   const bool hot = v.hi >= kHotDegrees;
-  const RainSpell r = rainSpell(f, now_s, now.hour, 23);
+  const RainSpell r = followSymbol(f, now_s, now.hour, 23, remainingCondition(f, now_s, now.hour),
+                                   rainSpell(f, now_s, now.hour, 23));
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   v.until = r.until >= 0 ? hourText(r.until, lang) : "";
@@ -377,7 +414,7 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
     join(full, shorter, fill(main, v) + glatt, hi_text);
     return;
   }
-  const Sky sky = skyOf(weather::dayCondition(f, *today));
+  const Sky sky = skyOf(remainingCondition(f, now_s, now.hour));
   if (r.level == Wet::kMaybe) {
     v.what = precipitationWord(r.kind, lang);
     const std::string main =
@@ -402,7 +439,8 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
   const bool evening = temperatureAt(f, now_s, kEveningHour, v.eve);
   const std::string eve_text =
       evening ? fill(de ? "Am Abend {eve}°." : "{eve}° in the evening.", v) : "";
-  const RainSpell r = rainSpell(f, now_s, now.hour, 23);
+  const RainSpell r = followSymbol(f, now_s, now.hour, 23, remainingCondition(f, now_s, now.hour),
+                                   rainSpell(f, now_s, now.hour, 23));
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   v.until = r.until >= 0 ? hourText(r.until, lang) : "";
@@ -442,7 +480,7 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
     join(full, shorter, capitalized(fill(main, v)), eve_text);
     return;
   }
-  const Sky sky = skyOfSpan(f, now_s, now.hour, 17);
+  const Sky sky = skyOf(remainingCondition(f, now_s, now.hour));
   const Wording& w = choose(dryAfternoon(sky), now_s, Greeting::kDay);
   full = fill(pick(evening ? w.full : w.shorter, lang), v);
   shorter = fill(pick(w.shorter, lang), v);
@@ -460,7 +498,8 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
   v.hi = weather::displayTemperature(next->high);
   v.lo = weather::displayTemperature(next->low);
   const std::string hi_text = fill(de ? "Bis {hi}°." : "Up to {hi}°.", v);
-  const RainSpell r = rainSpell(f, day, 6, 22);
+  const RainSpell r =
+      followSymbol(f, day, 6, 22, weather::dayCondition(f, *next), rainSpell(f, day, 6, 22));
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   if (r.level == Wet::kLikely) {
@@ -574,20 +613,22 @@ WeatherSummary summarize(const Forecast& forecast, int64_t now_s) {
   s.current = weather::displayTemperature(forecast.current.temperature);
 
   // Picture: the umbrella (snowflake, thunderstorm) for likely rain in the
-  // hours still ahead today, otherwise the weather of the day (by its
-  // hours); in the evening the weather of now; at night the moon for clear
-  // skies.
+  // hours still ahead today; otherwise by daylight the weather of the rest of
+  // the daylight hours, at night the weather of now (the moon for clear
+  // skies).
+  Condition c = forecast.current.condition;
   const RainSpell r = rainSpell(forecast, now_s, now.hour, 23);
+  if (forecast.current.day) {
+    // From sunrise to sunset: the weather of the rest of the daylight hours.
+    const std::vector<const Hour*> rest = weather::daylightHours(forecast, now_s, now.hour);
+    if (!rest.empty()) c = weather::spanCondition(rest);
+  }
+  if (c == Condition::kUnknown) c = weather::dayCondition(forecast, *today);
   if (r.level == Wet::kLikely) {
     s.picture = r.kind == Kind::kSnow      ? ui::WeatherIcon::kSnow
                 : r.kind == Kind::kThunder ? ui::WeatherIcon::kThunder
                                            : ui::WeatherIcon::kRain;
     return s;
-  }
-  Condition c = weather::dayCondition(forecast, *today);
-  if (greetingFor(now.hour) == Greeting::kEvening &&
-      forecast.current.condition != Condition::kUnknown) {
-    c = forecast.current.condition;
   }
   // No umbrella while rain is only possible or over: a cloud.
   if (c == Condition::kRain || c == Condition::kDrizzle || c == Condition::kShowers ||
