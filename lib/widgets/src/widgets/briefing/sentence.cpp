@@ -107,25 +107,25 @@ RainSpell rainSpell(const Forecast& forecast, int64_t day_time, int first, int l
   return s;
 }
 
-// The symbol of a day can show rain, snow or a thunderstorm by the amounts
-// (weather::dayCondition) while no hour reaches even the probability for
-// "maybe". A dry sentence would contradict the symbol, so the first wet hour
-// of the span makes it a "maybe" (never "likely": that stays with the
+bool isWet(Condition c) {
+  return c == Condition::kRain || c == Condition::kDrizzle || c == Condition::kShowers ||
+         c == Condition::kSnow || c == Condition::kThunder;
+}
+
+// A symbol can show rain, snow or a thunderstorm (by the amounts of the
+// hours, or by the daily code) while no hour reaches even the probability
+// for "maybe". A dry sentence would contradict the symbol, so the first wet
+// hour of the span makes it a "maybe" (never "likely": that stays with the
 // probability).
 RainSpell followSymbol(const Forecast& forecast, int64_t day_time, int first, int last,
                        Condition symbol, RainSpell spell) {
-  if (spell.level != Wet::kNone) return spell;
-  if (symbol != Condition::kRain && symbol != Condition::kSnow && symbol != Condition::kThunder) {
-    return spell;
-  }
+  if (spell.level != Wet::kNone || !isWet(symbol)) return spell;
   for (const Hour* h : weather::hoursOfDay(forecast, day_time, first, last)) {
     const bool thunder = symbol == Condition::kThunder && h->condition == Condition::kThunder;
     if (h->precipitation < weather::kRainHourMm - 0.001f && !thunder) continue;
     RainSpell s;
     s.level = Wet::kMaybe;
-    s.kind = symbol == Condition::kSnow      ? Kind::kSnow
-             : symbol == Condition::kThunder ? Kind::kThunder
-                                             : Kind::kRain;
+    s.kind = kindOf(symbol);
     s.temperature = weather::displayTemperature(h->temperature);
     core::LocalTime t;
     core::toLocalTime(h->time, t);
@@ -147,10 +147,10 @@ const char* pick(const Text& t, ui::Language language) {
 }
 
 // Replaces {hi}, {lo}, {eve}, {at} (temperatures), {from}, {until} (hours)
-// and {what} / {early} / {later} (words).
+// and {what} / {later} (words).
 struct Values {
   int hi = 0, lo = 0, eve = 0, at = 0;
-  std::string from, until, what, early, later;
+  std::string from, until, what, later;
 };
 
 std::string fill(const std::string& text, const Values& v) {
@@ -169,7 +169,6 @@ std::string fill(const std::string& text, const Values& v) {
     if (key == "from") out += v.from;
     if (key == "until") out += v.until;
     if (key == "what") out += v.what;
-    if (key == "early") out += v.early;
     if (key == "later") out += v.later;
     i = end;
   }
@@ -194,11 +193,32 @@ Sky skyOf(Condition c) {
 }
 
 // Weather of the daylight hours of today from `hour` on (the whole day if
-// none is left); the band picture and the afternoon sentence both use it.
+// none is left); the morning sentence talks about it (before sunrise the
+// band picture shows the night, after sunrise the same hours).
 Condition remainingCondition(const Forecast& f, int64_t now_s, int hour) {
   std::vector<const Hour*> hours = weather::daylightHours(f, now_s, hour);
   if (hours.empty()) hours = weather::daylightHours(f, now_s);
   return weather::spanCondition(hours);
+}
+
+// The weather of the band picture, also the sky of the afternoon and evening
+// sentence: by daylight (current.is_day) the rest of the daylight hours, at
+// night (or without daylight hours left) the weather of now; the daily code
+// if neither is known.
+Condition bandCondition(const Forecast& f, int64_t now_s, int hour, const weather::Day& today) {
+  Condition c = f.current.condition;
+  if (f.current.day) {
+    const std::vector<const Hour*> rest = weather::daylightHours(f, now_s, hour);
+    if (!rest.empty()) c = weather::spanCondition(rest);
+  }
+  if (c == Condition::kUnknown) c = weather::dayCondition(f, today);
+  return c;
+}
+
+// Rain in the hours ahead today, for the band picture and the sentence: the
+// same rule for both (see sentence.h).
+RainSpell rainAhead(const Forecast& f, int64_t now_s, int hour, Condition symbol) {
+  return followSymbol(f, now_s, hour, 23, symbol, rainSpell(f, now_s, hour, 23));
 }
 
 Sky skyOfSpan(const Forecast& f, int64_t day_time, int first, int last) {
@@ -244,18 +264,29 @@ const std::vector<Wording>& dryDay(Sky sky, bool hot) {
       {{"Heute wolkig und trocken, bis {hi}°.", "Partly cloudy and dry, up to {hi}°."},
        {"Heute wolkig und trocken.", "Partly cloudy and dry."}},
       {{"Mal Sonne, mal Wolken, bis {hi}°.", "Sun and clouds, up to {hi}°."},
-       {"Mal Sonne, mal Wolken.", "Sun and clouds."}}};
+       {"Mal Sonne, mal Wolken.", "Sun and clouds."}},
+      {{"Ein trockener Tag mit Sonne und Wolken, bis {hi}°.",
+        "A dry day with sun and clouds, up to {hi}°."},
+       {"Ein trockener Tag mit Sonne und Wolken.", "A dry day with sun and clouds."}}};
   static const std::vector<Wording> overcast = {
       {{"Heute bewölkt, aber trocken, bis {hi}°.", "Cloudy but dry, up to {hi}°."},
        {"Heute bewölkt, aber trocken.", "Cloudy but dry."}},
       {{"Ein grauer, trockener Tag, bis {hi}°.", "A grey, dry day, up to {hi}°."},
-       {"Ein grauer, trockener Tag.", "A grey, dry day."}}};
+       {"Ein grauer, trockener Tag.", "A grey, dry day."}},
+      {{"Viele Wolken, aber kein Regen, bis {hi}°.", "Lots of clouds but no rain, up to {hi}°."},
+       {"Viele Wolken, aber kein Regen.", "Lots of clouds but no rain."}}};
   static const std::vector<Wording> fog = {
       {{"Heute trüb und neblig, bis {hi}°.", "Dull and foggy, up to {hi}°."},
-       {"Heute trüb und neblig.", "Dull and foggy."}}};
+       {"Heute trüb und neblig.", "Dull and foggy."}},
+      {{"Ein nebliger Tag, bis {hi}°.", "A foggy day, up to {hi}°."},
+       {"Ein nebliger Tag.", "A foggy day."}},
+      {{"Heute viel Nebel, aber trocken, bis {hi}°.", "Lots of fog but dry, up to {hi}°."},
+       {"Heute viel Nebel, aber trocken.", "Lots of fog but dry."}}};
   static const std::vector<Wording> hot_clear = {
       {{"Sonnig und heiß, bis {hi}°.", "Sunny and hot, up to {hi}°."},
-       {"Sonnig und heiß.", "Sunny and hot."}}};
+       {"Sonnig und heiß.", "Sunny and hot."}},
+      {{"Ein heißer Sommertag, bis {hi}°.", "A hot summer day, up to {hi}°."},
+       {"Ein heißer Sommertag.", "A hot summer day."}}};
   static const std::vector<Wording> hot_other = {
       {{"Heute {what} und heiß, bis {hi}°.", "{what} and hot today, up to {hi}°."},
        {"Heute {what} und heiß.", "{what} and hot today."}}};
@@ -273,25 +304,42 @@ const std::vector<Wording>& dryDay(Sky sky, bool hot) {
   return overcast;
 }
 
-// Dry afternoons (11-18 h): the afternoon and the evening.
+// Dry afternoons (by daylight): the afternoon and the evening.
 const std::vector<Wording>& dryAfternoon(Sky sky) {
   static const std::vector<Wording> clear = {
       {{"Der Nachmittag bleibt sonnig, am Abend {eve}°.",
         "A sunny afternoon, {eve}° in the evening."},
        {"Der Nachmittag bleibt sonnig.", "A sunny afternoon."}},
       {{"Sonnig bis zum Abend, dann {eve}°.", "Sunny until the evening, then {eve}°."},
-       {"Sonnig bis zum Abend.", "Sunny until the evening."}}};
+       {"Sonnig bis zum Abend.", "Sunny until the evening."}},
+      {{"Weiter sonnig und trocken, am Abend {eve}°.",
+        "Still sunny and dry, {eve}° in the evening."},
+       {"Weiter sonnig und trocken.", "Still sunny and dry."}}};
   static const std::vector<Wording> partly = {
       {{"Am Nachmittag wolkig, der Abend bleibt trocken bei {eve}°.",
         "Partly cloudy this afternoon, a dry evening at {eve}°."},
        {"Am Nachmittag wolkig, der Abend bleibt trocken.",
-        "Partly cloudy this afternoon, a dry evening."}}};
+        "Partly cloudy this afternoon, a dry evening."}},
+      {{"Weiter mal Sonne, mal Wolken, am Abend {eve}°.",
+        "Still sun and clouds, {eve}° in the evening."},
+       {"Weiter mal Sonne, mal Wolken.", "Still sun and clouds."}},
+      {{"Wolkig, aber trocken bis zum Abend, dann {eve}°.",
+        "Partly cloudy but dry until the evening, then {eve}°."},
+       {"Wolkig, aber trocken bis zum Abend.", "Partly cloudy but dry until the evening."}}};
   static const std::vector<Wording> overcast = {
       {{"Bewölkt, aber trocken, am Abend {eve}°.", "Cloudy but dry, {eve}° in the evening."},
-       {"Bewölkt, aber trocken bis zum Abend.", "Cloudy but dry until the evening."}}};
+       {"Bewölkt, aber trocken bis zum Abend.", "Cloudy but dry until the evening."}},
+      {{"Der Nachmittag bleibt grau und trocken, am Abend {eve}°.",
+        "A grey, dry afternoon, {eve}° in the evening."},
+       {"Der Nachmittag bleibt grau und trocken.", "A grey, dry afternoon."}},
+      {{"Viele Wolken, aber kein Regen, am Abend {eve}°.",
+        "Lots of clouds but no rain, {eve}° in the evening."},
+       {"Viele Wolken, aber kein Regen.", "Lots of clouds but no rain."}}};
   static const std::vector<Wording> fog = {
       {{"Trüb und neblig, am Abend {eve}°.", "Dull and foggy, {eve}° in the evening."},
-       {"Trüb und neblig bis zum Abend.", "Dull and foggy until the evening."}}};
+       {"Trüb und neblig bis zum Abend.", "Dull and foggy until the evening."}},
+      {{"Der Nebel bleibt, am Abend {eve}°.", "The fog stays, {eve}° in the evening."},
+       {"Der Nebel bleibt bis zum Abend.", "The fog stays until the evening."}}};
   switch (sky) {
     case Sky::kClear:
       return clear;
@@ -305,24 +353,81 @@ const std::vector<Wording>& dryAfternoon(Sky sky) {
   return overcast;
 }
 
-// Dry tomorrows (from 18 h).
+// Dry evenings after sunset (before the sentence turns to tomorrow): the sky
+// of now, as the band picture.
+const std::vector<Wording>& dryEvening(Sky sky) {
+  static const std::vector<Wording> clear = {
+      {{"Ein klarer, trockener Abend, später {eve}°.", "A clear, dry evening, {eve}° later."},
+       {"Ein klarer, trockener Abend.", "A clear, dry evening."}},
+      {{"Der Abend bleibt trocken und klar, später {eve}°.",
+        "The evening stays dry and clear, {eve}° later."},
+       {"Der Abend bleibt trocken und klar.", "The evening stays dry and clear."}},
+      {{"Klarer Himmel heute Abend, später {eve}°.", "Clear skies tonight, {eve}° later."},
+       {"Klarer Himmel heute Abend.", "Clear skies tonight."}}};
+  static const std::vector<Wording> partly = {
+      {{"Ein trockener Abend mit ein paar Wolken, später {eve}°.",
+        "A dry evening with a few clouds, {eve}° later."},
+       {"Ein trockener Abend mit ein paar Wolken.", "A dry evening with a few clouds."}},
+      {{"Der Abend bleibt trocken, später {eve}°.", "The evening stays dry, {eve}° later."},
+       {"Der Abend bleibt trocken.", "The evening stays dry."}}};
+  static const std::vector<Wording> overcast = {
+      {{"Der Abend bleibt trocken, später {eve}°.", "The evening stays dry, {eve}° later."},
+       {"Der Abend bleibt trocken.", "The evening stays dry."}},
+      {{"Ein bewölkter, trockener Abend, später {eve}°.", "A cloudy, dry evening, {eve}° later."},
+       {"Ein bewölkter, trockener Abend.", "A cloudy, dry evening."}}};
+  static const std::vector<Wording> fog = {
+      {{"Neblig am Abend, später {eve}°.", "A foggy evening, {eve}° later."},
+       {"Neblig am Abend.", "A foggy evening."}},
+      {{"Der Abend wird trüb und neblig, später {eve}°.", "A dull, foggy evening, {eve}° later."},
+       {"Der Abend wird trüb und neblig.", "A dull, foggy evening."}}};
+  switch (sky) {
+    case Sky::kClear:
+      return clear;
+    case Sky::kPartly:
+      return partly;
+    case Sky::kFog:
+      return fog;
+    case Sky::kOvercast:
+      break;
+  }
+  return overcast;
+}
+
+// Dry tomorrows (from eveningStartHour()), by the daily code.
 const std::vector<Wording>& dryTomorrow(Sky sky) {
   static const std::vector<Wording> clear = {
       {{"Morgen wird es sonnig, {lo}° bis {hi}°.", "Sunny tomorrow, {lo}° to {hi}°."},
        {"Morgen wird es sonnig.", "Sunny tomorrow."}},
       {{"Morgen scheint die Sonne, {lo}° bis {hi}°.", "Sunshine tomorrow, {lo}° to {hi}°."},
-       {"Morgen scheint die Sonne.", "Sunshine tomorrow."}}};
+       {"Morgen scheint die Sonne.", "Sunshine tomorrow."}},
+      {{"Morgen ein sonniger Tag, {lo}° bis {hi}°.", "A sunny day tomorrow, {lo}° to {hi}°."},
+       {"Morgen ein sonniger Tag.", "A sunny day tomorrow."}}};
   static const std::vector<Wording> partly = {
       {{"Morgen wolkig und trocken, {lo}° bis {hi}°.",
         "Partly cloudy and dry tomorrow, {lo}° to {hi}°."},
-       {"Morgen wolkig und trocken.", "Partly cloudy and dry tomorrow."}}};
+       {"Morgen wolkig und trocken.", "Partly cloudy and dry tomorrow."}},
+      {{"Morgen mal Sonne, mal Wolken, {lo}° bis {hi}°.",
+        "Sun and clouds tomorrow, {lo}° to {hi}°."},
+       {"Morgen mal Sonne, mal Wolken.", "Sun and clouds tomorrow."}},
+      {{"Morgen ein trockener Tag mit Sonne und Wolken, bis {hi}°.",
+        "A dry day with sun and clouds tomorrow, up to {hi}°."},
+       {"Morgen ein trockener Tag mit Sonne und Wolken.",
+        "A dry day with sun and clouds tomorrow."}}};
   static const std::vector<Wording> overcast = {
       {{"Morgen bewölkt, aber trocken, {lo}° bis {hi}°.",
         "Cloudy but dry tomorrow, {lo}° to {hi}°."},
-       {"Morgen bewölkt, aber trocken.", "Cloudy but dry tomorrow."}}};
+       {"Morgen bewölkt, aber trocken.", "Cloudy but dry tomorrow."}},
+      {{"Morgen ein grauer, trockener Tag, {lo}° bis {hi}°.",
+        "A grey, dry day tomorrow, {lo}° to {hi}°."},
+       {"Morgen ein grauer, trockener Tag.", "A grey, dry day tomorrow."}},
+      {{"Morgen viele Wolken, aber kein Regen, bis {hi}°.",
+        "Lots of clouds but no rain tomorrow, up to {hi}°."},
+       {"Morgen viele Wolken, aber kein Regen.", "Lots of clouds but no rain tomorrow."}}};
   static const std::vector<Wording> fog = {
       {{"Morgen trüb und neblig, {lo}° bis {hi}°.", "Dull and foggy tomorrow, {lo}° to {hi}°."},
-       {"Morgen trüb und neblig.", "Dull and foggy tomorrow."}}};
+       {"Morgen trüb und neblig.", "Dull and foggy tomorrow."}},
+      {{"Morgen ein nebliger Tag, {lo}° bis {hi}°.", "A foggy day tomorrow, {lo}° to {hi}°."},
+       {"Morgen ein nebliger Tag.", "A foggy day tomorrow."}}};
   switch (sky) {
     case Sky::kClear:
       return clear;
@@ -370,8 +475,7 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
   v.hi = weather::displayTemperature(today->high);
   v.lo = weather::displayTemperature(today->low);
   const bool hot = v.hi >= kHotDegrees;
-  const RainSpell r = followSymbol(f, now_s, now.hour, 23, remainingCondition(f, now_s, now.hour),
-                                   rainSpell(f, now_s, now.hour, 23));
+  const RainSpell r = rainAhead(f, now_s, now.hour, remainingCondition(f, now_s, now.hour));
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   v.until = r.until >= 0 ? hourText(r.until, lang) : "";
@@ -430,17 +534,21 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
   shorter = fill(pick(w.shorter, lang), v);
 }
 
-// 11-18 h: the afternoon and the evening.
+// From kMorningEndHour to eveningStartHour(): the afternoon and the evening.
+// The sky is the one of the band picture: the rest of the daylight hours, or
+// after sunset the weather of now ("Ein klarer, trockener Abend").
 void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::Language lang,
                std::string& full, std::string& shorter) {
   const bool de = lang == ui::Language::kGerman;
-  if (dayAt(f, now_s, 0) == nullptr) return;
+  const weather::Day* today = dayAt(f, now_s, 0);
+  if (today == nullptr) return;
   Values v;
-  const bool evening = temperatureAt(f, now_s, kEveningHour, v.eve);
+  const int eve_hour = std::min(23, std::max(kEveningHour, now.hour + 1));
+  const bool evening = temperatureAt(f, now_s, eve_hour, v.eve);
   const std::string eve_text =
       evening ? fill(de ? "Am Abend {eve}°." : "{eve}° in the evening.", v) : "";
-  const RainSpell r = followSymbol(f, now_s, now.hour, 23, remainingCondition(f, now_s, now.hour),
-                                   rainSpell(f, now_s, now.hour, 23));
+  const Condition sky_now = bandCondition(f, now_s, now.hour, *today);
+  const RainSpell r = rainAhead(f, now_s, now.hour, sky_now);
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   v.until = r.until >= 0 ? hourText(r.until, lang) : "";
@@ -480,13 +588,15 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
     join(full, shorter, capitalized(fill(main, v)), eve_text);
     return;
   }
-  const Sky sky = skyOf(remainingCondition(f, now_s, now.hour));
-  const Wording& w = choose(dryAfternoon(sky), now_s, Greeting::kDay);
+  const Sky sky = skyOf(sky_now);
+  const Wording& w =
+      choose(f.current.day ? dryAfternoon(sky) : dryEvening(sky), now_s, Greeting::kDay);
   full = fill(pick(evening ? w.full : w.shorter, lang), v);
   shorter = fill(pick(w.shorter, lang), v);
 }
 
-// From 18 h: tomorrow.
+// From eveningStartHour(): tomorrow. The weather word is the daily code (the
+// symbol of the weather column); the hours give the times.
 void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& full,
               std::string& shorter) {
   const bool de = lang == ui::Language::kGerman;
@@ -494,12 +604,19 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
   const weather::Day* next = dayAt(f, now_s, 1);
   if (next == nullptr) return;
   const int64_t day = now_s + kDay;
+  const Condition code = next->condition;
+  const bool wet_code = isWet(code);
   Values v;
   v.hi = weather::displayTemperature(next->high);
   v.lo = weather::displayTemperature(next->low);
   const std::string hi_text = fill(de ? "Bis {hi}°." : "Up to {hi}°.", v);
-  const RainSpell r =
-      followSymbol(f, day, 6, 22, weather::dayCondition(f, *next), rainSpell(f, day, 6, 22));
+  RainSpell r = followSymbol(f, day, 6, 22, code, rainSpell(f, day, 6, 22));
+  // "Schirm einpacken" only if the column shows rain (snow, a thunderstorm).
+  if (r.level == Wet::kLikely && !wet_code) {
+    r.level = Wet::kMaybe;
+    r.until = -1;
+  }
+  if (r.level != Wet::kNone && wet_code) r.kind = kindOf(code);
   v.at = r.temperature;
   v.from = r.from >= 0 ? hourText(r.from, lang) : "";
   if (r.level == Wet::kLikely) {
@@ -536,7 +653,6 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
     join(full, shorter, fill(main, v), hi_text);
     return;
   }
-  const Sky sky = skyOf(weather::dayCondition(f, *next));
   if (r.level == Wet::kMaybe) {
     v.what = precipitationWord(r.kind, lang);
     const std::string main =
@@ -547,6 +663,16 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
     full = fill(main + (de ? ", bis {hi}°." : ", up to {hi}°."), v);
     return;
   }
+  // The daily code is wet, but not in the hours from 6 to 22 h (at night).
+  if (wet_code) {
+    v.what = precipitationWord(kindOf(code), lang);
+    const std::string main =
+        de ? "Morgen zeitweise {what}, sonst trocken" : "Tomorrow {what} at times, otherwise dry";
+    shorter = fill(main, v) + ".";
+    full = fill(main + (de ? ", bis {hi}°." : ", up to {hi}°."), v);
+    return;
+  }
+  const Sky sky = skyOf(code);
   // A big change of the high.
   if (today != nullptr) {
     const int change = v.hi - weather::displayTemperature(today->high);
@@ -564,18 +690,27 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
       return;
     }
   }
-  // Fog or clouds in the morning, then sun.
-  const Sky early = skyOfSpan(f, day, 6, 10);
-  const Sky later = skyOfSpan(f, day, 11, 17);
-  if ((early == Sky::kFog || early == Sky::kOvercast) &&
-      (later == Sky::kClear || later == Sky::kPartly)) {
-    v.early = early == Sky::kFog ? (de ? "Nebel" : "fog") : skyWord(early, lang);
-    v.later = skyWord(later, lang);
-    const std::string main =
-        de ? "Morgen früh {early}, später {later}" : "Tomorrow {early} at first, later {later}";
-    shorter = fill(main, v) + ".";
-    full = fill(main + (de ? ", bis {hi}°." : ", up to {hi}°."), v);
-    return;
+  if (sky == Sky::kFog) {
+    // Fog in the morning, then sun or clouds.
+    const Sky early = skyOfSpan(f, day, 6, 10);
+    const Sky later = skyOfSpan(f, day, 11, 17);
+    if (early == Sky::kFog && (later == Sky::kClear || later == Sky::kPartly)) {
+      v.later = skyWord(later, lang);
+      const std::string main =
+          de ? "Morgen früh Nebel, später {later}" : "Tomorrow fog at first, later {later}";
+      shorter = fill(main, v) + ".";
+      full = fill(main + (de ? ", bis {hi}°." : ", up to {hi}°."), v);
+      return;
+    }
+    // Fog of the code that the daylight hours do not show (at night).
+    const std::vector<const Hour*> light = weather::daylightHours(f, day);
+    if (!light.empty() && skyOf(weather::spanCondition(light)) != Sky::kFog) {
+      const std::string main =
+          de ? "Morgen zeitweise neblig, sonst trocken" : "Tomorrow foggy at times, otherwise dry";
+      shorter = fill(main, v) + ".";
+      full = fill(main + (de ? ", bis {hi}°." : ", up to {hi}°."), v);
+      return;
+    }
   }
   const Wording& w = choose(dryTomorrow(sky), now_s, Greeting::kEvening);
   full = fill(pick(w.full, lang), v);
@@ -587,6 +722,30 @@ void tomorrow(const Forecast& f, int64_t now_s, ui::Language lang, std::string& 
 Greeting greetingFor(int hour) {
   if (hour < 11) return Greeting::kMorning;
   if (hour < 18) return Greeting::kDay;
+  return Greeting::kEvening;
+}
+
+int eveningStartHour(const Forecast& forecast, int64_t now_s) {
+  core::LocalTime now;
+  if (!core::toLocalTime(now_s, now)) return kEveningEarliestHour;
+  const std::vector<const Hour*> hours = weather::hoursOfDay(forecast, now_s, 12, 23);
+  if (hours.empty()) return now.dst ? kEveningSummerHour : kEveningEarliestHour;
+  int hour = kEveningLatestHour;  // no night hour before midnight (polar day)
+  for (const Hour* h : hours) {
+    if (h->day) continue;
+    core::LocalTime t;
+    core::toLocalTime(h->time, t);
+    hour = t.hour;
+    break;
+  }
+  return std::max(kEveningEarliestHour, std::min(kEveningLatestHour, hour));
+}
+
+Greeting weatherPeriod(const Forecast& forecast, int64_t now_s) {
+  core::LocalTime now;
+  if (!core::toLocalTime(now_s, now)) return Greeting::kMorning;
+  if (now.hour < kMorningEndHour) return Greeting::kMorning;
+  if (now.hour < eveningStartHour(forecast, now_s)) return Greeting::kDay;
   return Greeting::kEvening;
 }
 
@@ -615,15 +774,9 @@ WeatherSummary summarize(const Forecast& forecast, int64_t now_s) {
   // Picture: the umbrella (snowflake, thunderstorm) for likely rain in the
   // hours still ahead today; otherwise by daylight the weather of the rest of
   // the daylight hours, at night the weather of now (the moon for clear
-  // skies).
-  Condition c = forecast.current.condition;
-  const RainSpell r = rainSpell(forecast, now_s, now.hour, 23);
-  if (forecast.current.day) {
-    // From sunrise to sunset: the weather of the rest of the daylight hours.
-    const std::vector<const Hour*> rest = weather::daylightHours(forecast, now_s, now.hour);
-    if (!rest.empty()) c = weather::spanCondition(rest);
-  }
-  if (c == Condition::kUnknown) c = weather::dayCondition(forecast, *today);
+  // skies). The sentence uses the same two rules.
+  Condition c = bandCondition(forecast, now_s, now.hour, *today);
+  const RainSpell r = rainAhead(forecast, now_s, now.hour, c);
   if (r.level == Wet::kLikely) {
     s.picture = r.kind == Kind::kSnow      ? ui::WeatherIcon::kSnow
                 : r.kind == Kind::kThunder ? ui::WeatherIcon::kThunder
@@ -649,7 +802,7 @@ std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Languag
   core::LocalTime now;
   std::string full, short_form;
   if (core::isValidUnixTime(now_s) && core::toLocalTime(now_s, now)) {
-    switch (greetingFor(now.hour)) {
+    switch (weatherPeriod(forecast, now_s)) {
       case Greeting::kMorning:
         morning(forecast, now_s, now, language, full, short_form);
         break;
@@ -667,32 +820,57 @@ std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Languag
 
 std::string offlineText(const std::string& as_of, ui::Language language) {
   const bool de = language == ui::Language::kGerman;
-  if (as_of.empty()) return de ? "Keine Verbindung." : "No connection.";
-  return de ? "Keine Verbindung – die Angaben sind von " + as_of + "."
-            : "No connection – the data is from " + as_of + ".";
+  if (as_of.empty()) return de ? "Keine Verbindung zum WLAN." : "No Wi-Fi connection.";
+  return de ? "Keine Verbindung zum WLAN – die Angaben sind von " + as_of + "."
+            : "No Wi-Fi connection – the data is from " + as_of + ".";
+}
+
+std::string failureText(const std::vector<FailedSource>& failed, ui::Language language) {
+  const bool de = language == ui::Language::kGerman;
+  if (failed.empty()) return "";
+  if (failed.size() == 1) {
+    const FailedSource& f = failed.front();
+    static const Text one[] = {
+        {"Das Wetter lässt sich gerade nicht abrufen", "The weather cannot be loaded right now"},
+        {"Die Abfahrten lassen sich gerade nicht abrufen",
+         "The departures cannot be loaded right now"},
+        {"Der Kalender lässt sich gerade nicht abrufen",
+         "The calendar cannot be loaded right now"}};
+    std::string text = pick(one[static_cast<int>(f.source)], language);
+    if (!f.as_of.empty()) text += (de ? " – Stand " : " – as of ") + f.as_of;
+    return text + ".";
+  }
+  static const Text names[] = {
+      {"Wetter", "weather"}, {"Abfahrten", "departures"}, {"Kalender", "calendar"}};
+  std::string list;
+  for (size_t i = 0; i < failed.size(); i++) {
+    if (i > 0) list += i + 1 == failed.size() ? (de ? " und " : " and ") : ", ";
+    list += pick(names[static_cast<int>(failed[i].source)], language);
+  }
+  return de ? list + " lassen sich gerade nicht abrufen."
+            : capitalized(list) + " cannot be loaded right now.";
 }
 
 std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t now_s,
                              ui::Language language) {
   if (!core::isValidUnixTime(now_s)) return "";
-  // The next departures of all sections together.
-  std::vector<const mvg::Departure*> next;
+  // The next departures of each section (direction, station) for itself;
+  // of the cancelled ones within the hour the earliest.
+  const mvg::Departure* first = nullptr;
   for (const mvg::Section& s : sections) {
+    std::vector<const mvg::Departure*> next;
     for (const mvg::Departure& d : s.departures) {
       if (d.planned >= now_s) next.push_back(&d);
     }
-  }
-  std::stable_sort(next.begin(), next.end(), [](const mvg::Departure* a, const mvg::Departure* b) {
-    return a->planned < b->planned;
-  });
-  if (next.size() > static_cast<size_t>(kCancellationDepartures)) {
-    next.resize(kCancellationDepartures);
-  }
-  const mvg::Departure* first = nullptr;
-  for (const mvg::Departure* d : next) {
-    if (d->cancelled && d->planned <= now_s + kCancellationAheadS) {
-      first = d;
-      break;
+    std::stable_sort(
+        next.begin(), next.end(),
+        [](const mvg::Departure* a, const mvg::Departure* b) { return a->planned < b->planned; });
+    if (next.size() > static_cast<size_t>(kCancellationDepartures)) {
+      next.resize(kCancellationDepartures);
+    }
+    for (const mvg::Departure* d : next) {
+      if (!d->cancelled || d->planned > now_s + kCancellationAheadS) continue;
+      if (first == nullptr || d->planned < first->planned) first = d;
     }
   }
   if (first == nullptr) return "";
@@ -706,7 +884,19 @@ std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t 
 std::vector<Part> sentenceParts(const SentenceInput& in) {
   std::vector<Part> parts;
   if (!core::isValidUnixTime(in.now_s)) return parts;
-  if (!in.online) parts.push_back({Topic::kOffline, offlineText(in.as_of, in.language), ""});
+  if (!in.online) {
+    const bool de = in.language == ui::Language::kGerman;
+    const std::string shorter =
+        in.as_of.empty() ? "" : (de ? "Kein WLAN – Stand " : "No Wi-Fi – as of ") + in.as_of + ".";
+    parts.push_back({Topic::kOffline, offlineText(in.as_of, in.language), shorter});
+  } else if (!in.failed.empty()) {
+    // Shorter: without the times.
+    std::vector<FailedSource> plain = in.failed;
+    for (FailedSource& f : plain) f.as_of.clear();
+    const std::string text = failureText(in.failed, in.language);
+    const std::string shorter = failureText(plain, in.language);
+    parts.push_back({Topic::kFailure, text, shorter == text ? "" : shorter});
+  }
   if (in.departures != nullptr) {
     const std::string text = cancellationText(*in.departures, in.now_s, in.language);
     if (!text.empty()) parts.push_back({Topic::kCancellation, text, ""});

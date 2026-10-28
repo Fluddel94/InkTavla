@@ -202,40 +202,56 @@ that are filled down to the bottom edge. The sentence follows fixed rules
 (no AI): a greeting by the time of day ("Guten Morgen" until 11:00, "Guten
 Tag" until 18:00, then "Guten Abend"), then
 
-1. without a connection for 60 s: "Keine Verbindung – die Angaben sind von
-   07:12." (and a struck-through Wi-Fi symbol after the time);
-2. a cancelled departure among the next two departures of the shown lines,
-   within the next hour, at most one: "Die S2 um 07:54 nach Dachau fällt
-   aus.";
+1. without Wi-Fi for 60 s: "Keine Verbindung zum WLAN – die Angaben sind
+   von 07:12." (shorter "Kein WLAN – Stand 07:12." if that makes room for
+   the rest; and a struck-through Wi-Fi symbol after the time); with Wi-Fi,
+   widgets on the screen whose updates have failed for 60 s: "Die Abfahrten
+   lassen sich gerade nicht abrufen – Stand 07:12.", "Wetter und Kalender
+   lassen sich gerade nicht abrufen.";
+2. a cancelled departure among the next two departures of each direction
+   (or station), within the next hour, at most one (the earliest): "Die S2
+   um 07:54 nach Dachau fällt aus.";
 3. always a sentence about the weather, by the time of day:
    - until 11:00 the whole day: "Heute wird es sonnig, bis 16°.", "Erst
      trocken, ab 16 Uhr Regen – Schirm mit. Bis 14°.", "Heute regnet es den
      ganzen Tag – Schirm mit. Höchstens 9°.", "Ab 9 Uhr schneit es, um 0°.
      Es kann glatt werden.", "Sonnig und heiß, bis 32°.";
-   - 11:00–18:00 the afternoon and the evening (temperature at 20:00): "Der
+   - then the afternoon and the evening (temperature at 20:00): "Der
      Nachmittag bleibt sonnig, am Abend 11°.", "Ab 16 Uhr regnet es –
      Schirm mit. Am Abend 9°.", "Es regnet noch bis etwa 17 Uhr, danach
-     trocken. Am Abend 8°.";
-   - from 18:00 tomorrow: "Morgen wird es sonnig, 4° bis 15°.", "Morgen früh
-     Nebel, später sonnig, bis 12°.", "Morgen ab 10 Uhr Regen – Schirm
-     einpacken. Bis 11°.", and if tomorrow's high differs by 8° or more
-     "Morgen wird es deutlich kälter: höchstens 6°, wolkig.".
+     trocken. Am Abend 8°."; after sunset the evening: "Ein klarer,
+     trockener Abend, später 5°.";
+   - tomorrow from the first full hour after sunset, but not before 18:00
+     and not after 21:00 (in Munich 18:00 in winter, 21:00 in June):
+     "Morgen wird es sonnig, 4° bis 15°.", "Morgen früh Nebel, später
+     sonnig, bis 12°.", "Morgen ab 10 Uhr Regen – Schirm einpacken. Bis
+     11°.", "Morgen zeitweise neblig, sonst trocken, bis 11°.", and if
+     tomorrow's high differs by 8° or more "Morgen wird es deutlich kälter:
+     höchstens 6°, wolkig.".
 
-   Rain (snow, thunderstorms) counts from a probability of 70 % ("Schirm
-   mit"), 30–69 % is "vielleicht Regen"; the weather words follow the rules
-   of the day symbol (see [`weather`](#weather-weather-forecast)). For the
-   same weather there are several wordings; the date and the time of day
-   pick one, so it does not change with every refresh.
+   The sentence and the symbols do not contradict each other. Today the
+   sentence talks about the same weather as the band picture and uses the
+   same rain rule: "Schirm mit" exactly when the picture is the umbrella (a
+   probability of 70 % in one of the hours ahead), "vielleicht Regen" from
+   30 % or when the hours bring rain by their amounts. Tomorrow the weather
+   word is the daily code of Open-Meteo, as the symbol in the weather
+   column; the hours give the times, "Schirm einpacken" only if that symbol
+   shows rain, and weather of the code that is only at night is
+   "zeitweise". For the same dry weather there are up to three wordings; the
+   date and the time of day pick one, so it does not change with every
+   refresh.
 
 Disruption messages and events are not part of the sentence; they are shown
-in their columns. The sentence has at most three lines (Fraunces 38, else
-34 px). If it does not fit, the weather sentence leaves out the temperature,
-and if it still does not fit, it is left out (offline and a cancellation
-come first). Parts of sources without fresh data are left out. The band
-reads the weather section (`widgets.weather`) even if the weather column is
-not on the screen, the departures only if they are on the screen. The
-picture shows the weather of now: during the day the symbol of today (the
-umbrella with drops for likely rain), in the evening the current weather.
+in their columns. The parts stand side by side; the sentence has at most
+three lines (Fraunces 38, else 34 px). If it does not fit, the weather
+sentence leaves out the temperature, the notices before it take their
+shorter form, and if it still does not fit, it is left out (the notices and
+a cancellation come first). Parts of sources without fresh data are left
+out. The band reads the weather section (`widgets.weather`) even if the
+weather column is not on the screen, the departures only if they are on the
+screen. The picture shows by daylight the weather of the rest of the
+daylight hours (the umbrella with drops for likely rain, a cloud for rain
+that is only possible), at night the weather of now.
 
 The calendar column shows today (past events stay until midnight, "Keine
 Termine" without any), then the next day that has events ("MORGEN" or its

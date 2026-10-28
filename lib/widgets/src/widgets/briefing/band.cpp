@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <utility>
 
 #include "core/time.h"
 #include "ui/elements.h"
@@ -64,7 +65,9 @@ SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>&
     return complete;
   };
   // By rank: every part that still fits is taken, a part that does not is
-  // left out (a shorter one of a lower rank may still fit).
+  // left out (a shorter one of a lower rank may still fit). Before a part is
+  // left out, the parts taken before it get their shorter forms if that
+  // makes room ("Kein WLAN – Stand 07:41." instead of the long notice).
   std::vector<Part> kept;
   for (const Part& part : parts) {
     kept.push_back(part);
@@ -72,6 +75,20 @@ SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>&
     if (!part.shorter.empty()) {
       kept.back().text = part.shorter;
       if (fits(joinSentence(greeting, kept), nullptr)) continue;
+    }
+    std::vector<Part> shortened = kept;
+    for (size_t i = 0; i + 1 < shortened.size(); i++) {
+      if (!shortened[i].shorter.empty()) shortened[i].text = shortened[i].shorter;
+    }
+    shortened.back().text = part.text;
+    bool taken = fits(joinSentence(greeting, shortened), nullptr);
+    if (!taken && !part.shorter.empty()) {
+      shortened.back().text = part.shorter;
+      taken = fits(joinSentence(greeting, shortened), nullptr);
+    }
+    if (taken) {
+      kept = shortened;
+      continue;
     }
     kept.pop_back();
   }
@@ -86,6 +103,7 @@ std::vector<const DataSource*> BandView::sources() const {
   std::vector<const DataSource*> list;
   if (weather_ != nullptr) list.push_back(weather_);
   if (departures_ != nullptr) list.push_back(departures_);
+  if (calendar_ != nullptr) list.push_back(calendar_);
   return list;
 }
 
@@ -99,6 +117,7 @@ SentenceInput sentenceInput(const DrawContext& context, const BandData& data) {
   in.as_of = data.as_of;
   in.forecast = data.forecast;
   in.departures = data.departures;
+  in.failed = data.failed;
   return in;
 }
 
@@ -185,6 +204,24 @@ void BandView::draw(ui::Canvas& canvas, const DrawContext& context) {
     char buffer[8];
     std::snprintf(buffer, sizeof(buffer), "%02d:%02d", t.hour, t.minute);
     data.as_of = buffer;
+  }
+  // Failed updates (stale data, or none after the grace period).
+  const std::pair<const DataSource*, Source> watched[] = {{weather_, Source::kWeather},
+                                                          {departures_, Source::kDepartures},
+                                                          {calendar_, Source::kCalendar}};
+  for (const auto& [source, kind] : watched) {
+    const SourceStatus* s = source == nullptr ? nullptr : status(source);
+    if (s == nullptr) continue;
+    if (s->state != core::DataState::kStale && s->state != core::DataState::kNoData) continue;
+    FailedSource failed{kind, ""};
+    if (s->state == core::DataState::kStale && core::isValidUnixTime(s->last_success_wall_s)) {
+      core::LocalTime t;
+      core::toLocalTime(s->last_success_wall_s, t);
+      char buffer[8];
+      std::snprintf(buffer, sizeof(buffer), "%02d:%02d", t.hour, t.minute);
+      failed.as_of = buffer;
+    }
+    data.failed.push_back(failed);
   }
   if (fresh(weather_)) data.forecast = &weather_->forecast();
   if (fresh(departures_)) data.departures = &departures_->sections();

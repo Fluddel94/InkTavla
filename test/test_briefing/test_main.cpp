@@ -78,7 +78,8 @@ void check(const ui::Bitmap& bitmap, const char* name) {
 // A forecast for the day of `midnight`: 24 hourly temperatures and rain
 // probabilities, today and the next three days. The precipitation follows the
 // probability from 30 % (100 % -> 5 mm, a full bar); the hours have the
-// condition `hours` from 30 %, else the one of the day.
+// condition `hours` from 30 %, else the one of the day. Daylight from 7 to
+// 17 h (the first night hour is 18 h, so tomorrow from 18 h on).
 wx::Forecast forecast(const std::vector<float>& temps, const std::vector<int>& rain,
                       Condition hours = Condition::kOvercast,
                       Condition today = Condition::kOvercast, int64_t midnight = kMidnight,
@@ -95,6 +96,7 @@ wx::Forecast forecast(const std::vector<float>& temps, const std::vector<int>& r
     hour.rain_probability = rain[h % rain.size()];
     hour.precipitation = hour.rain_probability >= 30 ? hour.rain_probability / 20.0f : 0.0f;
     hour.condition = hour.rain_probability >= 30 ? hours : today;
+    hour.day = h >= 7 && h <= 17;
     f.hours.push_back(hour);
   }
   const float low = *std::min_element(temps.begin(), temps.end());
@@ -191,8 +193,8 @@ void test_greeting_by_time_of_day() {
 }
 
 // Wordings of the morning (before 11 h): the whole day. 2026-10-20 picks
-// the first of several wordings in the morning and in the evening, the
-// second in the afternoon.
+// the first of three wordings in the morning, the second in the afternoon
+// and the third in the evening.
 void test_morning_sentence() {
   const auto temps = course(7, 14);
   const std::string nb = "\u00a0";
@@ -279,8 +281,9 @@ void test_evening_sentence() {
   const int64_t evening = kMidnight + 20 * 3600 + 15 * 60;
   // Without hours of tomorrow: the daily code (partly cloudy), 7-13°.
   wx::Forecast f = forecast(course(7, 14), {0});
-  TEST_ASSERT_EQUAL_STRING(("Morgen wolkig und trocken, 7° bis" + nb + "13°.").c_str(),
-                           text(f, evening).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Morgen ein trockener Tag mit Sonne und Wolken, bis" + nb + "13°.").c_str(),
+      text(f, evening).c_str());
   // A big change of the high.
   f.days[1].high = 5;
   TEST_ASSERT_EQUAL_STRING(
@@ -288,15 +291,17 @@ void test_evening_sentence() {
       text(f, evening).c_str());
   TEST_ASSERT_EQUAL_STRING("Much colder tomorrow: at most 5°, partly cloudy.",
                            text(f, evening, ui::Language::kEnglish).c_str());
-  // Fog in the morning, then sun.
+  // Fog in the morning (daily code fog), then sun.
   wx::Forecast fog = forecast(course(7, 14), {0});
+  fog.days[1].condition = Condition::kFog;
   std::vector<Condition> sky(24, Condition::kClear);
   for (int h = 0; h <= 10; h++) sky[h] = Condition::kFog;
   addTomorrow(fog, {0}, sky);
   TEST_ASSERT_EQUAL_STRING(("Morgen früh Nebel, später sonnig, bis" + nb + "13°.").c_str(),
                            text(fog, evening).c_str());
-  // Rain from 10 h.
+  // Rain from 10 h (daily code rain: the umbrella in the column).
   wx::Forecast wet = forecast(course(7, 14), {0});
+  wet.days[1].condition = Condition::kRain;
   std::vector<int> rain(24, 0);
   for (int h = 10; h < 24; h++) rain[h] = 80;
   addTomorrow(wet, rain, {Condition::kRain});
@@ -372,7 +377,12 @@ void test_symbol_and_sentence_agree() {
   }
   const int64_t noon = kMidnight + 13 * 3600;
   TEST_ASSERT_TRUE(br::summarize(f, noon).picture == ui::WeatherIcon::kCloudy);
-  TEST_ASSERT_EQUAL_size_t(0, text(f, noon).find("Bewölkt"));
+  const std::string afternoon = text(f, noon);
+  TEST_ASSERT_TRUE_MESSAGE(afternoon.find("sonn") == std::string::npos, afternoon.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(afternoon.find("grau") != std::string::npos ||
+                               afternoon.find("ewölkt") != std::string::npos ||
+                               afternoon.find("Wolken") != std::string::npos,
+                           afternoon.c_str());
   // In the morning both talk about the whole day: 4 clear, 6 cloudy hours.
   TEST_ASSERT_TRUE(br::summarize(f, kMorning).picture == ui::WeatherIcon::kCloudy);
   // Rain by amount (3 hours with 0.4 mm) while every hour has a probability
@@ -451,7 +461,8 @@ void test_sentence_layout_falls_back_to_the_smaller_size() {
   TEST_ASSERT_FALSE(a.small);
   TEST_ASSERT_EQUAL_size_t(3, a.lines.size());
   const br::SentenceLayout b = br::layoutSentence(
-      "Guten Abend. Keine Verbindung – die Angaben sind von 07:12. Ab 17\u00a0Uhr Gewitter "
+      "Guten Abend. Keine Verbindung zum WLAN – die Angaben sind von 07:12. Ab 17\u00a0Uhr "
+      "Gewitter "
       "– Schirm mit. Heiß, bis 33°.");
   TEST_ASSERT_TRUE(b.small);
   TEST_ASSERT_TRUE(b.lines.size() <= 3);
@@ -1089,8 +1100,9 @@ void test_preview_bands() {
   context.network_connected = false;
   br::BandData offline;
   offline.as_of = "07:12";
-  TEST_ASSERT_EQUAL_STRING("Guten Morgen. Keine Verbindung \u2013 die Angaben sind von 07:12.",
-                           br::bandSentence(context, offline).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. Keine Verbindung zum WLAN \u2013 die Angaben sind von 07:12.",
+      br::bandSentence(context, offline).c_str());
   context.now_s = 0;  // no time yet
   TEST_ASSERT_EQUAL_STRING("", br::bandSentence(context, br::BandData{}).c_str());
 }
@@ -1116,14 +1128,13 @@ void test_sentence_parts() {
   TEST_ASSERT_TRUE(parts[1].topic == br::Topic::kCancellation);
   TEST_ASSERT_TRUE(parts[2].topic == br::Topic::kWeather);
   TEST_ASSERT_EQUAL_STRING("Die S2 um\u00a007:54 nach Dachau fällt aus.", parts[1].text.c_str());
-  // Offline and a cancellation leave no room for the weather (they come
-  // first).
+  // The long offline notice would leave no room for the cancellation; its
+  // shorter form makes room (the weather still does not fit).
   std::string used;
   const br::SentenceLayout layout = br::layoutParts("Guten Morgen.", parts, &used);
   TEST_ASSERT_TRUE(layout.lines.size() <= 3);
   TEST_ASSERT_EQUAL_STRING(
-      "Guten Morgen. Keine Verbindung – die Angaben sind von 07:12. Die S2 um\u00a007:54 nach "
-      "Dachau fällt aus.",
+      "Guten Morgen. Kein WLAN – Stand 07:12. Die S2 um\u00a007:54 nach Dachau fällt aus.",
       used.c_str());
   // Too long for three lines: the weather in its shorter form.
   in.online = true;
@@ -1134,30 +1145,35 @@ void test_sentence_parts() {
       used.c_str());
   // A part that does not fit even in its shorter form is left out.
   const std::vector<br::Part> skip = {
-      {br::Topic::kOffline, "Keine Verbindung – die Angaben sind von 07:12.", ""},
+      {br::Topic::kOffline, "Kein WLAN seit 07:12.", ""},
       {br::Topic::kCancellation, "Die S2 um\u00a007:54 nach Dachau fällt aus.", ""},
       {br::Topic::kWeather,
        "Heute regnet es den ganzen Tag und am Abend kommt noch ein Gewitter dazu.",
        "Heute regnet es den ganzen Tag und abends gibt es Gewitter."}};
   br::layoutParts("Guten Morgen.", skip, &used);
   TEST_ASSERT_EQUAL_STRING(
-      "Guten Morgen. Keine Verbindung – die Angaben sind von 07:12. Die S2 um\u00a007:54 nach "
-      "Dachau fällt aus.",
+      "Guten Morgen. Kein WLAN seit 07:12. Die S2 um\u00a007:54 nach Dachau fällt aus.",
       used.c_str());
 }
 
 void test_cancellations() {
   const auto de = ui::Language::kGerman;
   std::vector<widgets::mvg::Section> sections(2);
-  // Only among the next two departures of both sections together.
+  // Among the next two departures of each section (direction) for itself
+  // (2026-10-28): two trains of the other direction come first, the
+  // cancellation is still said.
   sections[0].departures = {departure("S2", "Dachau", kMorning + 20 * 60, true)};
   sections[1].departures = {departure("S2", "Erding", kMorning + 7 * 60, false),
-                            departure("S2", "Erding", kMorning + 27 * 60, false)};
+                            departure("S2", "Markt Schwaben", kMorning + 12 * 60, false)};
   TEST_ASSERT_EQUAL_STRING("Die S2 um\u00a008:02 nach Dachau fällt aus.",
                            br::cancellationText(sections, kMorning, de).c_str());
-  sections[1].departures.push_back(departure("S2", "Markt Schwaben", kMorning + 12 * 60, false));
+  // Not the third departure of a section.
+  sections[0].departures = {departure("S2", "Dachau", kMorning + 2 * 60, false),
+                            departure("S2", "Dachau", kMorning + 10 * 60, false),
+                            departure("S2", "Dachau", kMorning + 20 * 60, true)};
   TEST_ASSERT_EQUAL_STRING("", br::cancellationText(sections, kMorning, de).c_str());
-  // At most one: the first.
+  // At most one: the earliest of all sections.
+  sections[0].departures = {departure("S2", "Dachau", kMorning + 20 * 60, true)};
   sections[1].departures = {departure("S2", "Erding", kMorning + 5 * 60, true)};
   TEST_ASSERT_EQUAL_STRING(
       "The S2 at\u00a007:47 to Erding is cancelled.",
@@ -1166,6 +1182,130 @@ void test_cancellations() {
   sections[0].departures = {departure("S2", "Dachau", kMorning + 2 * 3600, true)};
   sections[1].departures = {departure("S2", "Erding", kMorning - 60, true)};
   TEST_ASSERT_EQUAL_STRING("", br::cancellationText(sections, kMorning, de).c_str());
+}
+
+// Widgets whose updates fail: named after the offline part's rank, only with
+// Wi-Fi (2026-10-28).
+void test_failed_updates() {
+  const auto de = ui::Language::kGerman;
+  using S = br::Source;
+  TEST_ASSERT_EQUAL_STRING("", br::failureText({}, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Die Abfahrten lassen sich gerade nicht abrufen – Stand 07:41.",
+                           br::failureText({{S::kDepartures, "07:41"}}, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Das Wetter lässt sich gerade nicht abrufen.",
+                           br::failureText({{S::kWeather, ""}}, de).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Wetter, Abfahrten und Kalender lassen sich gerade nicht abrufen.",
+      br::failureText({{S::kWeather, ""}, {S::kDepartures, "07:41"}, {S::kCalendar, ""}}, de)
+          .c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Weather and calendar cannot be loaded right now.",
+      br::failureText({{S::kWeather, ""}, {S::kCalendar, ""}}, ui::Language::kEnglish).c_str());
+  br::SentenceInput in;
+  in.now_s = kMorning;
+  in.failed = {{S::kDepartures, "07:41"}};
+  std::vector<br::Part> parts = br::sentenceParts(in);
+  TEST_ASSERT_EQUAL_size_t(1, parts.size());
+  TEST_ASSERT_TRUE(parts[0].topic == br::Topic::kFailure);
+  // Offline: only the Wi-Fi.
+  in.online = false;
+  in.as_of = "07:12";
+  parts = br::sentenceParts(in);
+  TEST_ASSERT_EQUAL_size_t(1, parts.size());
+  TEST_ASSERT_EQUAL_STRING("Keine Verbindung zum WLAN – die Angaben sind von 07:12.",
+                           parts[0].text.c_str());
+}
+
+// Tomorrow from the first full hour after sunset, between 18 and 21 h
+// (2026-10-28).
+void test_evening_start_by_sunset() {
+  auto withNight = [](int first_night_hour, int64_t midnight = kMidnight) {
+    wx::Forecast f = forecast(course(7, 14), {0}, Condition::kClear, Condition::kClear, midnight);
+    for (int h = 0; h < 24; h++) f.hours[h].day = h >= 7 && h < first_night_hour;
+    return f;
+  };
+  TEST_ASSERT_EQUAL_INT(18, br::eveningStartHour(withNight(17), kMorning));  // winter: 16:20
+  TEST_ASSERT_EQUAL_INT(20, br::eveningStartHour(withNight(20), kMorning));  // September
+  TEST_ASSERT_EQUAL_INT(21, br::eveningStartHour(withNight(22), kMorning));  // June: 21:15
+  wx::Forecast polar = withNight(24);
+  TEST_ASSERT_EQUAL_INT(21, br::eveningStartHour(polar, kMorning));
+  // Without hours of today: 18 h in winter time, 19 h in summer time
+  // (2026-10-20 is summer time; 2026-11-20 winter time).
+  wx::Forecast none = withNight(18);
+  none.hours.clear();
+  TEST_ASSERT_EQUAL_INT(19, br::eveningStartHour(none, kMorning));
+  TEST_ASSERT_EQUAL_INT(18, br::eveningStartHour(none, kMorning + 31 * kDay));
+  // In June at 20:15 the sentence is still about the evening, at 21 h about
+  // tomorrow.
+  const wx::Forecast june = withNight(22);
+  TEST_ASSERT_TRUE(br::weatherPeriod(june, kMidnight + 20 * 3600 + 15 * 60) == br::Greeting::kDay);
+  TEST_ASSERT_TRUE(br::weatherPeriod(june, kMidnight + 21 * 3600) == br::Greeting::kEvening);
+  TEST_ASSERT_TRUE(br::weatherPeriod(june, kMidnight + 10 * 3600) == br::Greeting::kMorning);
+}
+
+// After sunset and before tomorrow: the evening, with the sky of now like the
+// band picture (2026-10-28).
+void test_evening_after_sunset() {
+  const std::string nb = "\u00a0";
+  // Sunny afternoon, clear night from 17 h; at 17:30 the picture is the moon.
+  wx::Forecast f =
+      forecast(course(4, 11), {0}, Condition::kClear, Condition::kClear, kMidnight, false);
+  for (int h = 0; h < 24; h++) f.hours[h].day = h >= 7 && h <= 16;
+  const int64_t dusk = kMidnight + 17 * 3600 + 30 * 60;
+  TEST_ASSERT_EQUAL_INT(18, br::eveningStartHour(f, dusk));
+  TEST_ASSERT_TRUE(br::summarize(f, dusk).picture == ui::WeatherIcon::kMoon);
+  const std::string t = text(f, dusk);
+  TEST_ASSERT_TRUE_MESSAGE(t.find("Abend") != std::string::npos, t.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(t.find("Nachmittag") == std::string::npos, t.c_str());
+  TEST_ASSERT_TRUE_MESSAGE(t.find("sonnig") == std::string::npos, t.c_str());
+  // Fog now: a foggy evening, as the picture.
+  f.current.condition = Condition::kFog;
+  TEST_ASSERT_TRUE(br::summarize(f, dusk).picture == ui::WeatherIcon::kFog);
+  TEST_ASSERT_TRUE_MESSAGE(text(f, dusk).find("eblig") != std::string::npos, text(f, dusk).c_str());
+}
+
+// Tomorrow: the weather word of the daily code (the symbol of the column),
+// the times from the hours (2026-10-28).
+void test_tomorrow_follows_the_daily_code() {
+  const std::string nb = "\u00a0";
+  const int64_t evening = kMidnight + 20 * 3600 + 15 * 60;
+  // Fog in the daily code, only at night in the hours: "zeitweise".
+  wx::Forecast fog = forecast(course(7, 14), {0});
+  fog.days[1].condition = Condition::kFog;
+  std::vector<Condition> sky(24, Condition::kClear);
+  sky[22] = sky[23] = Condition::kFog;
+  addTomorrow(fog, {0}, sky);
+  for (size_t i = 24; i < fog.hours.size(); i++) {
+    const int h = static_cast<int>(i) - 24;
+    fog.hours[i].day = h >= 7 && h <= 17;
+  }
+  TEST_ASSERT_EQUAL_STRING(("Morgen zeitweise neblig, sonst trocken, bis" + nb + "13°.").c_str(),
+                           text(fog, evening).c_str());
+  // Sunny code with dense morning fog in the hours: the code wins, no fog.
+  wx::Forecast clear = forecast(course(7, 14), {0});
+  clear.days[1].condition = Condition::kClear;
+  std::vector<Condition> morning_fog(24, Condition::kClear);
+  for (int h = 0; h <= 10; h++) morning_fog[h] = Condition::kFog;
+  addTomorrow(clear, {0}, morning_fog);
+  TEST_ASSERT_TRUE(text(clear, evening).find("Nebel") == std::string::npos);
+  TEST_ASSERT_TRUE(text(clear, evening).find("sonn") != std::string::npos ||
+                   text(clear, evening).find("Sonne") != std::string::npos);
+  // Likely rain in the hours, but a dry code (cloud in the column): no
+  // umbrella, only "vielleicht".
+  wx::Forecast wet = forecast(course(7, 14), {0});
+  wet.days[1].condition = Condition::kOvercast;
+  std::vector<int> rain(24, 0);
+  for (int h = 10; h < 24; h++) rain[h] = 80;
+  addTomorrow(wet, rain, {Condition::kOvercast});
+  TEST_ASSERT_EQUAL_STRING(
+      ("Morgen ab 10" + nb + "Uhr vielleicht Regen, bis" + nb + "13°.").c_str(),
+      text(wet, evening).c_str());
+  // Rain in the code, but not from 6 to 22 h: rain "zeitweise".
+  wx::Forecast night_rain = forecast(course(7, 14), {0});
+  night_rain.days[1].condition = Condition::kRain;
+  addTomorrow(night_rain, {0}, {Condition::kOvercast});
+  TEST_ASSERT_EQUAL_STRING(("Morgen zeitweise Regen, sonst trocken, bis" + nb + "13°.").c_str(),
+                           text(night_rain, evening).c_str());
 }
 
 void test_preview_band_topics() {
@@ -1220,6 +1360,10 @@ int main() {
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
   RUN_TEST(test_sentence_parts);
   RUN_TEST(test_cancellations);
+  RUN_TEST(test_failed_updates);
+  RUN_TEST(test_evening_start_by_sunset);
+  RUN_TEST(test_evening_after_sunset);
+  RUN_TEST(test_tomorrow_follows_the_daily_code);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
   RUN_TEST(test_chart_from_values_every_15_minutes);
   RUN_TEST(test_rain_bar_heights);

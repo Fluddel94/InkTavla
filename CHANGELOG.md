@@ -249,6 +249,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Band sentence: tomorrow's weather from the first full hour after sunset,
+  between 18:00 and 21:00 (before: always 18:00); between sunset and then
+  the sentence talks about the evening with the sky of now, like the band
+  picture. Tomorrow's weather word is the daily code of Open-Meteo (the
+  symbol of the weather column), "Schirm einpacken" only if it is wet, night
+  fog or rain of the code is "zeitweise". Picture and sentence share one
+  rain rule. Up to three wordings per dry weather.
+- Band sentence: "Keine Verbindung zum WLAN – …" (shorter "Kein WLAN – Stand
+  …" if that makes room); with Wi-Fi a note on widgets whose updates fail
+  ("Die Abfahrten lassen sich gerade nicht abrufen – Stand 07:41."). A
+  cancellation counts among the next two departures of each direction or
+  station (before: of all sections together).
 - Weather column: the symbols of the next three days show the daily code of
   Open-Meteo again (no longer made from hours).
 - Band picture: from sunrise to sunset the weather of the rest of the
