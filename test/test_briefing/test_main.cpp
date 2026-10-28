@@ -442,9 +442,9 @@ void test_picture_follows_the_weather_of_now() {
   const wx::Forecast clear = forecast(temps, {0}, Condition::kOvercast, Condition::kClear);
   TEST_ASSERT_TRUE(br::summarize(clear, kMorning).picture == ui::WeatherIcon::kSun);
   TEST_ASSERT_EQUAL_STRING(
-      "Jetzt 10°", br::nowText(br::summarize(clear, kMorning), ui::Language::kGerman).c_str());
+      "10°", br::nowText(br::summarize(clear, kMorning), ui::Language::kGerman).c_str());
   TEST_ASSERT_EQUAL_STRING(
-      "Now 10°", br::nowText(br::summarize(clear, kMorning), ui::Language::kEnglish).c_str());
+      "10°", br::nowText(br::summarize(clear, kMorning), ui::Language::kEnglish).c_str());
   // Clear night: the moon (the weather of now, not of tomorrow).
   TEST_ASSERT_TRUE(
       br::summarize(forecast(temps, {0}, Condition::kOvercast, Condition::kClear, kMidnight, false),

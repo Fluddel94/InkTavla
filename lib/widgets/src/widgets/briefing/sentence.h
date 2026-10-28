@@ -96,7 +96,7 @@ struct WeatherSummary {
 // Today's weather from the forecast as of now_s (local time of the device).
 WeatherSummary summarize(const weather::Forecast& forecast, int64_t now_s);
 
-// "Jetzt 8°" / "Now 8°" below the picture.
+// "8°" (temperature of now) below the picture.
 std::string nowText(const WeatherSummary& summary, ui::Language language);
 
 // The weather sentence for the time of day of now_s (see above); "" without

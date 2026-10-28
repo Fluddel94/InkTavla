@@ -2,7 +2,7 @@
 
 // The band at the top of the "Briefing" layout (800 x 205): header line
 // with date and time, the sentence (Fraunces, up to three lines) and the
-// weather picture with the temperature of now ("Jetzt 8°") on the right, the
+// weather picture with the temperature of now ("8°") on the right, the
 // rule below.
 //
 // The band always shows the clock; parts whose source has no fresh data are
@@ -38,7 +38,7 @@ inline constexpr int kSentenceX = ui::kMargin - 2;  // Fraunces has a small left
 inline constexpr int kPictureX = ui::kScreenWidth - ui::kMargin - 150;
 inline constexpr int kSentenceWidth = kPictureX - 32 - kSentenceX;
 inline constexpr int kPictureY = 18;
-// "Jetzt 8°": centred under the drawn part of the picture, at most up to the
+// "8°": centred under the drawn part of the picture, at most up to the
 // right edge of the rule.
 inline constexpr int kNowBaseline = 186;
 inline constexpr int kRuleY = 204;

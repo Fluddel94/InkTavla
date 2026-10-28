@@ -792,9 +792,8 @@ WeatherSummary summarize(const Forecast& forecast, int64_t now_s) {
   return s;
 }
 
-std::string nowText(const WeatherSummary& summary, ui::Language language) {
-  return (language == ui::Language::kGerman ? "Jetzt " : "Now ") + std::to_string(summary.current) +
-         "°";
+std::string nowText(const WeatherSummary& summary, ui::Language /*language*/) {
+  return std::to_string(summary.current) + "°";
 }
 
 std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Language language,
