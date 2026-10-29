@@ -149,6 +149,35 @@ void test_conditions() {
                    ui::WeatherIcon::kMoon);
 }
 
+void test_day_icons_by_code() {
+  // Forecast days (2026-10-29): rain by intensity, showers with the sun,
+  // freezing drizzle and rain; other codes as the condition by day.
+  using widgets::weather::dayIcon;
+  using W = ui::WeatherIcon;
+  const struct {
+    int code;
+    W icon;
+  } cases[] = {{51, W::kRainLight}, {55, W::kRainLight},    {61, W::kRainLight},
+               {63, W::kRain},      {65, W::kRainHeavy},    {80, W::kShowers},
+               {82, W::kShowers},   {56, W::kFreezingRain}, {67, W::kFreezingRain},
+               {0, W::kSun},        {3, W::kCloudy},        {73, W::kSnow},
+               {95, W::kThunder},   {45, W::kFog}};
+  for (const auto& c : cases) {
+    TEST_ASSERT_TRUE_MESSAGE(dayIcon(c.code, Condition::kUnknown) == c.icon,
+                             std::to_string(c.code).c_str());
+  }
+  // Without a code the condition decides (by day).
+  TEST_ASSERT_TRUE(dayIcon(-1, Condition::kClear) == W::kSun);
+  TEST_ASSERT_TRUE(dayIcon(-1, Condition::kRain) == W::kRain);
+  // The code is kept from the response.
+  const Forecast f = load();
+  for (const auto& d : f.days) TEST_ASSERT_TRUE(d.code >= 0);
+  // The band keeps the umbrella for every rain symbol of the days.
+  for (W w : {W::kRainLight, W::kRainHeavy, W::kShowers, W::kFreezingRain}) {
+    TEST_ASSERT_EQUAL_PTR(ui::bandIcon(W::kRain).bits, ui::bandIcon(w).bits);
+  }
+}
+
 void test_temperature() {
   TEST_ASSERT_EQUAL_INT(0, widgets::weather::displayTemperature(-0.4f));
   TEST_ASSERT_EQUAL_INT(-1, widgets::weather::displayTemperature(-0.6f));
@@ -310,6 +339,7 @@ int main() {
   RUN_TEST(test_parse_precipitation);
   RUN_TEST(test_parse_rejects_broken);
   RUN_TEST(test_conditions);
+  RUN_TEST(test_day_icons_by_code);
   RUN_TEST(test_temperature);
   RUN_TEST(test_day_symbol_case_of_the_27th);
   RUN_TEST(test_day_symbol_ignores_the_night);

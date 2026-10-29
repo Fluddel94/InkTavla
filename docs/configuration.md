@@ -395,17 +395,11 @@ days; the band at the top uses the same data for its sentence and picture.
 Temperatures are in degrees Celsius. The column title is the place (`name`)
 with the location pin and the credit "Open-Meteo" on the right.
 
-The symbol of a day is made from its hours from 8 to 18 o'clock, not from
-the daily code of Open-Meteo (that one is the "worst" weather of the whole
-day, so fog at 22:00 made a sunny day foggy):
-
-1. a thunderstorm in at least one hour: thunderstorm;
-2. 1 mm of precipitation or more in all, or at least three hours with
-   0.1 mm or more: rain (snow if most of those hours have snow);
-3. fog in at least half of the hours: fog;
-4. otherwise the most frequent of sunny, partly cloudy and overcast (the
-   cloudier one on a tie);
-5. partly cloudy, but with sunshine in at least 70 % of the time: sunny.
+The symbol of each of the next three days follows the daily weather code of
+Open-Meteo. Rain is shown by its intensity: one stroke below the cloud for
+drizzle and slight rain, two for moderate and three for heavy rain. Showers
+have the sun behind the cloud, freezing drizzle and freezing rain a snow star
+between two strokes. The band always shows the umbrella for rain.
 
 Each bar shows the precipitation (rain and snow as water) of one hour and
 stands between its hour marks: Open-Meteo gives the sum of the preceding
@@ -433,7 +427,7 @@ Open-Meteo is free for non-commercial use; the data is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the
 source ("Open-Meteo") is named in the title of the weather column (the age
 badge takes its place while the data is old). The values are shown rounded,
-and the day symbols are computed from the hourly values as described above.
+and the curve of the day is averaged from the hourly values.
 
 ### `calendar`: Calendar agenda
 

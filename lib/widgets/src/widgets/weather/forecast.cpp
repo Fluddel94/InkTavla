@@ -77,6 +77,32 @@ ui::WeatherIcon conditionIcon(Condition condition, bool day) {
   return ui::WeatherIcon::kCloudy;
 }
 
+ui::WeatherIcon dayIcon(int code, Condition condition) {
+  switch (code) {
+    case 51:
+    case 53:
+    case 55:
+    case 61:
+      return ui::WeatherIcon::kRainLight;
+    case 63:
+      return ui::WeatherIcon::kRain;
+    case 65:
+      return ui::WeatherIcon::kRainHeavy;
+    case 80:
+    case 81:
+    case 82:
+      return ui::WeatherIcon::kShowers;
+    case 56:
+    case 57:
+    case 66:
+    case 67:
+      return ui::WeatherIcon::kFreezingRain;
+    default:
+      break;
+  }
+  return conditionIcon(code < 0 ? condition : conditionFromWmo(code), true);
+}
+
 JsonDocument forecastFilter() {
   JsonDocument filter;
   for (const char* key : {"time", "temperature_2m", "weather_code", "is_day"}) {
@@ -140,7 +166,8 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
     d.time = day_times[i].as<int64_t>();
     d.high = highs[i].as<float>();
     d.low = lows[i].as<float>();
-    d.condition = conditionFromWmo(i < day_codes.size() ? (day_codes[i] | -1) : -1);
+    d.code = i < day_codes.size() ? (day_codes[i] | -1) : -1;
+    d.condition = conditionFromWmo(d.code);
     result.days.push_back(d);
   }
   if (result.hours.empty() || result.days.empty()) return false;

@@ -28,6 +28,16 @@ const Icon& weatherIcon(WeatherIcon kind, int size) {
 }
 
 const Icon& bandIcon(WeatherIcon kind) {
+  switch (kind) {
+    case WeatherIcon::kRainLight:
+    case WeatherIcon::kRainHeavy:
+    case WeatherIcon::kShowers:
+    case WeatherIcon::kFreezingRain:
+      kind = WeatherIcon::kRain;
+      break;
+    default:
+      break;
+  }
   for (size_t i = 0; i < kBandIconCount; i++) {
     if (kBandIcons[i].kind == kind) return kBandIcons[i].icon;
   }

@@ -31,6 +31,11 @@ enum class Condition {
 
 Condition conditionFromWmo(int code);
 ui::WeatherIcon conditionIcon(Condition condition, bool day);
+// Symbol of a forecast day from the daily WMO code (2026-10-29): rain by
+// intensity (drizzle and slight rain 1 stroke, moderate 2, heavy 3),
+// showers with the sun, freezing drizzle/rain with a snow star; other codes
+// as conditionIcon() by day. Unknown codes (-1) fall back to `condition`.
+ui::WeatherIcon dayIcon(int code, Condition condition);
 
 struct Current {
   int64_t time = 0;  // Unix seconds
@@ -58,6 +63,7 @@ struct Day {
   float high = 0;
   float low = 0;
   Condition condition = Condition::kUnknown;
+  int code = -1;  // daily WMO code of Open-Meteo, -1 if unknown
 };
 
 struct Forecast {

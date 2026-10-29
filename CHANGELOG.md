@@ -252,6 +252,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Weather column: rain symbols of the forecast days by intensity (one,
+  two or three strokes for slight, moderate and heavy rain; drizzle counts as
+  slight), showers with the sun behind the cloud and a new symbol for
+  freezing drizzle and rain (two strokes and a snow star); the snow symbol
+  has snow stars instead of crosses. The band keeps the umbrella.
 - Weather column: the temperature curve runs smoothly (hourly values, each
   averaged with its neighbours 1-2-1); the labels keep the values of their
   hours. Rain bars up to 40 px (was 30), so light rain is easier to see

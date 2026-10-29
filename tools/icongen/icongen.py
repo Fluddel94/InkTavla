@@ -39,6 +39,15 @@ WEATHER = [
     ("kSnow", "snow"),
     ("kThunder", "thunder"),
 ]
+# Only for the days of the weather column (38 px; 2026-10-29): rain by
+# intensity (light 1 stroke, kRain 2, heavy 3), showers with the sun,
+# freezing rain (also sleet). The band keeps the umbrella for all of them.
+DAY_ONLY = [
+    ("kRainLight", "rain_light"),
+    ("kRainHeavy", "rain_heavy"),
+    ("kShowers", "showers"),
+    ("kFreezingRain", "freezing"),
+]
 # Sizes: (pixel size, stroke). The symbols fill their square (the drawing
 # scaled up until it touches the edges): the days of the weather column.
 TIGHT_SIZES = [(38, 2.6)]
@@ -64,6 +73,20 @@ def rline(d, p0, p1, w):
     d.line([p0, p1], fill=255, width=int(w))
     for (x, y) in (p0, p1):
         d.ellipse((x - w / 2, y - w / 2, x + w / 2, y + w / 2), fill=255)
+
+
+def star(d, x, y, r, w):
+    """Small snow star: three strokes crossing at 60 degrees."""
+    for k in range(3):
+        a = math.pi / 2 + k * math.pi / 3
+        rline(d, (x - math.cos(a) * r, y - math.sin(a) * r),
+              (x + math.cos(a) * r, y + math.sin(a) * r), w)
+
+
+def strokes(d, n, xs, st):
+    """Slanted rain strokes below the cloud."""
+    for x in xs:
+        rline(d, (n * x, n * 0.74), (n * (x - 0.07), n * 0.92), st)
 
 
 def sun(d, cx, cy, r, st, ray_len):
@@ -137,16 +160,29 @@ def weather(kind, size, stroke):
             cloud(d, n * 0.22, n * 0.88, n * 0.76, st, gap=st * 1.3)
         elif kind == "cloud":
             cloud(d, n * 0.06, n * 0.78, n * 0.88, st)
-        elif kind == "rain":
+        elif kind in ("rain_light", "rain", "rain_heavy"):
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
-            for x in (0.32, 0.52, 0.72):
-                rline(d, (n * x, n * 0.74), (n * (x - 0.07), n * 0.92), st)
+            strokes(d, n, {"rain_light": (0.52,), "rain": (0.42, 0.62),
+                           "rain_heavy": (0.32, 0.52, 0.72)}[kind], st)
+        elif kind == "showers":
+            # Sun behind the cloud (rays only where they show), rain below.
+            cx, cy, r = n * 0.33, n * 0.30, n * 0.11
+            d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+            for i in range(3, 8):
+                a = i * math.pi / 4
+                rline(d, (cx + math.cos(a) * r * 1.75, cy + math.sin(a) * r * 1.75),
+                      (cx + math.cos(a) * r * 2.75, cy + math.sin(a) * r * 2.75), st)
+            cloud(d, n * 0.22, n * 0.70, n * 0.76, st, gap=st * 1.3)
+            for x in (0.44, 0.62, 0.80):
+                rline(d, (n * x, n * 0.80), (n * (x - 0.06), n * 0.94), st)
+        elif kind == "freezing":
+            cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
+            strokes(d, n, (0.30, 0.74), st)
+            star(d, n * 0.50, n * 0.84, n * 0.085, st * 0.75)
         elif kind == "snow":
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
-            for x, y in ((0.30, 0.80), (0.52, 0.86), (0.74, 0.80)):
-                r = n * 0.065
-                rline(d, (n * x - r, n * y), (n * x + r, n * y), st * 0.8)
-                rline(d, (n * x, n * y - r), (n * x, n * y + r), st * 0.8)
+            for x, y in ((0.28, 0.82), (0.52, 0.86), (0.76, 0.82)):
+                star(d, n * x, n * y, n * 0.085, st * 0.75)
         elif kind == "thunder":
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
             d.polygon([(n * 0.56, n * 0.60), (n * 0.40, n * 0.80), (n * 0.52, n * 0.80),
@@ -297,7 +333,7 @@ def main():
         "",
     ]
     table = []
-    for enum, kind in WEATHER:
+    for enum, kind in WEATHER + DAY_ONLY:
         for size, stroke in TIGHT_SIZES:
             name = f"k{kind.title().replace('_', '')}{size}Tight"
             lines += array(name, tight(kind, size, stroke)) + [""]

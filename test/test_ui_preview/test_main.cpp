@@ -188,6 +188,12 @@ void test_briefing_symbols() {
     ui::drawIcon(c, 12 + i * 46, 312, ui::weatherIcon(band[i].kind, 38));
   }
   caption(c, 214, 364, "Wettersymbole 38 px (Vorhersagetage)");
+  // Only for the forecast days: rain by intensity, showers, freezing rain.
+  const W extra[] = {W::kRainLight, W::kRain, W::kRainHeavy, W::kShowers, W::kFreezingRain};
+  for (int i = 0; i < 5; i++) {
+    ui::drawIcon(c, 440 + i * 46, 400, ui::weatherIcon(extra[i], 38));
+  }
+  caption(c, 554, 452, "Regen schwach/m\u00e4\u00dfig/stark, Schauer, Gefrierregen");
 
   // Small symbols.
   ui::drawIcon(c, 440, 330, ui::kCalendarIcon);
