@@ -333,6 +333,64 @@ void test_controller_counts_the_grace_period_from_the_start() {
   TEST_ASSERT_FALSE(c.state().network_connected);
 }
 
+void test_controller_start_screen_waits_for_the_network_and_first_results() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  FakeContent b;
+  FakeContent header(false);
+  c.addContent(a);
+  c.addContent(b);
+  c.addContent(header);
+  c.enableStartScreen();
+  a.succeed = false;
+  b.succeed = false;
+
+  // Failures without a network are no result: the start screen stays, also
+  // after the time limit.
+  c.step();
+  TEST_ASSERT_TRUE(c.state().starting);
+  TEST_ASSERT_FALSE(c.state().network_up);
+  clock.advance(60000);
+  c.step();
+  TEST_ASSERT_TRUE(c.starting());
+
+  // Connected: a's data and b's failure are both results.
+  a.succeed = true;
+  const size_t before = display.updates().size();
+  c.setNetworkConnected(true);
+  c.step();
+  TEST_ASSERT_FALSE(c.starting());
+  TEST_ASSERT_FALSE(c.state().starting);
+  TEST_ASSERT_TRUE(c.state().network_up);
+  TEST_ASSERT_EQUAL_size_t(before + 1, display.updates().size());
+  TEST_ASSERT_TRUE(display.updates().back().mode == hal::Refresh::kFull);
+}
+
+void test_controller_start_screen_ends_with_a_wifi_notice_or_the_time_limit() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a(true, false);  // not set up: nothing to wait for
+  c.addContent(a);
+  c.enableStartScreen();
+  c.step();
+  TEST_ASSERT_TRUE(c.starting());  // no network yet
+  core::AccessNotice notice;
+  notice.mode = core::AccessMode::kWifiNotConnected;
+  c.setAccessNotice(notice);
+  c.step();
+  TEST_ASSERT_FALSE(c.starting());
+
+  // Time limit: 20 s after the start, or 15 s after a later first
+  // connection.
+  TEST_ASSERT_EQUAL_INT64(20000, core::DisplayController::kStartMaxMs);
+  TEST_ASSERT_EQUAL_INT64(15000, core::DisplayController::kStartAfterConnectMs);
+}
+
 void test_controller_without_wall_clock_uses_plain_intervals() {
   FakeClock clock;
   clock.wall_valid = false;
@@ -365,6 +423,8 @@ int main() {
   RUN_TEST(test_controller_redraws_on_network_change_and_request);
   RUN_TEST(test_controller_shows_a_lost_connection_after_the_grace_period);
   RUN_TEST(test_controller_counts_the_grace_period_from_the_start);
+  RUN_TEST(test_controller_start_screen_waits_for_the_network_and_first_results);
+  RUN_TEST(test_controller_start_screen_ends_with_a_wifi_notice_or_the_time_limit);
   RUN_TEST(test_controller_without_wall_clock_uses_plain_intervals);
   return UNITY_END();
 }

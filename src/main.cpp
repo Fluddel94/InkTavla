@@ -167,6 +167,11 @@ void setup() {
   }
   app->configure(config.as<JsonObjectConst>(), issues);
   printIssues(issues);
+  {
+    std::string password;
+    core::Wifi::loadCredentials(wifi_network, password);
+    app->setStartInfo({core::kFirmwareVersion, wifi_network});
+  }
 
   core::SerialLinkOptions link;
   link.firmware_version = core::kFirmwareVersion;

@@ -26,5 +26,6 @@ extern const Font kFraunces24Medium;  // weight 500
 extern const Font kFraunces20;        // weight 420
 extern const Font kFraunces20Bold;    // weight 640
 extern const Font kFraunces18;        // weight 420
+extern const Font kFraunces96Bold;    // weight 640, only the letters of "InkTavla"
 
 }  // namespace ui::fonts

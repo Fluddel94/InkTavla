@@ -261,14 +261,64 @@ void test_short_outage_is_bridged_then_age_is_shown() {
 }
 
 void test_no_connection_from_the_start() {
+  // Without Wi-Fi the start screen stays and says so.
   Rig rig(kConfig, "offline");
+  rig.app.setStartInfo({"0.1.0", "Heimnetz"});
   rig.source.fail = true;
   rig.runUntil(30000);
+  TEST_ASSERT_TRUE(rig.app.controller().starting());
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kWaiting);
+  TEST_ASSERT_EQUAL_size_t(1, rig.display.updates().size());
   checkPanel(rig.display, "sim_waiting");
-  rig.runUntil(75000);
+
+  // Connected: weather and calendar arrive, the departures fail. That is a
+  // result too, so the briefing follows at once, with a full refresh.
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(31000);
+  TEST_ASSERT_FALSE(rig.app.controller().starting());
+  TEST_ASSERT_TRUE(rig.display.updates().back().mode == hal::Refresh::kFull);
+
+  // The connection is lost again: without ever having departures the column
+  // shows "Keine Verbindung" once both grace periods are over.
+  rig.app.controller().setNetworkConnected(false);
+  rig.runUntil(95000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kNoData);
+  TEST_ASSERT_FALSE(rig.app.controller().state().network_connected);
   checkPanel(rig.display, "sim_no_connection");
+}
+
+void test_start_screen() {
+  // Data at the first connection: the start screen is not even drawn, the
+  // first frame is the briefing (in the simulation fetches take no time).
+  {
+    Rig rig(kConfig, "start_connected");
+    rig.app.controller().setNetworkConnected(true);
+    rig.runUntil(0);
+    TEST_ASSERT_FALSE(rig.app.controller().starting());
+    TEST_ASSERT_FALSE(rig.app.controller().state().starting);
+  }
+  // No Wi-Fi saved: the Wi-Fi setup screen replaces the start screen at once.
+  {
+    Rig rig(kConfig, "start_no_wifi");
+    rig.runUntil(1000);
+    TEST_ASSERT_TRUE(rig.app.controller().state().starting);
+    core::AccessNotice wifi;
+    wifi.mode = core::AccessMode::kWifiNotSetUp;
+    rig.app.controller().setAccessNotice(wifi);
+    rig.runUntil(2000);
+    TEST_ASSERT_FALSE(rig.app.controller().state().starting);
+    TEST_ASSERT_TRUE(rig.display.updates().back().mode == hal::Refresh::kFull);
+  }
+  // The settings page (reopened after saving) does not end it.
+  {
+    Rig rig(kConfig, "start_settings");
+    core::AccessNotice settings;
+    settings.mode = core::AccessMode::kSettings;
+    settings.code = "482913";
+    rig.app.controller().setAccessNotice(settings);
+    rig.runUntil(1000);
+    TEST_ASSERT_TRUE(rig.app.controller().starting());
+  }
 }
 
 void test_station_name_from_the_api() {
@@ -287,6 +337,7 @@ void test_missing_settings_and_unknown_widget() {
   bool unknown = false;
   for (const core::ConfigIssue& i : rig.issues) unknown = unknown || i.path == "layout.slots";
   TEST_ASSERT_TRUE(unknown);
+  rig.app.controller().setNetworkConnected(true);
   rig.runUntil(120000);
   TEST_ASSERT_EQUAL_INT(0, rig.source.requests);    // no station: nothing fetched
   TEST_ASSERT_EQUAL_INT(0, rig.calendar.requests);  // no address: nothing fetched
@@ -462,6 +513,7 @@ int main() {
   RUN_TEST(test_normal_operation_and_refresh_types);
   RUN_TEST(test_short_outage_is_bridged_then_age_is_shown);
   RUN_TEST(test_no_connection_from_the_start);
+  RUN_TEST(test_start_screen);
   RUN_TEST(test_station_name_from_the_api);
   RUN_TEST(test_missing_settings_and_unknown_widget);
   RUN_TEST(test_widget_in_a_column_it_does_not_fit);

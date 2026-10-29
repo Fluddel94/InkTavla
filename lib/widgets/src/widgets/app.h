@@ -9,6 +9,7 @@
 #include <ArduinoJson.h>
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "core/config.h"
@@ -39,6 +40,10 @@ class App {
   // Data sources in the order of the controller's contents (the order the
   // widgets first appear in layout.slots).
   const std::vector<std::unique_ptr<DataSource>>& sources() const { return sources_; }
+
+  // Firmware version and name of the saved Wi-Fi for the start screen
+  // (after configure()).
+  void setStartInfo(briefing::StartInfo info) { screen_->setStartInfo(std::move(info)); }
 
   // One pass of the main loop; returns the milliseconds to wait.
   int64_t step() { return controller_->step(); }

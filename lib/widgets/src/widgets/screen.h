@@ -17,7 +17,9 @@
 //
 // While the settings page is open, the band shows its notice instead of the
 // sentence; without Wi-Fi (see core::wifiNoticeMode()) the whole screen
-// shows how to set it up (widgets/briefing/access.h).
+// shows how to set it up (widgets/briefing/access.h). After the start, until
+// the first data, the whole screen shows the start screen
+// (widgets/briefing/start.h).
 
 #include <cstdint>
 #include <string>
@@ -28,6 +30,7 @@
 #include "ui/bitmap.h"
 #include "ui/i18n.h"
 #include "ui/layout.h"
+#include "widgets/briefing/start.h"
 #include "widgets/widget.h"
 
 namespace widgets {
@@ -45,6 +48,8 @@ class Screen : public core::ScreenRenderer {
   // The band view first, then one view per column of the layout. Sources
   // and views must outlive the screen.
   void setViews(std::vector<View*> views) { views_ = std::move(views); }
+  // Firmware version and saved Wi-Fi for the start screen.
+  void setStartInfo(briefing::StartInfo info) { start_info_ = std::move(info); }
 
   core::FrameView render(const core::ScreenState& state) override;
   std::vector<hal::Rect> areas() const override;
@@ -60,6 +65,7 @@ class Screen : public core::ScreenRenderer {
   ui::Bitmap bitmap_;
   std::vector<const DataSource*> sources_;
   std::vector<View*> views_;
+  briefing::StartInfo start_info_;
 };
 
 }  // namespace widgets

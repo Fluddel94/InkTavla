@@ -68,6 +68,12 @@ struct ScreenState {
   std::vector<ContentStatus> contents;  // in the order of addContent()
   // Settings page or Wi-Fi setup hotspot, if open.
   AccessNotice notice;
+  // The start screen is shown instead of the content (see
+  // DisplayController::enableStartScreen()).
+  bool starting = false;
+  // The network as it is now, without the grace period (for the start
+  // screen: "waiting for Wi-Fi").
+  bool network_up = false;
 };
 
 // Composes the frame from the state (implemented above core).
@@ -89,12 +95,24 @@ class DisplayController {
   // The time counts from the loss, or from the start before the first
   // connection.
   static constexpr int64_t kOfflineGraceMs = Freshness::kGraceMs;
+  // The start screen ends at the latest this long after the start, or after
+  // the first connection if that comes later (kStartAfterConnectMs).
+  static constexpr int64_t kStartMaxMs = 20000;
+  static constexpr int64_t kStartAfterConnectMs = 15000;
 
   DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                     int full_refresh_minutes);
 
   // Adds the content of the next slot (order = order in ScreenState).
   void addContent(Content& content);
+
+  // Shows a start screen (ScreenState::starting) until every content has
+  // had a first result: data, or a failed attempt while connected. Without
+  // a network it stays (the Wi-Fi notices end it, see setAccessNotice());
+  // with a network it ends at the latest after kStartMaxMs or
+  // kStartAfterConnectMs after the first connection. The switch to the
+  // content is a full refresh. Call before the first step().
+  void enableStartScreen();
 
   // Current state of the network; the screen shows it after the grace
   // period (see kOfflineGraceMs).
@@ -108,7 +126,7 @@ class DisplayController {
   void requestFullRefresh();
 
   // Shows or hides the notice of the settings page or the Wi-Fi setup;
-  // redraws at once when it changes.
+  // redraws at once when it changes. A Wi-Fi notice ends the start screen.
   void setAccessNotice(const AccessNotice& notice);
 
   // One pass of the main loop: runs due fetches, redraws and refreshes the
@@ -119,17 +137,26 @@ class DisplayController {
   // State used for the last frame.
   const ScreenState& state() const { return state_; }
 
+  // Whether the start screen is shown (see enableStartScreen()).
+  bool starting() const { return starting_; }
+
  private:
   struct Entry {
     Content* content;
     Freshness freshness;
     Scheduler::TaskId task = -1;  // -1: nothing to fetch
+    bool has_result = false;      // for the start screen
   };
 
   void buildState(int64_t now_ms, int64_t wall_s);
   // Whether the network is shown as connected at this time.
   bool networkShown(int64_t now_ms) const;
   void redraw(int64_t now_ms);
+  // Ends the start screen when its time is over; true if it ended.
+  bool checkStartEnd(int64_t now_ms);
+  // Milliseconds since the start when the start screen ends at the latest,
+  // -1 without a connection yet.
+  int64_t startDeadlineMs() const;
 
   Clock& clock_;
   hal::Display& display_;
@@ -147,6 +174,8 @@ class DisplayController {
   bool force_redraw_ = true;
   bool wall_valid_ = false;
   AccessNotice notice_;
+  bool starting_ = false;
+  int64_t first_connected_ms_ = -1;  // -1: not connected yet
 };
 
 }  // namespace core

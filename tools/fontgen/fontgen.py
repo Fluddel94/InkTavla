@@ -66,6 +66,8 @@ FONTS = [
     ("kFraunces20", "fraunces_20.cpp", 420, 20, None, "fraunces"),  # events
     ("kFraunces20Bold", "fraunces_20_bold.cpp", 640, 20, None, "fraunces"),  # next event
     ("kFraunces18", "fraunces_18.cpp", 420, 18, None, "fraunces"),  # events later in the week
+    # Word mark on the start screen: only the letters of "InkTavla".
+    ("kFraunces96Bold", "fraunces_96_bold.cpp", 640, 96, sorted(set(map(ord, "InkTavla"))), "fraunces"),
 ]
 
 # Characters: ASCII, Latin-1 Supplement, Latin Extended-A and typographic

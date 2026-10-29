@@ -21,6 +21,7 @@
 #include "ui/layout.h"
 #include "widgets/briefing/band.h"
 #include "widgets/briefing/sentence.h"
+#include "widgets/briefing/start.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/column_view.h"
 #include "widgets/calendar/parser.h"
@@ -1063,6 +1064,25 @@ void test_incident_variants() {
 
 // --- Band ---------------------------------------------------------------------------
 
+// Start screen: loading the data (German), and waiting for a saved Wi-Fi
+// with a long name (English).
+void test_preview_start_screen() {
+  ui::Bitmap bitmap(800, 2 * 480 + 10);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas gap(bitmap, 0, 480, 800, 10);
+  gap.fillDotted(0, 0, 800, 10);
+  ui::BitmapCanvas loading(bitmap, 0, 0, 800, 480);
+  widgets::briefing::drawStartScreen(loading, ui::Language::kGerman, {"0.1.0", "Heimnetz"}, false);
+  ui::BitmapCanvas waiting(bitmap, 0, 490, 800, 480);
+  widgets::briefing::drawStartScreen(
+      waiting, ui::Language::kEnglish,
+      {"0.1.0",
+       "A very long network name that goes on and on and on and on and on and on "
+       "and on and on and on and on and on and on and on and on"},
+      true);
+  check(bitmap, "start_screen");
+}
+
 void test_preview_bands() {
   ui::Bitmap bitmap(800, 3 * 205 + 2 * 10);
   bitmap.clear(ui::Color::kWhite);
@@ -1388,6 +1408,7 @@ int main() {
   RUN_TEST(test_incident_variants);
   RUN_TEST(test_incidents_only_of_drawn_departures);
   RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
+  RUN_TEST(test_preview_start_screen);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);
   return UNITY_END();

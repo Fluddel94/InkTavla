@@ -54,6 +54,9 @@ enum class Text {
   kSetupStep2,             // open the Wi-Fi setup (Improv) in Chrome or Edge
   kSetupStep3,             // choose your Wi-Fi, enter its password
   kWifiRetrying,           // footer: still trying the saved network
+  kStartVersion,           // start screen: "Version 0.1.0"
+  kStartLoading,           // start screen: waiting for the first data
+  kStartWaitingForWifi,    // start screen: "Warte auf WLAN" (+ network name)
 };
 
 const char* text(Language language, Text id);

@@ -42,6 +42,11 @@ core::FrameView Screen::render(const core::ScreenState& state) {
   base.now_s = state.wall_s;
   base.language = language_;
   base.network_connected = state.network_connected;
+  if (state.starting) {
+    ui::BitmapCanvas canvas(bitmap_, 0, 0, ui::kScreenWidth, ui::kScreenHeight);
+    briefing::drawStartScreen(canvas, language_, start_info_, !state.network_up);
+    return {bitmap_.data(), bitmap_.width(), bitmap_.height(), bitmap_.stride()};
+  }
   if (state.notice.mode == core::AccessMode::kWifiNotSetUp ||
       state.notice.mode == core::AccessMode::kWifiNotConnected) {
     // No Wi-Fi: the whole screen shows how to set it up.

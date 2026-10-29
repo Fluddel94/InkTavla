@@ -150,6 +150,7 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   screen_ = std::make_unique<Screen>(layout, language);
   controller_ = std::make_unique<core::DisplayController>(clock_, display_, *screen_,
                                                           config_.full_refresh_minutes);
+  controller_->enableStartScreen();
   std::vector<const DataSource*> order;
   for (const auto& s : sources_) {
     controller_->addContent(*s);

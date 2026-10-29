@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Start screen after power-on and every restart: the word mark "InkTavla"
+  (Fraunces, only its seven letters as a 96 px font), the firmware version
+  and "Daten werden geladen …" at the bottom. It switches to the briefing with
+  a full refresh once every data source has a first result (data, or a
+  failed attempt while connected), at the latest 20 s after the start (15 s
+  after a later first connection). Without Wi-Fi it stays and names the
+  saved network; the Wi-Fi setup screens replace it.
 - Disruption text of the departure column: only the first message, with
   "+2 weitere" for the others; "S2: " in front only if the departures drawn
   belong to more than one line; with two stations the text follows the pin

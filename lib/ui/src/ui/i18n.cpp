@@ -117,6 +117,12 @@ const char* text(Language language, Text id) {
     case Text::kWifiRetrying:
       return de ? "Das Display versucht es weiter mit dem gespeicherten WLAN."
                 : "The display keeps trying the saved Wi-Fi.";
+    case Text::kStartVersion:
+      return "Version";
+    case Text::kStartLoading:
+      return de ? "Daten werden geladen …" : "Loading data …";
+    case Text::kStartWaitingForWifi:
+      return de ? "Warte auf WLAN" : "Waiting for Wi-Fi";
   }
   return "";
 }
