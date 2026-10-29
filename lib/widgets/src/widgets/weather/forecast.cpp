@@ -82,8 +82,6 @@ JsonDocument forecastFilter() {
   for (const char* key : {"time", "temperature_2m", "weather_code", "is_day"}) {
     filter["current"][key] = true;
   }
-  filter["minutely_15"]["time"] = true;
-  filter["minutely_15"]["temperature_2m"] = true;
   for (const char* key : {"time", "temperature_2m", "precipitation_probability", "precipitation",
                           "sunshine_duration", "weather_code", "is_day"}) {
     filter["hourly"][key] = true;
@@ -147,19 +145,6 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
   }
   if (result.hours.empty() || result.days.empty()) return false;
 
-  JsonArrayConst quarter_times = doc["minutely_15"]["time"];
-  JsonArrayConst quarter_temps = doc["minutely_15"]["temperature_2m"];
-  if (!quarter_times.isNull() && quarter_temps.size() == quarter_times.size() &&
-      quarter_times.size() > 0) {
-    Quarters q;
-    q.start = quarter_times[0].as<int64_t>();
-    bool even = true;
-    for (size_t i = 0; i < quarter_times.size() && even; i++) {
-      even = quarter_times[i].as<int64_t>() == q.start + static_cast<int64_t>(i) * kQuarterSeconds;
-      q.temperatures.push_back(quarter_temps[i].is<float>() ? quarter_temps[i].as<float>() : NAN);
-    }
-    if (even) result.quarters = std::move(q);
-  }
   f = std::move(result);
   return true;
 }

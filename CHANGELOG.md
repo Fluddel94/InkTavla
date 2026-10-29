@@ -234,6 +234,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Weather column: the clock symbol in front of the hour labels.
+- Weather: the values every 15 minutes (`minutely_15`) are no longer
+  requested; the curve uses the hourly values (smaller response).
 - Style A and the layouts "one_plus_two" and "three_columns" with their
   header, tile views and tile building blocks; MVV line bitmaps; chains of
   line symbols; rain outlook and weather texts of the tile; weather symbols
@@ -249,6 +252,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Weather column: the temperature curve runs smoothly (hourly values, each
+  averaged with its neighbours 1-2-1); the labels keep the values of their
+  hours. Rain bars up to 40 px (was 30), so light rain is easier to see
+  (0.1 mm = 6 px).
+- Band: the temperature of now in Fraunces 38 like the sentence (was
+  Fraunces 24 Medium), without "Jetzt".
 - Band sentence: tomorrow's weather from the first full hour after sunset,
   between 18:00 and 21:00 (before: always 18:00); between sunset and then
   the sentence talks about the evening with the sky of now, like the band

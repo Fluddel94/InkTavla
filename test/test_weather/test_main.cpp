@@ -85,7 +85,6 @@ void test_url() {
       "&current=temperature_2m,weather_code,is_day"
       "&hourly=temperature_2m,precipitation_probability,precipitation,sunshine_duration,"
       "weather_code,is_day"
-      "&minutely_15=temperature_2m&past_minutely_15=96&forecast_minutely_15=96"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
       "&timezone=auto&timeformat=unixtime&forecast_days=4",
       widgets::weather::forecastUrl(c).c_str());
@@ -99,33 +98,6 @@ void test_parse() {
   TEST_ASSERT_EQUAL_INT64(1792447200, f.hours[0].time);
   TEST_ASSERT_EQUAL_INT64(1792533600, f.days[1].time);
   TEST_ASSERT_FALSE(f.current.day);
-  TEST_ASSERT_TRUE(f.quarters.temperatures.empty());  // saved before they were requested
-}
-
-void test_parse_quarters() {
-  // Response of 2026-10-22 07:30 with 15 minute values from 24 hours back
-  // (here 20) to ahead.
-  const Forecast f = load("muenchen_20261022.json");
-  TEST_ASSERT_EQUAL_INT64(1792575000, f.quarters.start);
-  TEST_ASSERT_EQUAL_size_t(160, f.quarters.temperatures.size());
-  // On the full hour the same value as the hourly list: 07:00 = 6.7 degrees.
-  const size_t i = (f.hours[7].time - f.quarters.start) / widgets::weather::kQuarterSeconds;
-  TEST_ASSERT_EQUAL_FLOAT(f.hours[7].temperature, f.quarters.temperatures[i]);
-  TEST_ASSERT_EQUAL_FLOAT(6.7f, f.quarters.temperatures[i]);
-
-  // Gaps become NaN; times that are not evenly spaced are not used.
-  JsonDocument doc;
-  deserializeJson(doc, R"({"current": {"time": 1, "temperature_2m": 5},
-      "hourly": {"time": [0], "temperature_2m": [5], "weather_code": [0]},
-      "daily": {"time": [0], "temperature_2m_max": [6], "temperature_2m_min": [4]},
-      "minutely_15": {"time": [0, 900, 1800], "temperature_2m": [5, null, 6]}})");
-  Forecast g;
-  TEST_ASSERT_TRUE(widgets::weather::parseForecast(doc, g));
-  TEST_ASSERT_EQUAL_size_t(3, g.quarters.temperatures.size());
-  TEST_ASSERT_TRUE(std::isnan(g.quarters.temperatures[1]));
-  doc["minutely_15"]["time"][2] = 2000;
-  TEST_ASSERT_TRUE(widgets::weather::parseForecast(doc, g));
-  TEST_ASSERT_TRUE(g.quarters.temperatures.empty());
 }
 
 void test_parse_precipitation() {
@@ -335,7 +307,6 @@ int main() {
   RUN_TEST(test_config);
   RUN_TEST(test_url);
   RUN_TEST(test_parse);
-  RUN_TEST(test_parse_quarters);
   RUN_TEST(test_parse_precipitation);
   RUN_TEST(test_parse_rejects_broken);
   RUN_TEST(test_conditions);

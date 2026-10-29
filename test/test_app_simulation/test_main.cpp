@@ -80,7 +80,7 @@ class WeatherFixtureSource : public widgets::weather::Source {
     // By default one day earlier, to fit the simulated evening of
     // 2026-10-19.
     doc["current"]["time"] = doc["current"]["time"].as<int64_t>() + shift_s;
-    for (const char* list : {"hourly", "daily", "minutely_15"}) {
+    for (const char* list : {"hourly", "daily"}) {
       for (JsonVariant t : doc[list]["time"].as<JsonArray>()) t.set(t.as<int64_t>() + shift_s);
     }
     return true;

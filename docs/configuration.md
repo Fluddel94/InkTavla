@@ -389,8 +389,8 @@ warning signs and the cancellations stay.
 
 Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
 every 30 minutes. The column shows the course of the day from 5 to 23
-o'clock (temperature curve from the values every 15 minutes with five
-labelled hours, the amount of rain per hour as bars) and the next three
+o'clock (temperature curve from the hourly values, each averaged with its
+neighbours so that the line runs smoothly, with five labelled hours; the amount of rain per hour as bars) and the next three
 days; the band at the top uses the same data for its sentence and picture.
 Temperatures are in degrees Celsius. The column title is the place (`name`)
 with the location pin and the credit "Open-Meteo" on the right.
@@ -428,10 +428,6 @@ To find the coordinates of a place: open it in a map service such as
 [place search of Open-Meteo](https://open-meteo.com/en/docs/geocoding-api).
 Two or three decimals are enough; the weather models work with a grid of
 about 2 km.
-
-The values every 15 minutes come from weather models with 15 minute steps
-in Central Europe and North America; elsewhere Open-Meteo interpolates them
-from hourly values. If they are missing, the curve uses the hourly values.
 
 Open-Meteo is free for non-commercial use; the data is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the

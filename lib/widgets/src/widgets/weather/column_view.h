@@ -1,8 +1,8 @@
 #pragma once
 
 // View of the weather widget in a column of the "Briefing" layout
-// (2026-10-21): the course of today (temperature curve from the values every
-// 15 minutes, or hourly if there are none, with five labelled points; the
+// (2026-10-21): the course of today (temperature curve from the hourly
+// values, averaged with their neighbours, with five labelled points; the
 // precipitation of every hour as a screened bar between its hour marks), the
 // next three days with the symbol of the daily code of Open-Meteo (2026-10-28).
 // Title (2026-10-26): the place with the location pin, the credit
@@ -39,14 +39,14 @@ inline constexpr char kAttribution[] = "Open-Meteo";
 inline constexpr int kFirstHour = 5;
 inline constexpr int kLastHour = 23;
 
-inline constexpr int kColumnRainMax = 30;
+inline constexpr int kColumnRainMax = 40;
 inline constexpr float kRainFullMm = 5.0f;  // mm per hour for a full bar
 inline constexpr float kRainMinMm = 0.1f;   // less counts as dry
 inline constexpr int kRainMinBar = 2;       // lowest bar in px
 
 // Height of the bar for mm of precipitation in an hour:
 // max(kRainMinBar, round(sqrt(min(mm / kRainFullMm, 1)) * kColumnRainMax)),
-// 0 below kRainMinMm (0.2 mm -> 6 px, 0.5 -> 9, 2 -> 19, 5 and more -> 30).
+// 0 below kRainMinMm (0.1 mm -> 6 px, 0.5 -> 13, 2 -> 25, 5 and more -> 40).
 int rainBarHeight(float mm);
 inline constexpr double kColumnMinSpan = 8;
 inline constexpr int kColumnDayIconSize = 38;

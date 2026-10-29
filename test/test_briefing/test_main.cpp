@@ -534,13 +534,13 @@ void test_rain_bar_heights() {
   TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0.05f));
   TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(-1));
   TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(NAN));
-  TEST_ASSERT_EQUAL_INT(4, wx::rainBarHeight(0.1f));
-  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.2f));
-  TEST_ASSERT_EQUAL_INT(9, wx::rainBarHeight(0.5f));
-  TEST_ASSERT_EQUAL_INT(13, wx::rainBarHeight(0.9f));
-  TEST_ASSERT_EQUAL_INT(19, wx::rainBarHeight(2));
-  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(5));
-  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(12));
+  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.1f));
+  TEST_ASSERT_EQUAL_INT(8, wx::rainBarHeight(0.2f));
+  TEST_ASSERT_EQUAL_INT(13, wx::rainBarHeight(0.5f));
+  TEST_ASSERT_EQUAL_INT(17, wx::rainBarHeight(0.9f));
+  TEST_ASSERT_EQUAL_INT(25, wx::rainBarHeight(2));
+  TEST_ASSERT_EQUAL_INT(40, wx::rainBarHeight(5));
+  TEST_ASSERT_EQUAL_INT(40, wx::rainBarHeight(12));
 }
 
 void test_rain_bars_between_the_hour_marks() {
@@ -587,49 +587,48 @@ void test_rain_bars_between_the_hour_marks() {
   // for 0.1 mm (read as 0.0999999 from the JSON).
   chart = wx::columnChart(savedForecast("muenchen_20261025.json"), 1792910460, 214);
   TEST_ASSERT_EQUAL_size_t(13, chart.bars.size());
-  TEST_ASSERT_EQUAL_INT(4, chart.bars[8].height);    // 0.1 mm from 13 to 14 h
-  TEST_ASSERT_EQUAL_INT(14, chart.bars[11].height);  // 1.1 mm from 16 to 17 h
+  TEST_ASSERT_EQUAL_INT(6, chart.bars[8].height);    // 0.1 mm from 13 to 14 h
+  TEST_ASSERT_EQUAL_INT(19, chart.bars[11].height);  // 1.1 mm from 16 to 17 h
   // Without data the line still has its place.
   const wx::ColumnChart empty = wx::columnChart(wx::Forecast{}, kMorning, 214);
   TEST_ASSERT_EQUAL_INT(chart.line_x0, empty.line_x0);
   TEST_ASSERT_EQUAL_INT(chart.line_x1, empty.line_x1);
 }
 
-// Saved response of 2026-10-22 07:30 with values every 15 minutes.
-wx::Forecast quarterForecast() {
-  std::ifstream file("test/fixtures/weather/muenchen_20261022.json", std::ios::binary);
-  JsonDocument doc;
-  deserializeJson(doc, file, DeserializationOption::Filter(wx::forecastFilter()));
-  wx::Forecast f;
-  TEST_ASSERT_TRUE(wx::parseForecast(doc, f));
-  return f;
-}
-
-void test_chart_from_values_every_15_minutes() {
-  constexpr int64_t kThursday = 1792647660;  // 2026-10-22 07:41
-  const wx::Forecast f = quarterForecast();
-  wx::Forecast hourly = f;
-  hourly.quarters = {};
-  const wx::ColumnChart fine = wx::columnChart(f, kThursday, 214);
-  const wx::ColumnChart coarse = wx::columnChart(hourly, kThursday, 214);
-  // 5-23 h: 73 values every 15 minutes instead of 19 hourly ones.
-  TEST_ASSERT_EQUAL_size_t(72 * 3 + 1, fine.curve.size());
-  TEST_ASSERT_EQUAL_size_t(18 * 10 + 1, coarse.curve.size());
-  TEST_ASSERT_EQUAL_size_t(5, fine.labels.size());
-  for (size_t i = 0; i < fine.labels.size(); i++) {
-    const auto& l = fine.labels[i];
-    // Same values on the full hour, and every label sits on the curve.
-    TEST_ASSERT_EQUAL_INT(coarse.labels[i].temperature, l.temperature);
+void test_chart_curve_is_smoothed() {
+  // Saved response of 2026-10-22 07:41: the curve runs through the hourly
+  // values averaged with their neighbours (1-2-1); the labels show the values
+  // of their hours and sit on the curve.
+  constexpr int64_t kThursday = 1792647660;
+  const wx::Forecast f = savedForecast("muenchen_20261022.json");
+  const wx::ColumnChart chart = wx::columnChart(f, kThursday, 214);
+  TEST_ASSERT_EQUAL_size_t(18 * 10 + 1, chart.curve.size());  // 5-23 h
+  TEST_ASSERT_EQUAL_size_t(5, chart.labels.size());
+  for (const auto& l : chart.labels) {
+    for (const wx::Hour& h : f.hours) {
+      core::LocalTime t;
+      core::toLocalTime(h.time, t);
+      if (t.day == 22 && t.hour == l.hour) {
+        TEST_ASSERT_EQUAL_INT(wx::displayTemperature(h.temperature), l.temperature);
+      }
+    }
     bool on_curve = false;
-    for (const auto& p : fine.curve) {
+    for (const auto& p : chart.curve) {
       on_curve = on_curve || (std::abs(p.x - l.x) <= 1 && std::abs(p.y - l.y) <= 1);
     }
     TEST_ASSERT_TRUE(on_curve);
   }
-  // A gap in the 15 minute values: hourly values for the whole day.
-  wx::Forecast gap = f;
-  gap.quarters.temperatures[100] = NAN;
-  TEST_ASSERT_EQUAL_size_t(coarse.curve.size(), wx::columnChart(gap, kThursday, 214).curve.size());
+  // A single warm hour is softened: its point lies a quarter of the way
+  // between the neighbours and the peak.
+  std::vector<float> temps(24, 10);
+  temps[14] = 18;
+  const wx::ColumnChart peak = wx::columnChart(forecast(temps, {0}), kMorning, 214);
+  for (const auto& l : peak.labels) {
+    if (l.hour == 14) TEST_ASSERT_EQUAL_INT(18, l.temperature);
+  }
+  double top = peak.curve_bottom;
+  for (const auto& p : peak.curve) top = std::min(top, p.y);
+  TEST_ASSERT_TRUE(top > peak.curve_top + 1);  // not drawn up to the top any more
 }
 
 void test_preview_weather_extremes() {
@@ -1365,7 +1364,7 @@ int main() {
   RUN_TEST(test_evening_after_sunset);
   RUN_TEST(test_tomorrow_follows_the_daily_code);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
-  RUN_TEST(test_chart_from_values_every_15_minutes);
+  RUN_TEST(test_chart_curve_is_smoothed);
   RUN_TEST(test_rain_bar_heights);
   RUN_TEST(test_rain_bars_between_the_hour_marks);
   RUN_TEST(test_preview_weather_extremes);

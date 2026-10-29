@@ -49,16 +49,6 @@ int drawWarningSign(Canvas& canvas, int x, int baseline, int height, Color color
   return w;
 }
 
-void drawClockSymbol(Canvas& canvas, int x, int y, int size, Color color) {
-  const int r = (size - 1) / 2;
-  const int cx = x + r;
-  const int cy = y + r;
-  canvas.drawCircle(cx, cy, r, 1, color);
-  // Hands: up to 12 and to 3 o'clock.
-  canvas.vLine(cx, cy - r + 3, r - 2, color);
-  canvas.hLine(cx, cy, r - 1, color);
-}
-
 void drawWifiSymbol(Canvas& canvas, int x, int y, int size, bool connected) {
   // Geometry of the design drawing: arcs around a point near the bottom,
   // opening upwards (90 degrees), stroke about size / 9.

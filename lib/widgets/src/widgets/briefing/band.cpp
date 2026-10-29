@@ -171,7 +171,7 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
     if (s.valid) {
       const ui::Icon& picture = ui::bandIcon(s.picture);
       ui::drawIcon(canvas, kPictureX, kPictureY, picture);
-      const ui::Font& font = ui::fonts::kFraunces24Medium;
+      const ui::Font& font = ui::fonts::kFraunces38;  // as the sentence (2026-10-29)
       const std::string now = nowText(s, context.language);
       const int width = ui::textWidth(font, now);
       const int x =

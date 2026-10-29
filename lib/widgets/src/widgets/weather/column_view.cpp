@@ -27,11 +27,8 @@ constexpr int kDaysTop = kBase + 34;
 constexpr int kDayTemperatures = kDaysTop + 85;
 constexpr int kLabelHours[] = {8, 11, 14, 17, 20};
 constexpr double kCurveWidth = 2;
-constexpr int kClockSize = 11;  // clock at the left of the hour labels
-// Points of the spline between two values: hourly values are far apart,
-// 15 minute values only need a little rounding.
+// Points of the spline between two hourly values.
 constexpr int kStepsBetweenHours = 10;
-constexpr int kStepsBetweenQuarters = 3;
 
 int roundToInt(double v) { return static_cast<int>(std::lround(v)); }
 
@@ -81,11 +78,6 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
     std::snprintf(h, sizeof(h), "%d", l.hour);
     ui::drawText(c, ui::fonts::kRobotoCondensedMedium15, l.x, chart.base + 18, h, Color::kBlack,
                  ui::Align::kCenter);
-  }
-  // A small clock at the left edge of the chart, on the line of the hour
-  // labels, so the numbers read as times.
-  if (!chart.labels.empty()) {
-    ui::drawClockSymbol(c, chart.line_x0, chart.base + 18 - kClockSize + 1, kClockSize);
   }
 }
 
@@ -178,41 +170,20 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
       highest_bar > 0 ? std::min(kCurveBottomWithoutRain, kBase - highest_bar - kCurveGapAboveBars)
                       : kCurveBottomWithoutRain;
 
-  // The temperatures of the curve: every 15 minutes if the forecast has
-  // them for the whole time of the hourly values, else hourly.
+  // The temperatures of the curve: the hourly values, each averaged with its
+  // neighbours (1-2-1), so that the curve runs smoothly (2026-10-29; the
+  // labels keep the values of their hours).
   struct Value {
-    double hour;  // local hour with fractions
+    double hour;
     float temperature;
   };
   std::vector<Value> values;
-  const int64_t first = items.front().data->time;
-  const int64_t last = items.back().data->time;
-  const Quarters& q = forecast.quarters;
-  if (!q.temperatures.empty() && first >= q.start) {
-    const size_t from = static_cast<size_t>((first - q.start) / kQuarterSeconds);
-    const size_t to = static_cast<size_t>((last - q.start) / kQuarterSeconds);
-    for (size_t i = from; i <= to && i < q.temperatures.size(); i++) {
-      core::LocalTime t;
-      if (std::isnan(q.temperatures[i]) ||
-          !core::toLocalTime(q.start + static_cast<int64_t>(i) * kQuarterSeconds, t)) {
-        break;
-      }
-      values.push_back({t.hour + t.minute / 60.0, q.temperatures[i]});
-    }
-    if (values.size() != to - from + 1) values.clear();  // gaps: hourly instead
+  for (size_t i = 0; i < items.size(); i++) {
+    const float before = items[i == 0 ? 0 : i - 1].data->temperature;
+    const float after = items[std::min(i + 1, items.size() - 1)].data->temperature;
+    values.push_back({static_cast<double>(items[i].hour),
+                      (before + 2 * items[i].data->temperature + after) / 4});
   }
-  const bool quarters = !values.empty();
-  if (!quarters) {
-    for (const Item& i : items)
-      values.push_back({static_cast<double>(i.hour), i.data->temperature});
-  }
-  auto valueAt = [&](int hour) {
-    for (const Value& v : values) {
-      if (v.hour == hour) return v.temperature;
-    }
-    return values.front().temperature;  // not reached: every hour has a value
-  };
-
   float tmin = values[0].temperature, tmax = tmin;
   for (const Value& v : values) {
     tmin = std::min(tmin, v.temperature);
@@ -226,19 +197,19 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
 
   std::vector<ColumnChart::Point> raw;
   for (const Value& v : values) raw.push_back({px(v.hour), py(v.temperature)});
-  chart.curve = smooth(raw, quarters ? kStepsBetweenQuarters : kStepsBetweenHours);
+  chart.curve = smooth(raw, kStepsBetweenHours);
   // The spline may swing a little beyond the points: keep it inside.
   for (ColumnChart::Point& p : chart.curve) {
     p.y = std::clamp<double>(p.y, chart.curve_top, chart.curve_bottom);
   }
-  for (const Item& i : items) {
-    if (std::find(std::begin(kLabelHours), std::end(kLabelHours), i.hour) ==
-        std::end(kLabelHours)) {
+  // Labels: the value of the hour, placed on the (averaged) curve.
+  for (size_t i = 0; i < items.size(); i++) {
+    const int hour = items[i].hour;
+    if (std::find(std::begin(kLabelHours), std::end(kLabelHours), hour) == std::end(kLabelHours)) {
       continue;
     }
-    const float t = valueAt(i.hour);
-    chart.labels.push_back(
-        {i.hour, roundToInt(px(i.hour)), roundToInt(py(t)), displayTemperature(t)});
+    chart.labels.push_back({hour, roundToInt(px(hour)), roundToInt(py(values[i].temperature)),
+                            displayTemperature(items[i].data->temperature)});
   }
   return chart;
 }

@@ -60,29 +60,17 @@ struct Day {
   Condition condition = Condition::kUnknown;
 };
 
-// Temperatures every 15 minutes ("minutely_15"; computed by models with 15
-// minute steps in Central Europe and North America, interpolated from hourly
-// values elsewhere), for the curve of the day.
-inline constexpr int64_t kQuarterSeconds = 900;
-struct Quarters {
-  int64_t start = 0;                // time of the first value, Unix seconds
-  std::vector<float> temperatures;  // one every kQuarterSeconds, NaN if missing
-};
-
 struct Forecast {
   Current current;
   std::vector<Hour> hours;
   std::vector<Day> days;
-  Quarters quarters;  // empty if the response has none
 };
 
 // ArduinoJson filter: only the fields read below.
 JsonDocument forecastFilter();
 
 // Reads a response requested with forecastUrl(). False if fields are
-// missing or the hourly/daily lists do not fit together. The 15 minute values
-// are optional: without them, or if their times are not evenly spaced,
-// quarters stays empty.
+// missing or the hourly/daily lists do not fit together.
 bool parseForecast(JsonDocument& doc, Forecast& forecast);
 
 // Temperature as shown: rounded, without "-0".
