@@ -106,24 +106,45 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
                  ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
     ui::drawIcon(c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
                  ui::weatherIcon(dayIcon(days[i]->code, days[i]->condition), kColumnDayIconSize));
+    // "10°/3°": high and low in bold (the low a little smaller), a thin
+    // slash between them (2026-10-29: the low in Medium looked too thin).
     const std::string high = degreesText(days[i]->high);
-    const std::string low = " " + degreesText(days[i]->low);
+    const std::string low = degreesText(days[i]->low);
     const ui::Font& hf = ui::fonts::kRobotoCondensedBold17;
-    const ui::Font& lf = ui::fonts::kRobotoCondensedMedium16;
-    const int x = cx - (ui::textWidth(hf, high) + ui::textWidth(lf, low)) / 2;
-    const int end = ui::drawText(c, hf, x, kDayTemperatures, high);
+    const ui::Font& sf = ui::fonts::kRobotoCondensedMedium16;
+    const ui::Font& lf = ui::fonts::kRobotoCondensedBold16;
+    const int x =
+        cx - (ui::textWidth(hf, high) + ui::textWidth(sf, "/") + ui::textWidth(lf, low)) / 2;
+    int end = ui::drawText(c, hf, x, kDayTemperatures, high);
+    end = ui::drawText(c, sf, end, kDayTemperatures, "/");
     ui::drawText(c, lf, end, kDayTemperatures, low);
   }
 }
 
 }  // namespace
 
-int rainBarHeight(float mm) {
-  // The JSON parser reads "0.10" as 0.0999999; a small tolerance keeps 0.1 mm
-  // a bar. !(>=) is also true for NaN.
-  if (!(mm >= kRainMinMm - 0.001f)) return 0;
-  const double share = std::min(1.0, static_cast<double>(mm) / kRainFullMm);
-  return std::max(kRainMinBar, roundToInt(std::sqrt(share) * kColumnRainMax));
+namespace {
+
+// The JSON parser reads "0.10" as 0.0999999; a small tolerance keeps 0.1 mm
+// a bar. !(>=) is also true for NaN.
+bool wet(float mm) { return mm >= kRainMinMm - 0.001f; }
+
+double share(double mm, double full) { return std::sqrt(std::min(1.0, mm / full)); }
+
+}  // namespace
+
+int rainBarHeight(float mm, float day_max) {
+  if (!wet(mm)) return 0;
+  if (!(day_max >= mm)) day_max = mm;
+  double full = kRainFullMm;
+  double stretch = 1;
+  if (day_max > kRainFullMm) {
+    full = std::min(day_max, kRainFullMaxMm);
+  } else {
+    stretch = std::clamp(kRainStretchTop / share(day_max, kRainFullMm), 1.0, kRainStretchMax);
+  }
+  const int h = roundToInt(share(mm, full) * stretch * kColumnRainMax);
+  return std::clamp(h, kRainMinBar, kColumnRainMax);
 }
 
 ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
@@ -157,10 +178,14 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width) {
 
   // Bars first: the curve has to stay above the highest one. The value of
   // hour h is the precipitation from h - 1 to h: its bar fills that span.
+  float day_max = 0;
+  for (const Item& i : items) {
+    if (i.hour > kFirstHour) day_max = std::max(day_max, i.data->precipitation);
+  }
   int highest_bar = 0;
   for (const Item& i : items) {
     if (i.hour <= kFirstHour) continue;
-    const int h = rainBarHeight(i.data->precipitation);
+    const int h = rainBarHeight(i.data->precipitation, day_max);
     if (h <= 0) continue;
     highest_bar = std::max(highest_bar, h);
     const int x0 = static_cast<int>(px(i.hour - 1)) + 1;

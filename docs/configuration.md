@@ -405,7 +405,11 @@ Each bar shows the precipitation (rain and snow as water) of one hour and
 stands between its hour marks: Open-Meteo gives the sum of the preceding
 hour, so the value of 17:00 is the bar between 16 and 17. The height follows
 a square root scale, so light rain stays visible: a full bar is 5 mm per
-hour or more, 0.5 mm is about a third, less than 0.1 mm shows no bar. The
+hour or more, less than 0.1 mm shows no bar. The scale follows the day within
+limits: on a day with little rain the bars are drawn up to 1.5 times higher
+(the wettest hour at most at two thirds of the height); on a day with more
+than 5 mm in an hour that hour is full (up to 10 mm), so the hours with
+little rain are drawn lower. The
 sentence in the band still uses the rain probability.
 
 | Setting | Type | Default | Description |

@@ -529,18 +529,30 @@ wx::Forecast savedForecast(const char* fixture) {
 }
 
 void test_rain_bar_heights() {
-  // Square root scale, full from 5 mm per hour, nothing below 0.1 mm.
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0.05f));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(-1));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(NAN));
-  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.1f));
-  TEST_ASSERT_EQUAL_INT(8, wx::rainBarHeight(0.2f));
-  TEST_ASSERT_EQUAL_INT(13, wx::rainBarHeight(0.5f));
-  TEST_ASSERT_EQUAL_INT(17, wx::rainBarHeight(0.9f));
-  TEST_ASSERT_EQUAL_INT(25, wx::rainBarHeight(2));
-  TEST_ASSERT_EQUAL_INT(40, wx::rainBarHeight(5));
-  TEST_ASSERT_EQUAL_INT(40, wx::rainBarHeight(12));
+  // Nothing below 0.1 mm.
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0, 5));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0.05f, 5));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(-1, 5));
+  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(NAN, 5));
+  // A day reaching 5 mm: the fixed square root scale, full from 5 mm.
+  TEST_ASSERT_EQUAL_INT(5, wx::rainBarHeight(0.1f, 5));
+  TEST_ASSERT_EQUAL_INT(10, wx::rainBarHeight(0.5f, 5));
+  TEST_ASSERT_EQUAL_INT(20, wx::rainBarHeight(2, 5));
+  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(5, 5));
+  // Little rain: stretched until the wettest hour reaches 2/3 of the height
+  // (21 px), at most 1.5 times.
+  TEST_ASSERT_EQUAL_INT(21, wx::rainBarHeight(1.1f, 1.1f));
+  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.1f, 1.1f));
+  TEST_ASSERT_EQUAL_INT(12, wx::rainBarHeight(0.3f, 0.3f));  // 1.5 times 8 px
+  // Moderate rain already above 2/3: not stretched.
+  TEST_ASSERT_EQUAL_INT(25, wx::rainBarHeight(3, 3));
+  // Heavy rain: the wettest hour is full, light rain is pressed down.
+  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(9, 9));
+  TEST_ASSERT_EQUAL_INT(15, wx::rainBarHeight(2, 9));
+  TEST_ASSERT_EQUAL_INT(3, wx::rainBarHeight(0.1f, 9));
+  // From 10 mm on the scale stays: 10 mm and more are full.
+  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(12, 20));
+  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(9, 20));
 }
 
 void test_rain_bars_between_the_hour_marks() {
@@ -588,7 +600,7 @@ void test_rain_bars_between_the_hour_marks() {
   chart = wx::columnChart(savedForecast("muenchen_20261025.json"), 1792910460, 214);
   TEST_ASSERT_EQUAL_size_t(13, chart.bars.size());
   TEST_ASSERT_EQUAL_INT(6, chart.bars[8].height);    // 0.1 mm from 13 to 14 h
-  TEST_ASSERT_EQUAL_INT(19, chart.bars[11].height);  // 1.1 mm from 16 to 17 h
+  TEST_ASSERT_EQUAL_INT(21, chart.bars[11].height);  // 1.1 mm from 16 to 17 h (2/3)
   // Without data the line still has its place.
   const wx::ColumnChart empty = wx::columnChart(wx::Forecast{}, kMorning, 214);
   TEST_ASSERT_EQUAL_INT(chart.line_x0, empty.line_x0);

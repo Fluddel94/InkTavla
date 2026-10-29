@@ -13,7 +13,8 @@
 // value of 17:00 stands between the marks 16 and 17, because Open-Meteo gives
 // the sum of the preceding hour. Its height follows a square root scale, so
 // light rain is still visible and heavy rain does not dominate: full height
-// (kColumnRainMax) from kRainFullMm, nothing below kRainMinMm.
+// (kColumnRainMax) from kRainFullMm, nothing below kRainMinMm. The scale
+// follows the rain of the day within limits (2026-10-29, see rainBarHeight()).
 //
 // The chart adapts to the values so that curve and bars never meet: the
 // bars (at most kColumnRainMax px) have their own strip at the bottom, the
@@ -39,15 +40,25 @@ inline constexpr char kAttribution[] = "Open-Meteo";
 inline constexpr int kFirstHour = 5;
 inline constexpr int kLastHour = 23;
 
-inline constexpr int kColumnRainMax = 40;
-inline constexpr float kRainFullMm = 5.0f;  // mm per hour for a full bar
-inline constexpr float kRainMinMm = 0.1f;   // less counts as dry
-inline constexpr int kRainMinBar = 2;       // lowest bar in px
+inline constexpr int kColumnRainMax = 32;
+inline constexpr float kRainFullMm = 5.0f;          // mm per hour for a full bar
+inline constexpr float kRainFullMaxMm = 10.0f;      // full bar on the wettest days
+inline constexpr float kRainMinMm = 0.1f;           // less counts as dry
+inline constexpr int kRainMinBar = 2;               // lowest bar in px
+inline constexpr double kRainStretchMax = 1.5;      // light rain: at most 1.5 times higher
+inline constexpr double kRainStretchTop = 2.0 / 3;  // ... and at most 2/3 of the height
 
-// Height of the bar for mm of precipitation in an hour:
-// max(kRainMinBar, round(sqrt(min(mm / kRainFullMm, 1)) * kColumnRainMax)),
-// 0 below kRainMinMm (0.1 mm -> 6 px, 0.5 -> 13, 2 -> 25, 5 and more -> 40).
-int rainBarHeight(float mm);
+// Height of the bar for mm of precipitation in an hour of a day whose wettest
+// hour has day_max mm. Square root scale: sqrt(min(mm / full, 1)) * stretch *
+// kColumnRainMax, at least kRainMinBar, 0 below kRainMinMm.
+//  - day_max up to kRainFullMm: full = kRainFullMm; days with little rain are
+//    stretched (at most kRainStretchMax times) until their highest bar reaches
+//    kRainStretchTop of the height; days that reach it anyway are not stretched.
+//  - day_max above kRainFullMm: the wettest hour is full (full = day_max, at
+//    most kRainFullMaxMm), so the hours with little rain are pressed down.
+// Examples: day_max 1.1 mm: 0.1 -> 6 px, 1 -> 20; day_max 5 mm: 0.1 -> 5,
+// 2 -> 20, 5 -> 32; day_max 9 mm: 0.1 -> 3, 2 -> 15, 9 -> 32.
+int rainBarHeight(float mm, float day_max);
 inline constexpr double kColumnMinSpan = 8;
 inline constexpr int kColumnDayIconSize = 38;
 

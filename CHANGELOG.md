@@ -259,8 +259,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has snow stars instead of crosses. The band keeps the umbrella.
 - Weather column: the temperature curve runs smoothly (hourly values, each
   averaged with its neighbours 1-2-1); the labels keep the values of their
-  hours. Rain bars up to 40 px (was 30), so light rain is easier to see
-  (0.1 mm = 6 px).
+  hours.
+- Weather column: rain bars up to 32 px with a scale that follows the day
+  within limits (light rain up to 1.5 times higher, at most two thirds of the
+  height; on days above 5 mm per hour the wettest hour is full, up to 10 mm).
+- Weather column: high and low of the forecast days as "10°/3°", the low in
+  bold too (it looked too thin in Medium).
 - Band: the temperature of now in Fraunces 38 like the sentence (was
   Fraunces 24 Medium), without "Jetzt".
 - Band sentence: tomorrow's weather from the first full hour after sunset,
