@@ -829,6 +829,16 @@ std::string failureText(const std::vector<FailedSource>& failed, ui::Language la
   if (failed.empty()) return "";
   if (failed.size() == 1) {
     const FailedSource& f = failed.front();
+    if (f.settings) {
+      static const Text check[] = {
+          {"Das Wetter lässt sich nicht abrufen – bitte die Einstellungen prüfen",
+           "The weather cannot be loaded – please check the settings"},
+          {"Die Abfahrten lassen sich nicht abrufen – bitte die Einstellungen prüfen",
+           "The departures cannot be loaded – please check the settings"},
+          {"Der Kalender lässt sich nicht abrufen – bitte die Adresse prüfen",
+           "The calendar cannot be loaded – please check its address"}};
+      return std::string(pick(check[static_cast<int>(f.source)], language)) + ".";
+    }
     static const Text one[] = {
         {"Das Wetter lässt sich gerade nicht abrufen", "The weather cannot be loaded right now"},
         {"Die Abfahrten lassen sich gerade nicht abrufen",

@@ -33,12 +33,27 @@ struct SetupMessage {
   std::string detail;   // e.g. "config.json: widgets.mvg.station"
 };
 
+// Why the last update of a source failed, if it knows more than "failed".
+struct Problem {
+  std::string message;  // e.g. "Kalender-Adresse prüfen"; empty: no problem known
+  std::string detail;
+  // True if a setting is wrong (shown at once, also while the source is
+  // still waiting); false for network errors (shown instead of "Keine
+  // Daten" after the grace period).
+  bool settings = false;
+};
+
 class DataSource : public core::Content {
  public:
   // Stable identifier used in the configuration, e.g. "mvg".
   virtual const char* id() const = 0;
   // Message when isSetUp() is false.
   virtual SetupMessage setupMessage(ui::Language language) const;
+  // Problem of the last failed update, while the source has no data.
+  virtual Problem problem(ui::Language language) const {
+    (void)language;
+    return {};
+  }
 };
 
 // State of a data source when a frame is drawn.

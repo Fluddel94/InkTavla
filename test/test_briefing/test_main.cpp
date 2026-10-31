@@ -1230,6 +1230,12 @@ void test_failed_updates() {
   TEST_ASSERT_EQUAL_STRING(
       "Weather and calendar cannot be loaded right now.",
       br::failureText({{S::kWeather, ""}, {S::kCalendar, ""}}, ui::Language::kEnglish).c_str());
+  // A wrong calendar address.
+  TEST_ASSERT_EQUAL_STRING("Der Kalender lässt sich nicht abrufen – bitte die Adresse prüfen.",
+                           br::failureText({{S::kCalendar, "", true}}, de).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "The calendar cannot be loaded – please check its address.",
+      br::failureText({{S::kCalendar, "", true}}, ui::Language::kEnglish).c_str());
   br::SentenceInput in;
   in.now_s = kMorning;
   in.failed = {{S::kDepartures, "07:41"}};

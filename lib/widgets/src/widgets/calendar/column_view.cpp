@@ -26,12 +26,13 @@ const ui::Font& kTimeFont = ui::fonts::kRobotoCondensedMedium17;
 const ui::Font& kTitleFont = ui::fonts::kFraunces20;
 const ui::Font& kWeekTitleFont = ui::fonts::kFraunces18;
 
-// Lines of a title: wrapped once onto a second line (max_lines 2), the last
-// one shortened with "…" if it is still too long.
+// Lines of a title: wrapped once onto a second line (max_lines 2), long
+// words hyphenated (as in the disruption text of the departures), the last
+// line shortened with "…" if it is still too long.
 std::vector<std::string> titleLines(const ui::Font& font, const std::string& title, int width,
                                     int max_lines) {
   if (max_lines <= 1) return {ui::fitTextEllipsis(font, title, width)};
-  std::vector<std::string> lines = ui::wrapText(font, title, width, max_lines);
+  std::vector<std::string> lines = ui::wrapText(font, title, width, max_lines, nullptr, true);
   if (lines.empty()) lines.push_back("");
   // A first word too long for the line ("Projektbesprechung") would be cut
   // in the first line already: then one shortened line is clearer.

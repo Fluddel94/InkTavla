@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Calendar: a wrong address is recognised. If the server rejects it (HTTP
+  401/403/404/410) or sends no iCal file (e.g. an HTML sign-in page; the
+  transfer stops at once), the column shows "Kalender-Adresse prüfen" right
+  away instead of "Wird geladen …" and later "Keine Daten", and the sentence
+  asks to check the address; network errors show "Kalender nicht
+  erreichbar". Data sources can report such problems (`DataSource::problem`).
 - Settings page: every station of the departures can be entered by its
   global ID ("Global-ID setzen" below the station search; format check,
   name confirmed by the MVG through the new device route
@@ -423,6 +429,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Calendar: the next event of today is no longer bold, all events use the
   same weight; long titles wrap once onto a second line where there is
   room.
+- Weather column: the next three days spread evenly down to the bottom of
+  the column, with 44 px symbols instead of 38 px.
+- Calendar: long words in titles are hyphenated when a title wraps (as in
+  the disruption text), instead of moving to the next line whole or being
+  shortened.
 - Dotted lines between the columns are on by default (`layout.dividers`;
   `false` turns them off); the settings page writes `false` only when they
   are switched off.
@@ -436,6 +447,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Settings page: "Linien werden geladen …" appeared twice while the lines of
   a station were loading.
+- Calendar: an iCal file starting with a byte order mark was not read.
+- HTTPS: a body with Content-Length is read up to that length instead of
+  until the server closes the connection, which removes the
+  "ssl_client ... (-76)" log line after every calendar request.
 
 - Wi-Fi setup with a wrong password (Improv) on a device without a saved
   network: the device counted the network as saved and left the Wi-Fi

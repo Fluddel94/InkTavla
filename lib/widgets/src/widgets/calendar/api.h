@@ -19,9 +19,11 @@ class ApiSource : public Source {
   void begin();
   bool configured() const override { return configured_; }
   bool fetchCalendar(Parser& parser) override;
+  FetchError lastError() const override { return error_; }
 
  private:
   bool configured_ = false;
+  FetchError error_ = FetchError::kNone;
 };
 #endif
 

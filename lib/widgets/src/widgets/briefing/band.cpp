@@ -212,8 +212,13 @@ void BandView::draw(ui::Canvas& canvas, const DrawContext& context) {
   for (const auto& [source, kind] : watched) {
     const SourceStatus* s = source == nullptr ? nullptr : status(source);
     if (s == nullptr) continue;
-    if (s->state != core::DataState::kStale && s->state != core::DataState::kNoData) continue;
-    FailedSource failed{kind, ""};
+    const bool settings = source->problem(context.language).settings;
+    const bool waiting_with_problem = s->state == core::DataState::kWaiting && settings;
+    if (s->state != core::DataState::kStale && s->state != core::DataState::kNoData &&
+        !waiting_with_problem) {
+      continue;
+    }
+    FailedSource failed{kind, "", settings};
     if (s->state == core::DataState::kStale && core::isValidUnixTime(s->last_success_wall_s)) {
       core::LocalTime t;
       core::toLocalTime(s->last_success_wall_s, t);

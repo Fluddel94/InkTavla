@@ -411,7 +411,9 @@ days; the band at the top uses the same data for its sentence and picture.
 Temperatures are in degrees Celsius. The column title is the place (`name`)
 with the location pin and the credit "Open-Meteo" on the right.
 
-The symbol of each of the next three days follows the daily weather code of
+The next three days are spread evenly below the chart: weekday, a 44 px
+symbol and the high and low temperature at the bottom of the column. The
+symbol of each day follows the daily weather code of
 Open-Meteo. Rain is shown by its intensity: one stroke below the cloud for
 drizzle and slight rain, two for moderate and three for heavy rain. Showers
 have the sun behind the cloud, freezing drizzle and freezing rain a snow star
@@ -459,9 +461,9 @@ The column shows today with the week number ("KW 43"), then the next day
 that has events and the rest of the week, as described under
 [The "Briefing" layout](#the-briefing-layout). All events are in the same
 weight; a long title wraps once onto a second line where there is room
-(today only as long as every event of today that fits still has its line;
-a first word that is too long for the line is shortened instead), else it
-is shortened with "…". All-day events have a small calendar symbol.
+(today only as long as every event of today that fits still has its line),
+with long words hyphenated as in the disruption text of the departures,
+else it is shortened with "…". All-day events have a small calendar symbol.
 
 The section has no settings yet; the widget only needs the address.
 
@@ -494,7 +496,13 @@ reset it in Google Calendar (**Zurücksetzen** / **Reset** next to the
 address); the old one stops working, and you send the new one to the
 device.
 
-Without an address the column shows "Kalender-Adresse fehlt".
+Without an address the column shows "Kalender-Adresse fehlt". If the
+server rejects the address (HTTP 401, 403, 404 or 410) or sends something
+other than an iCal file (e.g. a sign-in page after the calendar was no
+longer shared or the address was reset), the column shows "Kalender-Adresse
+prüfen" at once and the sentence at the top asks to check the address. If
+the server cannot be reached for a minute, the column shows "Kalender nicht
+erreichbar"; the device keeps trying.
 
 #### What is read
 

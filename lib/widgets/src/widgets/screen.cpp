@@ -106,14 +106,25 @@ void Screen::drawArea(View& view, const ui::Rect& area, const core::ScreenState&
       context.note_alert = true;
       view.draw(canvas, context);
       return;
-    case core::DataState::kWaiting:
+    case core::DataState::kWaiting: {
+      const Problem p = sources.front()->problem(language_);
+      if (p.settings && !p.message.empty()) {
+        view.drawMessage(canvas, language_, p.message, p.detail);
+        return;
+      }
       view.drawMessage(
           canvas, language_, ui::text(language_, ui::Text::kLoading),
           state.network_connected ? "" : ui::text(language_, ui::Text::kNoConnectionDetail), false);
       return;
+    }
     case core::DataState::kNoData:
       if (state.network_connected) {
-        view.drawMessage(canvas, language_, ui::text(language_, ui::Text::kNoData), "");
+        const Problem p = sources.front()->problem(language_);
+        if (!p.message.empty()) {
+          view.drawMessage(canvas, language_, p.message, p.detail);
+        } else {
+          view.drawMessage(canvas, language_, ui::text(language_, ui::Text::kNoData), "");
+        }
       } else {
         view.drawMessage(canvas, language_, ui::text(language_, ui::Text::kNoConnection),
                          ui::text(language_, ui::Text::kNoConnectionDetail));

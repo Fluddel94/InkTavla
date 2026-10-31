@@ -549,6 +549,88 @@ void test_config() {
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
 }
 
+void test_not_a_calendar() {
+  const int64_t from = kNow - 86400, to = kNow + 86400 * 9;
+  {
+    cal::Parser p(from, to);
+    p.feed("\xEF\xBB\xBF\r\n  begin:vcalendar\r\nEND:VCALENDAR\r\n");
+    p.finish();
+    TEST_ASSERT_FALSE(p.notCalendar());
+    TEST_ASSERT_TRUE(p.valid());
+  }
+  {
+    cal::Parser p(from, to);
+    p.feed("BEGIN:VCAL");  // not decided yet
+    TEST_ASSERT_FALSE(p.notCalendar());
+  }
+  {
+    cal::Parser p(from, to);
+    p.feed(readFile("test/fixtures/calendar/not_ical.html"));
+    TEST_ASSERT_TRUE(p.notCalendar());
+    TEST_ASSERT_FALSE(p.valid());
+  }
+  {
+    cal::Parser p(from, to);
+    p.feed("BEGIN:VEVENT\r\n");
+    TEST_ASSERT_TRUE(p.notCalendar());
+  }
+  TEST_ASSERT_TRUE(cal::errorForStatus(404) == cal::FetchError::kAddress);
+  TEST_ASSERT_TRUE(cal::errorForStatus(403) == cal::FetchError::kAddress);
+  TEST_ASSERT_TRUE(cal::errorForStatus(401) == cal::FetchError::kAddress);
+  TEST_ASSERT_TRUE(cal::errorForStatus(410) == cal::FetchError::kAddress);
+  TEST_ASSERT_TRUE(cal::errorForStatus(500) == cal::FetchError::kNetwork);
+  TEST_ASSERT_TRUE(cal::errorForStatus(429) == cal::FetchError::kNetwork);
+  TEST_ASSERT_TRUE(cal::errorForStatus(-1) == cal::FetchError::kNetwork);
+}
+
+// Source that reports why a request failed, like the one on the device.
+class FailingSource : public FixtureSource {
+ public:
+  bool fetchCalendar(cal::Parser& parser) override {
+    if (status != 200) {
+      requests++;
+      return false;
+    }
+    return FixtureSource::fetchCalendar(parser);
+  }
+  cal::FetchError lastError() const override { return cal::errorForStatus(status); }
+  int status = 200;
+};
+
+void test_fetch_errors() {
+  FailingSource source;
+  cal::CalendarSource data(source);
+  const auto de = ui::Language::kGerman;
+  TEST_ASSERT_TRUE(data.problem(de).message.empty());
+  // Address rejected by the server.
+  source.status = 404;
+  TEST_ASSERT_FALSE(data.fetch(kNow));
+  widgets::Problem p = data.problem(de);
+  TEST_ASSERT_EQUAL_STRING("Kalender-Adresse prüfen", p.message.c_str());
+  TEST_ASSERT_EQUAL_STRING("Auf der Einstellungsseite prüfen (Taste 3)", p.detail.c_str());
+  TEST_ASSERT_TRUE(p.settings);
+  // Server error or no connection.
+  source.status = 503;
+  TEST_ASSERT_FALSE(data.fetch(kNow));
+  p = data.problem(de);
+  TEST_ASSERT_EQUAL_STRING("Kalender nicht erreichbar", p.message.c_str());
+  TEST_ASSERT_FALSE(p.settings);
+  // A sign-in page instead of the iCal file.
+  source.status = 200;
+  source.text = readFile("test/fixtures/calendar/not_ical.html");
+  TEST_ASSERT_FALSE(data.fetch(kNow));
+  TEST_ASSERT_TRUE(data.problem(de).settings);
+  // An iCal file cut off: a network problem.
+  source.text = readFile("test/fixtures/calendar/week.ics");
+  source.text.resize(source.text.size() / 2);
+  TEST_ASSERT_FALSE(data.fetch(kNow));
+  TEST_ASSERT_TRUE(data.lastError() == cal::FetchError::kNetwork);
+  // Success clears the problem.
+  source.text = readFile("test/fixtures/calendar/week.ics");
+  TEST_ASSERT_TRUE(data.fetch(kNow));
+  TEST_ASSERT_TRUE(data.problem(de).message.empty());
+}
+
 void test_widget() {
   FixtureSource source;
   cal::CalendarSource data(source);
@@ -605,5 +687,7 @@ int main(int, char**) {
   RUN_TEST(test_agenda_multi_day);
   RUN_TEST(test_config);
   RUN_TEST(test_widget);
+  RUN_TEST(test_not_a_calendar);
+  RUN_TEST(test_fetch_errors);
   return UNITY_END();
 }

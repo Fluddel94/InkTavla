@@ -57,6 +57,10 @@ class Parser {
 
   // True if a complete VCALENDAR was read.
   bool valid() const { return calendar_done_; }
+  // True as soon as the input is known not to be an iCal file: it does not
+  // start with BEGIN:VCALENDAR (after a byte order mark and blank lines),
+  // e.g. the HTML sign-in page of a calendar that is no longer shared.
+  bool notCalendar() const { return start_ == Start::kBad; }
   bool truncated() const { return truncated_; }
   size_t eventsRead() const { return events_read_; }
 
@@ -68,7 +72,10 @@ class Parser {
  private:
   enum class Component : uint8_t { kCalendar, kEvent, kTimezone, kObservance, kOther };
   enum class LineState : uint8_t { kName, kValue, kSkip };
+  enum class Start : uint8_t { kUnknown, kGood, kBad };
 
+  // Follows the start of the input; false for a byte to skip.
+  bool checkStart(char c);
   void feedByte(char c);
   void endLine();
   bool startValue();
@@ -92,6 +99,9 @@ class Parser {
   size_t value_cap_ = 0;
   bool in_quotes_ = false;
   bool pending_newline_ = false;
+
+  Start start_ = Start::kUnknown;
+  size_t start_matched_ = 0;  // bytes of "BEGIN:VCALENDAR" seen so far
 
   std::vector<Component> stack_;
   bool calendar_done_ = false;

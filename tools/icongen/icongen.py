@@ -39,7 +39,7 @@ WEATHER = [
     ("kSnow", "snow"),
     ("kThunder", "thunder"),
 ]
-# Only for the days of the weather column (38 px; 2026-10-29): rain by
+# Only for the days of the weather column (44 px; 2026-10-29): rain by
 # intensity (light 1 stroke, kRain 2, heavy 3), showers with the sun,
 # freezing rain (also sleet). The band keeps the umbrella for all of them.
 DAY_ONLY = [
@@ -50,7 +50,7 @@ DAY_ONLY = [
 ]
 # Sizes: (pixel size, stroke). The symbols fill their square (the drawing
 # scaled up until it touches the edges): the days of the weather column.
-TIGHT_SIZES = [(38, 2.6)]
+TIGHT_SIZES = [(44, 3.0)]
 
 # Large weather pictures for the band of the "Briefing" layout: drawn in
 # their final size (not scaled up) into a box of BAND_W x BAND_H. Rain is an

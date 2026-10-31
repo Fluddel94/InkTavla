@@ -80,7 +80,27 @@ const Zone* Parser::zone(uint8_t index) const {
 }
 
 void Parser::feed(const char* data, size_t length) {
-  for (size_t i = 0; i < length; i++) feedByte(data[i]);
+  for (size_t i = 0; i < length; i++) {
+    // A byte order mark and blank lines before BEGIN:VCALENDAR are skipped.
+    if (start_ == Start::kUnknown && !checkStart(data[i])) continue;
+    feedByte(data[i]);
+  }
+}
+
+bool Parser::checkStart(char c) {
+  static constexpr std::string_view kStart = "BEGIN:VCALENDAR";
+  const auto u = static_cast<unsigned char>(c);
+  if (start_matched_ == 0 &&
+      (u == 0xEF || u == 0xBB || u == 0xBF || c == ' ' || c == '\t' || c == '\r' || c == '\n')) {
+    return false;  // byte order mark, blank lines
+  }
+  const char upper = (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+  if (upper != kStart[start_matched_]) {
+    start_ = Start::kBad;
+    return true;
+  }
+  if (++start_matched_ == kStart.size()) start_ = Start::kGood;
+  return true;
 }
 
 void Parser::finish() {

@@ -84,6 +84,10 @@ const char* text(Language language, Text id) {
       return de ? "KW" : "Wk";
     case Text::kCalendarAddressMissing:
       return de ? "Kalender-Adresse fehlt" : "Calendar address missing";
+    case Text::kCalendarCheckAddress:
+      return de ? "Kalender-Adresse prüfen" : "Check the calendar address";
+    case Text::kCalendarUnreachable:
+      return de ? "Kalender nicht erreichbar" : "Calendar not reachable";
     case Text::kDoesNotFit:
       return de ? "Passt hier nicht" : "Does not fit here";
     case Text::kSettingsOpen:
@@ -133,6 +137,9 @@ const char* text(Language language, Text id) {
     case Text::kSetUpOnSettingsPage:
       return de ? "Auf der Einstellungsseite einrichten (Taste 3)"
                 : "Set up on the settings page (button 3)";
+    case Text::kCheckOnSettingsPage:
+      return de ? "Auf der Einstellungsseite prüfen (Taste 3)"
+                : "Check on the settings page (button 3)";
   }
   return "";
 }

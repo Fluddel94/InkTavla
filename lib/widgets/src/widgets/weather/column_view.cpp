@@ -24,7 +24,13 @@ constexpr int kCurveGapAboveBars = 6;
 constexpr int kCurveBottomWithoutRain = kBase - 12;
 constexpr int kChartMargin = 6;
 constexpr int kDaysTop = kBase + 34;
-constexpr int kDayTemperatures = kDaysTop + 85;
+// The three days below the dotted line, spread evenly down to the bottom of
+// the column (2026-10-31, variant B of the probe): weekday, 44 px symbol and
+// temperatures with gaps of about 11 px; offsets from kDaysTop.
+struct DaysLayout {
+  int icon_size, weekday_baseline, icon_top, temperatures_baseline;
+};
+constexpr DaysLayout kDays{kColumnDayIconSize, 23, 34, 100};
 constexpr int kLabelHours[] = {8, 11, 14, 17, 20};
 constexpr double kCurveWidth = 2;
 // Points of the spline between two hourly values.
@@ -99,13 +105,14 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
   const double cw = width / 3.0;
   for (size_t i = 0; i < days.size(); i++) {
     const int cx = roundToInt(cw * i + cw / 2);
-    if (i > 0) c.dottedVLine(roundToInt(cw * i), kDaysTop + 10, kDayTemperatures - kDaysTop - 8, 2);
+    if (i > 0)
+      c.dottedVLine(roundToInt(cw * i), kDaysTop + 10, kDays.temperatures_baseline - 10, 2);
     core::LocalTime t;
     core::toLocalTime(days[i]->time + 12 * 3600, t);
-    ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + 24,
+    ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + kDays.weekday_baseline,
                  ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
-    ui::drawIcon(c, cx - kColumnDayIconSize / 2, kDaysTop + 28,
-                 ui::weatherIcon(dayIcon(days[i]->code, days[i]->condition), kColumnDayIconSize));
+    ui::drawIcon(c, cx - kDays.icon_size / 2, kDaysTop + kDays.icon_top,
+                 ui::weatherIcon(dayIcon(days[i]->code, days[i]->condition), kDays.icon_size));
     // "10°/3°": high and low in bold (the low a little smaller), a thin
     // slash between them (2026-10-29: the low in Medium looked too thin).
     const std::string high = degreesText(days[i]->high);
@@ -115,9 +122,9 @@ void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang
     const ui::Font& lf = ui::fonts::kRobotoCondensedBold16;
     const int x =
         cx - (ui::textWidth(hf, high) + ui::textWidth(sf, "/") + ui::textWidth(lf, low)) / 2;
-    int end = ui::drawText(c, hf, x, kDayTemperatures, high);
-    end = ui::drawText(c, sf, end, kDayTemperatures, "/");
-    ui::drawText(c, lf, end, kDayTemperatures, low);
+    int end = ui::drawText(c, hf, x, kDaysTop + kDays.temperatures_baseline, high);
+    end = ui::drawText(c, sf, end, kDaysTop + kDays.temperatures_baseline, "/");
+    ui::drawText(c, lf, end, kDaysTop + kDays.temperatures_baseline, low);
   }
 }
 

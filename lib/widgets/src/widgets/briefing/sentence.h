@@ -114,7 +114,8 @@ enum class Source { kWeather, kDepartures, kCalendar };
 
 struct FailedSource {
   Source source;
-  std::string as_of;  // time of its last data ("" if it never had any)
+  std::string as_of;      // time of its last data ("" if it never had any)
+  bool settings = false;  // a setting is wrong (e.g. the calendar address)
 };
 
 // "Das Wetter lässt sich gerade nicht abrufen – Stand 07:12." for one

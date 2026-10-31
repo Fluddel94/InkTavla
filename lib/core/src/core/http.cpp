@@ -13,11 +13,15 @@ namespace core {
 namespace {
 
 // Body of a response as a Stream for ArduinoJson: waits for data up to the
-// timeout, ends with the connection, removes chunk lengths if needed.
+// timeout, ends after Content-Length bytes or with the connection, removes
+// chunk lengths if needed. Stopping at the length means the closed
+// connection is never read (some servers, e.g. Google Calendar, close it
+// without a TLS close notification: "ssl_client ... (-76)" in the log).
 class HttpBodyStream : public Stream {
  public:
-  HttpBodyStream(Client& client, bool chunked, uint32_t timeout_ms)
-      : in_(client), chunked_(chunked), timeout_ms_(timeout_ms) {}
+  // length: Content-Length, negative if unknown.
+  HttpBodyStream(Client& client, bool chunked, int64_t length, uint32_t timeout_ms)
+      : in_(client), chunked_(chunked), length_(chunked ? -1 : length), timeout_ms_(timeout_ms) {}
 
   int read() override {
     const int c = peek();
@@ -53,7 +57,12 @@ class HttpBodyStream : public Stream {
 
   int nextBodyByte() {
     while (true) {
+      if (length_ >= 0 && raw_bytes_ >= length_) {
+        finished_ = true;
+        return -1;
+      }
       const int c = rawByte();
+      raw_bytes_++;
       if (c < 0) {
         finished_ = true;
         return -1;
@@ -70,6 +79,8 @@ class HttpBodyStream : public Stream {
 
   Client& in_;
   bool chunked_;
+  int64_t length_;
+  int64_t raw_bytes_ = 0;
   uint32_t timeout_ms_;
   ChunkedDecoder decoder_;
   bool finished_ = false;
@@ -103,7 +114,7 @@ bool get(const std::string& url, bool follow_redirects,
     r.status = http.GET();
     if (r.status == 200) {
       const bool chunked = http.header("Transfer-Encoding").equalsIgnoreCase("chunked");
-      HttpBodyStream body(client, chunked, kHttpTimeoutMs);
+      HttpBodyStream body(client, chunked, http.getSize(), kHttpTimeoutMs);
       ok = read(body, r);
       r.bytes = body.bytes();
       r.timed_out = body.timedOut();

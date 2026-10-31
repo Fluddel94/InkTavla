@@ -60,7 +60,7 @@ inline constexpr double kRainStretchTop = 2.0 / 3;  // ... and at most 2/3 of th
 // 2 -> 20, 5 -> 32; day_max 9 mm: 0.1 -> 3, 2 -> 15, 9 -> 32.
 int rainBarHeight(float mm, float day_max);
 inline constexpr double kColumnMinSpan = 8;
-inline constexpr int kColumnDayIconSize = 38;
+inline constexpr int kColumnDayIconSize = 44;
 
 // Geometry of the chart (column coordinates), for drawing and tests.
 struct ColumnChart {

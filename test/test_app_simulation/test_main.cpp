@@ -99,7 +99,7 @@ class CalendarFixtureSource : public widgets::calendar::Source {
   bool fetchCalendar(widgets::calendar::Parser& parser) override {
     requests++;
     if (fail) return false;
-    std::ifstream file("test/fixtures/calendar/week.ics", std::ios::binary);
+    std::ifstream file("test/fixtures/calendar/" + fixture, std::ios::binary);
     std::stringstream text;
     text << file.rdbuf();
     parser.feed(text.str());
@@ -107,6 +107,7 @@ class CalendarFixtureSource : public widgets::calendar::Source {
   }
   bool has_address = true;
   bool fail = false;
+  std::string fixture = "week.ics";
   int requests = 0;
 };
 
@@ -495,6 +496,19 @@ void test_access_notices() {
   TEST_ASSERT_TRUE(rig.app.controller().state().notice.mode == core::AccessMode::kNone);
 }
 
+// A wrong calendar address (the server sends a sign-in page instead of the
+// iCal file): shown at once in the column and in the sentence, without the
+// minute of "Wird geladen …" and "Keine Daten".
+void test_calendar_address_wrong() {
+  Rig rig(kBriefingConfig, "calendar_address", true, kBriefingMorning);
+  rig.weather.fixture = "muenchen_20261022.json";
+  rig.calendar.fixture = "not_ical.html";
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(1, rig.calendar.requests);
+  checkPanel(rig.display, "sim_calendar_address");
+}
+
 void test_briefing_layout_variants() {
   // The variants for the display test: equal columns and dotted lines.
   std::string config = kBriefingConfig;
@@ -528,6 +542,7 @@ int main() {
   RUN_TEST(test_one_source_for_several_views);
   RUN_TEST(test_briefing_morning);
   RUN_TEST(test_access_notices);
+  RUN_TEST(test_calendar_address_wrong);
   RUN_TEST(test_briefing_layout_variants);
   RUN_TEST(test_briefing_not_set_up);
   return UNITY_END();

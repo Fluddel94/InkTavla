@@ -38,6 +38,8 @@ enum class Text {
   kHoursUnit,               // after a number of hours: "in 2 h"
   kWeekShort,               // week number in the column title: "KW 43"
   kCalendarAddressMissing,  // calendar widget without an iCal address
+  kCalendarCheckAddress,    // the server rejected the iCal address or sent no iCal file
+  kCalendarUnreachable,     // the calendar server could not be reached
   kDoesNotFit,              // a widget in a column of a size it is not made for
   // Settings page open (band instead of the sentence).
   kSettingsOpen,     // "Die Einstellungsseite ist offen."
@@ -61,6 +63,7 @@ enum class Text {
   kWifiTried,              // before the name of the network tried: "Versucht:"
   kWifiCheckPassword,      // footer: check the password, set up again over USB
   kSetUpOnSettingsPage,    // column without settings: where to set it up
+  kCheckOnSettingsPage,    // column with a wrong setting: where to check it
 };
 
 const char* text(Language language, Text id);

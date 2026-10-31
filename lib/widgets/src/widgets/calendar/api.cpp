@@ -26,9 +26,17 @@ bool ApiSource::fetchCalendar(Parser& parser) {
       core::secretUrl(url),
       [&](const char* data, size_t length) {
         parser.feed(data, length);
-        return true;
+        // No iCal file (e.g. an HTML sign-in page): stop at once.
+        return !parser.notCalendar();
       },
       kMaxCalendarBytes, &result);
+  error_ = ok ? FetchError::kNone : errorForStatus(result.status);
+  if (!ok) {
+    Serial.printf("Calendar: request failed (%s)\n", parser.notCalendar() ? "no iCal file"
+                                                     : error_ == FetchError::kAddress
+                                                         ? "address rejected"
+                                                         : "network");
+  }
   // Only sizes and counts in the log, never the address or titles.
   if (ok) {
     Serial.printf("Calendar: %u bytes in %lu ms, %u events read, %u kept%s\n",
