@@ -193,7 +193,8 @@ void handleSave() {
 void handleReset() {
   if (!authorized()) return;
   LittleFsStore store;
-  const SettingsSaveResult r = resetSettings(store);
+  NvsSecretStore secrets;
+  const SettingsSaveResult r = resetSettings(store, secrets);
   Serial.println("Settings page: settings reset");
   sendJson(r.status, r.json);
   if (r.restart) restartSoon();

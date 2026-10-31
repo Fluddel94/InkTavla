@@ -156,6 +156,26 @@ std::vector<core::SettingsRoute> settingsRoutes() {
                       json = catalog.toJson();
                       return true;
                     }});
+  // Station by its global ID (settings page, "Advanced"): its name, which
+  // also confirms that the MVG knows it.
+  routes.push_back({"mvg/station", [](const auto& args, std::string& json) {
+                      const std::string station = argument(args, "id");
+                      if (!mvg::isValidStationId(station)) return false;
+                      JsonDocument filter;
+                      filter["name"] = true;
+                      JsonDocument doc;
+                      if (!core::fetchJsonStream(mvg::stationNameUrl(station), doc, filter)) {
+                        return false;
+                      }
+                      const char* name = doc["name"];
+                      if (name == nullptr || *name == '\0') return false;
+                      JsonDocument out;
+                      out["id"] = station;
+                      out["name"] = name;
+                      json.clear();
+                      serializeJson(out, json);
+                      return true;
+                    }});
   routes.push_back(
       {"weather/places", [](const auto& args, std::string& json) {
          const std::string query = argument(args, "q");

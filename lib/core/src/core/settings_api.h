@@ -30,9 +30,10 @@ struct SettingsSaveResult {
 SettingsSaveResult saveSettings(const std::string& body, ConfigStore& store,
                                 const ConfigValidator& validate, SecretStore* secrets);
 
-// Resets the settings: an empty configuration (all defaults). Wi-Fi and
-// secrets stay.
-SettingsSaveResult resetSettings(ConfigStore& store);
+// Resets the settings: an empty configuration (all defaults) and no
+// calendar address (secrets). Wi-Fi stays, so the device can still be
+// reached. Nothing is changed if the secret cannot be cleared.
+SettingsSaveResult resetSettings(ConfigStore& store, SecretStore& secrets);
 
 // The stored configuration as JSON text for the page; "{}" if there is
 // none or it cannot be read (then *problem says why).

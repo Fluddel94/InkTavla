@@ -856,7 +856,6 @@ void test_preview_departure_incidents() {
   TEST_ASSERT_TRUE(stations.sections()[0].own_station);
   TEST_ASSERT_TRUE(stations.sections()[1].own_station);
   TEST_ASSERT_FALSE(directions.sections()[0].own_station);
-  TEST_ASSERT_EQUAL_STRING("4 min zu Fuß", stations.sections()[1].note.c_str());
   options.show_incidents = false;
   ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(b, stations.sections(), options));
@@ -1028,7 +1027,6 @@ void test_incident_variants() {
   bitmap.clear(ui::Color::kWhite);
   widgets::mvg::ColumnOptions options;
   options.station = "Karlsfeld";
-  options.station_note = "Bahnhof";
   options.now_s = kIncidentsNow;
   options.show_incidents = true;
   std::vector<std::string> text;

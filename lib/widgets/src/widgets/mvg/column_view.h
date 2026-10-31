@@ -23,9 +23,7 @@ struct ColumnOptions {
   // Station title with the location pin: above one list and above two
   // directions (not above two stations, their titles have the pin).
   std::string station;
-  std::string station_note;  // free text on the right of it ("Bahnhof"), "" = none
-  // Age badge of the first title, "" for none; it takes the place of the
-  // note.
+  // Age badge of the first title ("Stand 14:32"), "" for none.
   std::string note;
   bool note_alert = false;
   TimeFormat time_format = TimeFormat::kClock;

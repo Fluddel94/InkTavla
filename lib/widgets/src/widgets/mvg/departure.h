@@ -88,8 +88,6 @@ struct Departure {
 struct Section {
   std::string name;
   std::vector<Departure> departures;
-  // Free text on the right of the section title ("4 min zu Fuß").
-  std::string note;
   // The widget shows two stations: title with a location pin instead of
   // the arrow of a direction.
   bool own_station = false;

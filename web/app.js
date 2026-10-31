@@ -33,8 +33,15 @@ const TEXTS = {
     searchFailed: "Die Suche hat nicht geklappt. Ist das Display mit dem Internet verbunden?",
     displayName: "Anzeigename",
     displayNamePlaceholder: "wie bei der MVG",
-    note: "Zusatz rechts",
-    noteHint: "Zusatz: kurzer Text rechts neben dem Stationsnamen, z. B. „Bahnhof“.",
+    globalId: "Haltestelle per Global-ID",
+    globalIdHint: "Für Haltestellen, die die Suche nicht findet: die MVG-Global-ID, z. B. de:09162:10.",
+    globalIdApply: "Übernehmen",
+    globalIdBad: "Format: zwei Kleinbuchstaben, dann durch Doppelpunkte getrennte Teile, z. B. de:09162:10.",
+    globalIdChecking: "Haltestelle wird geprüft …",
+    globalIdUnknown: "Unter dieser ID hat die MVG keine Haltestelle gefunden (oder das Display ist nicht mit dem Internet verbunden).",
+    allStationsModes: "Verkehrsmittel an beiden Haltestellen",
+    allStationsHint: "Ein Knopf wählt bei jeder Haltestelle alle Linien des Verkehrsmittels an bzw. ab; einzelne Linien lassen sich danach je Haltestelle ändern.",
+    firstSectionTitle: "Überschrift: der Anzeigename oben.",
     layout: "Darstellung",
     modeList: "Eine Liste",
     modeDir: "Zwei Richtungen",
@@ -64,7 +71,6 @@ const TEXTS = {
     place: "Ort",
     placeNone: "Noch kein Ort gewählt.",
     placePlaceholder: "Name des Orts",
-    coordinates: "Koordinaten",
     latitude: "Breite",
     longitude: "Länge",
     calendar: "Kalender",
@@ -127,7 +133,7 @@ const TEXTS = {
     ntpServer: "Zeitserver",
     restart: "Neu starten",
     reset: "Einstellungen zurücksetzen",
-    resetConfirm: "Alle Einstellungen auf die Standardwerte zurücksetzen? WLAN und Kalender-Adresse bleiben. Das Display startet danach neu.",
+    resetConfirm: "Alle Einstellungen auf die Standardwerte zurücksetzen und die Kalender-Adresse löschen? Das WLAN bleibt. Das Display startet danach neu.",
     resetYes: "Zurücksetzen",
     cancel: "Abbrechen",
     save: "Speichern und neu starten",
@@ -183,8 +189,15 @@ const TEXTS = {
     searchFailed: "The search did not work. Is the display connected to the internet?",
     displayName: "Display name",
     displayNamePlaceholder: "as named by MVG",
-    note: "Note on the right",
-    noteHint: "Note: short text on the right of the station name, e.g. “Station”.",
+    globalId: "Station by global ID",
+    globalIdHint: "For stations the search does not find: the MVG global ID, e.g. de:09162:10.",
+    globalIdApply: "Apply",
+    globalIdBad: "Format: two lower-case letters, then parts separated by colons, e.g. de:09162:10.",
+    globalIdChecking: "Checking the station …",
+    globalIdUnknown: "The MVG has no station with this ID (or the display is not connected to the internet).",
+    allStationsModes: "Modes of transport at both stations",
+    allStationsHint: "A button selects or clears all lines of that mode at every station; single lines can be changed per station afterwards.",
+    firstSectionTitle: "Title: the display name above.",
     layout: "Layout",
     modeList: "One list",
     modeDir: "Two directions",
@@ -214,7 +227,6 @@ const TEXTS = {
     place: "Place",
     placeNone: "No place chosen yet.",
     placePlaceholder: "Name of the place",
-    coordinates: "Coordinates",
     latitude: "Latitude",
     longitude: "Longitude",
     calendar: "Calendar",
@@ -277,7 +289,7 @@ const TEXTS = {
     ntpServer: "Time server",
     restart: "Restart",
     reset: "Reset settings",
-    resetConfirm: "Reset all settings to their defaults? Wi-Fi and the calendar address stay. The display restarts afterwards.",
+    resetConfirm: "Reset all settings to their defaults and delete the calendar address? Wi-Fi stays. The display restarts afterwards.",
     resetYes: "Reset",
     cancel: "Cancel",
     save: "Save and restart",
@@ -409,7 +421,6 @@ const mvg = {          // the departures form
   pick: {},
   pick2: {},
   names: ["", ""],
-  notes: ["", ""],
   hiddenTypes: {},     // station id -> Set of modes switched off in the table
 };
 
@@ -545,7 +556,7 @@ function fillMvg() {
   mvg.pick = {};
   mvg.pick2 = {};
   mvg.names = ["", ""];
-  mvg.notes = ["", ""];
+  let displayName = c.name || "";
   if (sections && sections.some((s) => s.station)) {
     mvg.mode = "two";
     const s1 = sections[0], s2 = sections[1];
@@ -554,11 +565,12 @@ function fillMvg() {
     mvg.pick = parseLines(s1.lines, true);
     mvg.pick2 = parseLines(s2.lines, true);
     mvg.names = [s1.name || "", s2.name || ""];
-    mvg.notes = [s1.note || "", s2.note || ""];
+    // The title of the first station is the display name (formerly a field
+    // of its own: an older setting is kept).
+    if (s1.name) displayName = s1.name;
   } else if (sections) {
     mvg.mode = "dir";
     mvg.names = [sections[0].name || "", sections[1].name || ""];
-    mvg.notes = [sections[0].note || "", sections[1].note || ""];
     mvg.pick = parseLines(sections[0].lines, 0);
     const second = parseLines(sections[1].lines, 1);
     for (const [k, v] of Object.entries(second)) {
@@ -575,12 +587,19 @@ function fillMvg() {
       mvg.directionOnly = c.direction;
     }
   }
-  $("mvgName").value = c.name || "";
+  $("mvgName").value = displayName;
   $("mvgName").placeholder = t("displayNamePlaceholder");
-  $("mvgNote").value = c.note || "";
+  $("mvgGlobalId").value = "";
+  $("mvgGlobalIdStatus").hidden = true;
   segSet($("mvgMode"), mvg.mode);
   segSet($("mvgTime"), c.time_format === "minutes" ? "minutes" : "clock");
   $("mvgIncidents").checked = c.incidents !== false;
+  showMvgStation();
+  renderMvgBody();
+}
+
+// The station of the widget: chosen card or search.
+function showMvgStation() {
   renderStation($("mvgStation"), () => mvg.station, (s) => {
     mvg.station = s;
     mvg.pick = {};
@@ -588,7 +607,6 @@ function fillMvg() {
     $("mvgName").value = s.name;
     renderMvgBody();
   });
-  renderMvgBody();
 }
 
 // Station: chosen card or search.
@@ -637,8 +655,9 @@ async function loadCatalog(id, rerender) {
   if (!id) return;
   const c = mvg.catalogs[id];
   if (c && (c.state === "ok" || c.state === "loading")) return;
+  // No rerender here: the caller draws the "loading" state itself (a nested
+  // rerender inside renderMvgBody() drew status and table twice).
   mvg.catalogs[id] = { state: "loading", lines: [] };
-  rerender();
   try {
     const lines = await api("api/mvg/lines?station=" + encodeURIComponent(id));
     mvg.catalogs[id] = { state: "ok", lines };
@@ -666,7 +685,7 @@ function catalogStatus(id, rerender) {
   }
   if (cat.state === "failed") {
     return el("p", { class: "err" }, t("linesFailed"), " ",
-      el("button", { type: "button", class: "quiet", onclick: () => { delete mvg.catalogs[id]; loadCatalog(id, rerender); } }, t("retry")));
+      el("button", { type: "button", class: "quiet", onclick: () => { delete mvg.catalogs[id]; loadCatalog(id, rerender); rerender(); } }, t("retry")));
   }
   return null;
 }
@@ -679,7 +698,9 @@ function sym(line) {
 // A direction without departures in the next 12 hours is only listed when
 // it is selected; lines without any departures go into a closed group at
 // the end.
-function linesTable(id, pick, control) {
+// withModes: buttons to hide the lines of a mode of transport (not with two
+// stations, which have buttons for both stations above).
+function linesTable(id, pick, control, withModes = true) {
   const rows = rowsFor(id, pick);
   const box = el("div", { class: "lines" });
   const hiddenTypes = mvg.hiddenTypes[id] || (mvg.hiddenTypes[id] = new Set());
@@ -690,7 +711,7 @@ function linesTable(id, pick, control) {
     if (modes.includes(line.type)) continue;
     if (["H", "R"].some((d) => (line[d] || []).length || isSelected(line, d))) modes.push(line.type);
   }
-  if (modes.length > 1) {
+  if (withModes && modes.length > 1) {
     const count = (type) => rows.filter((l) => l.type === type && pick[l.key]).length;
     box.append(el("span", { class: "label" }, t("transportModes")),
       el("div", { class: "chips" }, modes.map((type) => el("button", {
@@ -759,34 +780,73 @@ function renderMvgBody() {
     body.append(el("p", { class: "err", id: "mvgLinesError", hidden: true }));
   } else {
     body.append(el("p", { class: "hint" }, t("twoHint")));
+    const both = [[mvg.station, mvg.pick], [mvg.station2, mvg.pick2]].filter(([st]) => st);
+    for (const [st] of both) loadCatalog(st.id, rerender);
+    body.append(modeButtonsForAll(both));
     [0, 1].forEach((i) => {
       const station = i === 0 ? mvg.station : mvg.station2;
       const pick = i === 0 ? mvg.pick : mvg.pick2;
       body.append(el("h3", {}, t("section") + " " + (i + 1)));
       if (i === 0) {
-        body.append(el("p", { class: "hint" }, t("station") + ": " + (station ? station.name : "–")));
+        body.append(el("p", { class: "hint" }, t("station") + ": " + (station ? station.name : "–") +
+          ". " + t("firstSectionTitle")));
       }
       if (i === 1) {
         const box = el("div");
         body.append(el("span", { class: "label" }, t("secondStation")), box);
         renderStation(box, () => mvg.station2, (s) => { mvg.station2 = s; mvg.pick2 = {}; renderMvgBody(); });
+        body.append(el("label", { for: "secName1" }, t("sectionName")),
+          el("input", { id: "secName1", type: "text", maxlength: 24, value: mvg.names[1], placeholder: station ? station.name : "",
+            oninput: (e) => { mvg.names[1] = e.target.value; setDirty(true); } }));
       }
-      body.append(el("div", { class: "pair" },
-        el("div", {}, el("label", { for: "secName" + i }, t("sectionName")),
-          el("input", { id: "secName" + i, type: "text", maxlength: 24, value: mvg.names[i], placeholder: station ? station.name : "",
-            oninput: (e) => { mvg.names[i] = e.target.value; setDirty(true); } })),
-        el("div", {}, el("label", { for: "secNote" + i }, t("note")),
-          el("input", { id: "secNote" + i, type: "text", maxlength: 24, value: mvg.notes[i],
-            oninput: (e) => { mvg.notes[i] = e.target.value; setDirty(true); } }))));
       if (station) {
-        loadCatalog(station.id, rerender);
         const status = catalogStatus(station.id, rerender);
         if (status) body.append(status);
-        body.append(linesTable(station.id, pick, (line, dir) => checkbox(pick, line, dir)));
+        body.append(linesTable(station.id, pick, (line, dir) => checkbox(pick, line, dir), false));
       }
     });
     body.append(el("p", { class: "err", id: "mvgLinesError", hidden: true }));
   }
+}
+
+// Two stations: one button per mode of transport for both stations. It
+// selects all lines of that mode with departures at every station (all
+// already selected: clears them); single lines stay editable per station.
+function modeButtonsForAll(stations) {
+  const entries = [];  // [pick, line, dir] with departures
+  for (const [st, pick] of stations) {
+    for (const line of rowsFor(st.id, pick)) {
+      for (const dir of ["H", "R"]) if ((line[dir] || []).length) entries.push([pick, line, dir]);
+    }
+  }
+  const modes = [...TYPE_ORDER].filter((type) => entries.some(([, line]) => line.type === type));
+  if (!modes.length) return el("div");
+  const isOn = (pick, line, dir) => !!pick[line.key] && pick[line.key][dir] !== undefined;
+  return el("div", {},
+    el("span", { class: "label" }, t("allStationsModes")),
+    el("div", { class: "chips" }, modes.map((type) => {
+      const mine = entries.filter(([, line]) => line.type === type);
+      const all = mine.every(([pick, line, dir]) => isOn(pick, line, dir));
+      return el("button", {
+        type: "button", class: "chip", "aria-pressed": String(all),
+        onclick: () => {
+          for (const [pick, line, dir] of mine) {
+            if (all) {
+              const it = pick[line.key];
+              if (!it) continue;
+              delete it[dir];
+              if (it.H === undefined && it.R === undefined) delete pick[line.key];
+            } else {
+              const it = pick[line.key] || (pick[line.key] = { type: line.type, label: line.label });
+              it[dir] = true;
+            }
+          }
+          setDirty(true);
+          renderMvgBody();
+        },
+      }, t("type" + type));
+    })),
+    el("p", { class: "hint" }, t("allStationsHint")));
 }
 
 function checkbox(pick, line, dir) {
@@ -825,10 +885,32 @@ $("mvgMode").addEventListener("click", (e) => {
   mvg.pick = {};
   mvg.pick2 = {};
   mvg.names = ["", ""];
-  mvg.notes = ["", ""];
   segSet($("mvgMode"), mvg.mode);
   renderMvgBody();
   setDirty(true);
+});
+// Station by its global ID (Advanced): format check here, the name from the
+// MVG through the display (also confirms that the station exists).
+const STATION_ID = /^[a-z]{2}(:[A-Za-z0-9_]+)+$/;
+$("mvgGlobalIdApply").addEventListener("click", async () => {
+  const id = $("mvgGlobalId").value.trim();
+  const status = $("mvgGlobalIdStatus");
+  const show = (cls, ...content) => { status.className = cls; status.replaceChildren(...content); status.hidden = false; };
+  if (!STATION_ID.test(id) || id.length > 32) { show("err", t("globalIdBad")); return; }
+  show("hint", el("span", { class: "spin" }), t("globalIdChecking"));
+  try {
+    const found = await api("api/mvg/station?id=" + encodeURIComponent(id));
+    status.hidden = true;
+    mvg.station = { id: found.id, name: found.name, place: "" };
+    mvg.pick = {};
+    $("mvgName").value = found.name;
+    $("mvgGlobalId").value = "";
+    setDirty(true);
+    showMvgStation();
+    renderMvgBody();
+  } catch (e) {
+    if (e.status !== 401) show("err", t("globalIdUnknown"));
+  }
 });
 $("mvgTime").addEventListener("click", (e) => {
   const b = e.target.closest("button");
@@ -977,17 +1059,19 @@ function widgetName(id) {
 
 // --- Wi-Fi ----------------------------------------------------------------------------
 
+// Signal strength as four bars (drawn by CSS) and a word.
 function bars(rssi) {
-  if (rssi >= -60) return ["▂▄▆█", t("good")];
-  if (rssi >= -70) return ["▂▄▆_", t("fair")];
-  return ["▂▄__", t("weak")];
+  const level = rssi >= -60 ? 4 : rssi >= -70 ? 3 : rssi >= -80 ? 2 : 1;
+  const icon = el("span", { class: "bars", "data-level": String(level), "aria-hidden": "true" },
+    el("i"), el("i"), el("i"), el("i"));
+  return [icon, t(level === 4 ? "good" : level === 3 ? "fair" : "weak")];
 }
 function fillWifi() {
   const w = S.wifi || {};
   const [b, word] = bars(w.rssi || -100);
   $("wifiInfo").replaceChildren(
     el("dt", {}, t("wifiConnected")), el("dd", {}, w.ssid || "–"),
-    el("dt", {}, t("signal")), el("dd", {}, el("span", { class: "bars" }, b), " " + word + " (" + w.rssi + " dBm)"),
+    el("dt", {}, t("signal")), el("dd", {}, b, " " + word + " (" + w.rssi + " dBm)"),
     el("dt", {}, t("address")), el("dd", {}, w.ip || "–"));
   $("wifiNets").replaceChildren();
   $("wifiNets").hidden = true;
@@ -1005,7 +1089,7 @@ $("wifiScan").addEventListener("click", async () => {
         box.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === e.currentTarget)));
         $("wifiSsid").value = n.ssid;
         $("wifiPassword").focus();
-      } }, n.ssid + (n.secure ? "" : " (offen)"), el("span", { class: "bars" }, b));
+      } }, n.ssid + (n.secure ? "" : " (offen)"), b);
     }));
     if (!nets.length) box.replaceChildren(el("p", { class: "hint", style: "padding:8px 10px;margin:0" }, t("noHits")));
   } catch (e) {
@@ -1189,7 +1273,7 @@ function buildConfig() {
   delete m.sections;
   delete m.direction;
   setOrDelete(m, "name", check("mvgName", 64));
-  setOrDelete(m, "note", check("mvgNote", 24));
+  delete m.note;  // removed setting
   m.time_format = segValue($("mvgTime")) || "clock";
   if ($("mvgIncidents").checked) delete m.incidents; else m.incidents = false;
   const usesMvg = [0, 1, 2].some((i) => $("slot" + i) && $("slot" + i).value === "mvg");
@@ -1209,9 +1293,7 @@ function buildConfig() {
       const lines = linesOf(mvg.pick, i);
       if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
       if (!lines.length && mvg.station) lineError(t("noLinesInSection", { name }));
-      const s = { name, lines };
-      if (mvg.notes[i]) s.note = mvg.notes[i];
-      return s;
+      return { name, lines };
     });
   } else {
     if (!mvg.station && usesMvg) errors.push(["mvgStation", t("stationMissing")]);
@@ -1221,14 +1303,15 @@ function buildConfig() {
     setOrDelete(m, "station", mvg.station ? mvg.station.id : "");
     m.sections = [0, 1].map((i) => {
       const st = stations[i];
-      const name = (mvg.names[i] || (st ? st.name : "")).trim() || t("section") + " " + (i + 1);
-      if (bytes(name) > 24) errors.push(["secName" + i, t("tooLong", { n: 24 })]);
+      // The first station's title is the display name above.
+      const own = i === 0 ? $("mvgName").value : mvg.names[i];
+      const name = (own || (st ? st.name : "")).trim() || t("section") + " " + (i + 1);
+      if (bytes(name) > 24) errors.push([i === 0 ? "mvgName" : "secName" + i, t("tooLong", { n: 24 })]);
       const lines = linesOf(i === 0 ? mvg.pick : mvg.pick2, true);
       if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
       const s = { name };
       if (st) s.station = st.id;
       if (lines.length) s.lines = lines;
-      if (mvg.notes[i]) s.note = mvg.notes[i];
       return s;
     });
   }

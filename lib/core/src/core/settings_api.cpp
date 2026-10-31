@@ -110,7 +110,8 @@ SettingsSaveResult saveSettings(const std::string& body, ConfigStore& store,
   return r;
 }
 
-SettingsSaveResult resetSettings(ConfigStore& store) {
+SettingsSaveResult resetSettings(ConfigStore& store, SecretStore& secrets) {
+  if (!secrets.erase(kSecretCalendarUrl)) return failure(500, "cannot clear the calendar address");
   if (!writeConfig(store, "{}\n")) return failure(500, "cannot write the file");
   SettingsSaveResult r;
   r.json = R"({"saved":true,"issues":[]})";

@@ -42,22 +42,28 @@ has five tabs:
   wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
   if the display can connect (otherwise it goes back to the old one).
 - **Abfahrten - MVG / Departures - MVG:** station search; the display name
-  follows the chosen station (and can still be edited); note; one list, two
+  follows the chosen station (and can still be edited); one list, two
   directions or two stations; buttons for the means of transport that serve
   the station (all on at first; switching one off hides its lines in the
   table), then for every line and direction whether and where it is shown.
+  With two stations the display name is the title of the first one, and
+  the buttons above select or clear all lines of a means of transport at
+  both stations at once. Under **Erweitert** / **Advanced** a station can be
+  entered by its global ID (e.g. `de:09162:10`) when the search does not
+  find it; the display checks it with the MVG and shows its name.
   The example destinations come from the departures of the next 12 hours;
   the names of two directions are suggested as "Zentrum" / "Auswärts"
   ("Centre" / "Outbound" in English).
 - **Wetter - Open Meteo / Weather - Open Meteo:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
-  display name, coordinates under **Koordinaten**.
+  display name, coordinates under **Erweitert** / **Advanced**.
 - **Kalender - Google / Calendar - Google:** replace or remove the private iCal address. The
   page only shows whether one is set.
 - **Gerät / Device:** download and load `config.json` (a backup; secrets are
   never in it), **Firmware aktualisieren** / **Update firmware** (see below),
   time zone and time server, restart, and **Einstellungen zurücksetzen** /
-  **Reset settings** (all settings to their defaults; Wi-Fi and the
-  calendar address stay).
+  **Reset settings** (all settings to their defaults and the calendar
+  address deleted; Wi-Fi stays, so the display can still be reached; the
+  page then opens again by itself after the restart).
 
 ### Updating the firmware on the settings page
 
@@ -281,13 +287,15 @@ time.
 |---|---|---|---|
 | `station` | text | `""` | Station as MVG `globalId`, e.g. `"de:09162:10"` (München-Pasing). Empty: widget not set up. |
 | `name` | text (≤ 64 bytes) | `""` | Name shown on the display. Empty: the name from the MVG API. |
-| `note` | text (≤ 24 bytes) | `""` | Text on the right of the station title, e.g. `"Bahnhof"`. Empty: none. |
 | `transport_types` | list | all | Means of transport to request: `"SBAHN"`, `"UBAHN"`, `"TRAM"`, `"BUS"`, `"REGIONAL_BUS"`, `"BAHN"` (regional trains). Rail replacement buses come with the means of transport they replace. Ignored when `lines` is set. |
 | `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. Not used with `sections`. |
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
 | `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
 | `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: tab *Abfahrten - MVG*. |
+
+The former setting `note` (text on the right of a title, also in sections)
+was removed; an old `note` in `config.json` is ignored without a message.
 
 Line entries (`lines`):
 
@@ -324,9 +332,8 @@ choice, for example towards the city and away from it:
 - Exactly two sections, each with a `name` (up to 24 bytes, shown in
   capitals) and its `lines` in the same format as above (at least one).
 - Above the sections a title line shows the station (location pin and
-  `name`, or the name from the API) with the optional widget `note` on its
-  right, for example `"note": "Bahnhof"` (up to 24 bytes). While the data is
-  old, the age badge takes the place of the note.
+  `name`, or the name from the API). While the data is old, the age badge
+  ("Stand 14:32") stands on its right.
 - Lines that are in no section are not shown; `lines` and `direction` are
   ignored.
 - The MVG direction code is fixed per line and does not say which way a
@@ -351,8 +358,8 @@ door and one a short walk away:
 "mvg": {
   "station": "de:09162:5",
   "sections": [
-    {"name": "Ostbahnhof", "lines": ["S3:H:S", "S4:H:S"], "note": "Bahnhof"},
-    {"name": "Leuchtenbergring", "station": "de:09162:900", "note": "4 min zu Fuß"}
+    {"name": "Ostbahnhof", "lines": ["S3:H:S", "S4:H:S"]},
+    {"name": "Leuchtenbergring", "station": "de:09162:900"}
   ]
 }
 ```
@@ -362,9 +369,9 @@ door and one a short walk away:
   `station` may be left out.
 - A section with a station of its own may leave out `lines`: then it shows
   all lines of that station.
-- `note`: free text on the right of the section title (up to 24 bytes),
-  also for two directions. While the data is old, the first title shows the
-  age badge instead.
+- While the data is old, the first title shows the age badge on its right.
+- The settings page writes the display name as the `name` of the first
+  section.
 - Both titles get the location pin.
 - Each station is requested once a minute, so two stations mean two
   requests a minute.

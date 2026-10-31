@@ -83,7 +83,7 @@ void test_values_are_read() {
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_STRING("de:09182:43227", c.station.c_str());
   TEST_ASSERT_EQUAL_STRING("Holzkirchen Bf", c.name.c_str());
-  TEST_ASSERT_EQUAL_STRING("Bahnhof", c.note.c_str());
+  // "note" was removed; an old key is ignored without an issue.
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kR);
   TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
   // Duplicates dropped, fixed order in the request.
@@ -196,7 +196,6 @@ void test_sections_with_stations_of_their_own() {
                          issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
-  TEST_ASSERT_EQUAL_STRING("Bahnhof", c.sections[0].note.c_str());
   TEST_ASSERT_EQUAL_STRING("", c.sections[0].station.c_str());
   TEST_ASSERT_EQUAL_STRING("de:09162:5", c.sectionStation(0).c_str());
   TEST_ASSERT_EQUAL_STRING("de:09162:900", c.sectionStation(1).c_str());
@@ -228,11 +227,14 @@ void test_invalid_section_station_gives_one_list() {
                          issues);
   TEST_ASSERT_TRUE(c.sections.empty());
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.sections[0].station"));
+  // An old "note" is ignored, also when it is too long.
   ConfigIssues long_note;
-  parse(R"({"station":"de:09162:5","sections":[{"name":"A","lines":["S3:H:S"],)"
-        R"("note":"Ein viel zu langer Zusatztext"},{"name":"B","lines":["S3:R:S"]}]})",
-        long_note);
-  TEST_ASSERT_TRUE(hasIssue(long_note, "widgets.mvg.sections[0].note"));
+  const Config d =
+      parse(R"({"station":"de:09162:5","sections":[{"name":"A","lines":["S3:H:S"],)"
+            R"("note":"Ein viel zu langer Zusatztext"},{"name":"B","lines":["S3:R:S"]}]})",
+            long_note);
+  TEST_ASSERT_EQUAL_size_t(0, long_note.size());
+  TEST_ASSERT_EQUAL_size_t(2, d.sections.size());
 }
 
 void test_invalid_sections_give_one_list() {

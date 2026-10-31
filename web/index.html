@@ -56,11 +56,8 @@
     <h2><span data-t="departures"></span> <small>MVG</small></h2>
     <span class="label" data-t="station"></span>
     <div id="mvgStation"></div>
-    <div class="row">
-      <div><label for="mvgName" data-t="displayName"></label><input id="mvgName" type="text" maxlength="64"></div>
-      <div><label for="mvgNote" data-t="note"></label><input id="mvgNote" type="text" maxlength="24"></div>
-    </div>
-    <p class="hint" data-t="noteHint"></p>
+    <label for="mvgName" data-t="displayName"></label>
+    <input id="mvgName" type="text" maxlength="64">
     <span class="label" data-t="layout"></span>
     <div class="seg" id="mvgMode">
       <button type="button" data-v="list" data-t="modeList"></button>
@@ -74,6 +71,16 @@
       <button type="button" data-v="minutes"><span data-t="minutes"></span><small>4 min</small></button>
     </div>
     <div class="cb"><input id="mvgIncidents" type="checkbox"><label for="mvgIncidents" data-t="mvgIncidents"></label></div>
+    <details id="mvgAdvanced">
+      <summary data-t="advanced"></summary>
+      <label for="mvgGlobalId" data-t="globalId"></label>
+      <div class="row">
+        <input id="mvgGlobalId" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="de:09162:10">
+        <button id="mvgGlobalIdApply" type="button" style="flex:0 0 auto" data-t="globalIdApply"></button>
+      </div>
+      <p class="hint" data-t="globalIdHint"></p>
+      <p id="mvgGlobalIdStatus" hidden></p>
+    </details>
     <p class="hint" data-t="mvgUnofficial"></p>
   </section>
 
@@ -85,7 +92,7 @@
     <label for="weatherName" data-t="displayName"></label>
     <input id="weatherName" type="text" maxlength="32">
     <details>
-      <summary data-t="coordinates"></summary>
+      <summary data-t="advanced"></summary>
       <div class="row">
         <div><label for="weatherLat" data-t="latitude"></label><input id="weatherLat" type="text" inputmode="decimal"></div>
         <div><label for="weatherLon" data-t="longitude"></label><input id="weatherLon" type="text" inputmode="decimal"></div>

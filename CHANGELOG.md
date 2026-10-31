@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Settings page: the station of the departures can be entered by its
+  global ID under "Erweitert" (format check, name confirmed by the MVG
+  through the new device route `api/mvg/station`).
 - The settings page opens by itself once after the start when there are no
   settings yet (no `config.json`, or an empty one), as soon as Wi-Fi is
   connected; one-time code, QR code and time limit as with KEY3.
@@ -249,6 +252,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- MVG setting `note` (text on the right of the station or section title)
+  and its fields on the settings page; an old key is ignored without an
+  issue.
+
 - Weather column: the clock symbol in front of the hour labels.
 - Weather: the values every 15 minutes (`minutely_15`) are no longer
   requested; the curve uses the hourly values (smaller response).
@@ -266,6 +273,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   today's low and high under the picture of the band.
 
 ### Changed
+
+- Settings page: resetting the settings also deletes the calendar address
+  (Wi-Fi stays); the Wi-Fi signal as four drawn bars; the coordinates of the
+  weather place are under "Erweitert"; with two stations the display name
+  is the title of the first station (no second title field), and buttons
+  above select or clear all lines of a means of transport at both stations.
 
 - Default of `display.full_refresh_minutes` 60 → 360 (no ghosting seen on
   the panel).
@@ -417,6 +430,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uses the probability.
 
 ### Fixed
+
+- Settings page: "Linien werden geladen …" appeared twice while the lines of
+  a station were loading.
 
 - Wi-Fi setup with a wrong password (Improv) on a device without a saved
   network: the device counted the network as saved and left the Wi-Fi

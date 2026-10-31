@@ -24,7 +24,6 @@ struct SectionConfig {
   std::string name;
   LineSelection lines;
   std::string station;  // "" = the station of the widget
-  std::string note;     // free text on the right of the title, "" = none
 };
 
 // Number of named sections the view supports.
@@ -36,9 +35,6 @@ struct Config {
 
   // Name shown in the column title; "" = the name from the MVG API.
   std::string name;
-
-  // Free text on the right of the station title ("Bahnhof"); "" = none.
-  std::string note;
 
   // Means of transport to request; default all. Replacement buses come with
   // the means of transport they replace.

@@ -290,9 +290,13 @@ void test_reset_and_stored_configuration() {
   TEST_ASSERT_EQUAL_STRING("{\"language\": \"en\"}", core::storedConfig(store).c_str());
   store.files["/config.json"] = "{broken";
   TEST_ASSERT_EQUAL_STRING("{}", core::storedConfig(store).c_str());
-  const core::SettingsSaveResult r = core::resetSettings(store);
+  // Resetting also clears the calendar address.
+  MemorySecrets secrets;
+  secrets.values["calendar_url"] = "https://calendar.example.org/private.ics";
+  const core::SettingsSaveResult r = core::resetSettings(store, secrets);
   TEST_ASSERT_TRUE(r.restart);
   TEST_ASSERT_EQUAL_STRING("{}\n", store.files["/config.json"].c_str());
+  TEST_ASSERT_FALSE(secrets.has("calendar_url"));
 }
 
 // --- Setup help of the widgets ----------------------------------------------------

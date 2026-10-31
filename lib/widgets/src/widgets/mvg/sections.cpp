@@ -18,7 +18,6 @@ std::vector<Section> departureSections(const JsonDocument& doc, const Config& co
     Section section;
     section.name = s.name;
     section.departures = parseDepartures(doc, DirectionFilter::kAll, s.lines, max_per_section);
-    section.note = s.note;
     section.own_station = !s.station.empty();
     result.push_back(std::move(section));
   }

@@ -8,7 +8,6 @@ namespace {
 
 constexpr char kPath[] = "widgets.mvg";
 constexpr size_t kMaxSectionName = 24;
-constexpr size_t kMaxSectionNote = 24;
 
 constexpr TransportType kAllTypes[] = {
     TransportType::kSBahn, TransportType::kUBahn,       TransportType::kTram,
@@ -77,11 +76,12 @@ std::vector<SectionConfig> readSections(JsonObjectConst section, core::ConfigIss
       issues.push_back(core::ConfigIssue{path, "must be an object; showing one list"});
       return {};
     }
+    // "note" (text on the right of the title) was removed on 2026-10-31; an
+    // old key is ignored without an issue.
     core::reportUnknownKeys(obj, {"name", "lines", "station", "note"}, path, issues);
     SectionConfig s;
     s.name = core::readString(obj, "name", "", kMaxSectionName, path, issues);
     s.lines = readLines(obj, "lines", path, issues);
-    s.note = core::readString(obj, "note", "", kMaxSectionNote, path, issues);
     const std::string station = core::readString(obj, "station", "", 32, path, issues);
     if (!station.empty() && !isValidStationId(station)) {
       issues.push_back(core::ConfigIssue{core::configPath(path, "station"),
@@ -163,6 +163,7 @@ bool isValidStationId(const std::string& id) {
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
+  // "note" was removed on 2026-10-31; an old key is ignored without an issue.
   core::reportUnknownKeys(section,
                           {"station", "name", "note", "transport_types", "lines", "direction",
                            "sections", "time_format", "incidents"},
@@ -176,7 +177,6 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   }
 
   c.name = core::readString(section, "name", "", 64, kPath, issues);
-  c.note = core::readString(section, "note", "", kMaxSectionNote, kPath, issues);
 
   JsonVariantConst types = section["transport_types"];
   if (!types.isNull()) {

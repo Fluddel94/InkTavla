@@ -271,8 +271,7 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   const bool station_title = sections.empty() || list || station_above;
   if (station_title) {
     ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station,
-                        age ? options.note : options.station_note, ui::TitleIcon::kPin,
-                        age && options.note_alert);
+                        age ? options.note : "", ui::TitleIcon::kPin, age && options.note_alert);
   }
   std::vector<int> available;
   for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
@@ -326,7 +325,7 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
       // the first section title.
       const bool badge = s == 0 && age && !station_above;
       ui::drawColumnTitle(canvas, 0, canvas.width(), title, sections[s].name,
-                          badge ? options.note : sections[s].note,
+                          badge ? options.note : "",
                           sections[s].own_station ? ui::TitleIcon::kPin : ui::TitleIcon::kArrow,
                           badge && options.note_alert);
     }
@@ -365,7 +364,6 @@ void DeparturesColumnView::drawTitle(ui::Canvas& canvas, ui::Language language) 
 void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
   ColumnOptions options;
   options.station = title(context.language);
-  options.station_note = source_.config().note;
   options.note = context.note;
   options.note_alert = context.note_alert;
   options.time_format = source_.config().time_format;

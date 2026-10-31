@@ -116,7 +116,12 @@ button.danger { color: var(--bad); border-color: var(--bad); background: none; }
 .nets button { display: flex; justify-content: space-between; gap: 8px; width: 100%; border: 0; border-top: 1px solid var(--line); border-radius: 0; text-align: left; }
 .nets button:first-child { border-top: 0; }
 .nets button[aria-pressed=true] { background: var(--accent-soft); font-weight: 600; }
-.bars { font-family: var(--mono); color: var(--muted); }
+.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 13px; vertical-align: -1px; }
+.bars i { width: 4px; border-radius: 1px; background: var(--line); }
+.bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; }
+.bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 13px; }
+.bars[data-level="1"] i:nth-child(-n+1), .bars[data-level="2"] i:nth-child(-n+2),
+.bars[data-level="3"] i:nth-child(-n+3), .bars[data-level="4"] i { background: var(--accent); }
 .notice { background: var(--warn-soft); border-radius: 8px; padding: 9px 11px; font-size: 13.5px; margin-top: 8px; }
 .issues { background: var(--bad-soft); border: 1px solid var(--bad); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
 .issues h2 { color: var(--bad); }
