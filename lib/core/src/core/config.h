@@ -34,7 +34,7 @@ struct CoreConfig {
   std::string time_zone;  // POSIX TZ, default kDefaultTimeZone
   std::string language = "de";
   std::string ntp_server = "pool.ntp.org";
-  int full_refresh_minutes = 60;  // full refresh against ghosting
+  int full_refresh_minutes = 360;  // full refresh against ghosting (6 h)
   // Widgets of the three columns from left to right.
   std::vector<std::string> slots = {"mvg", "calendar", "weather"};
   // Layout variants: three columns of the same width ("grid": "equal", to try
@@ -77,6 +77,12 @@ void reportUnknownKeys(JsonObjectConst obj, std::initializer_list<const char*> k
 
 // "path.key", or just "key" for the root.
 std::string configPath(const std::string& path, const char* key);
+
+// Whether the settings page opens by itself once after the start: only
+// without any settings yet, i.e. no configuration file, or one that reads
+// as an empty object ("{}", also after resetting on the settings page). A
+// broken file does not count (its problems are reported instead).
+bool opensSettingsOnStart(bool file_exists, bool loaded, JsonVariantConst doc);
 
 #if defined(ARDUINO)
 // Reads kConfigPath (or path) from LittleFS, which the caller has mounted.

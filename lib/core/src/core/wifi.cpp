@@ -43,6 +43,10 @@ void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 }  // namespace
 
 void Wifi::begin() {
+  // The credentials live only in the own NVS namespace (saved after a
+  // successful connection); the Wi-Fi driver must not keep a copy of every
+  // attempt, e.g. one with a wrong password.
+  WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // power saving causes dropouts
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
@@ -63,7 +67,6 @@ void Wifi::begin() {
 bool Wifi::connected() const { return WiFi.status() == WL_CONNECTED; }
 
 void Wifi::connect(const std::string& ssid, const std::string& password) {
-  has_credentials_ = true;
   attempt_started_ = true;
   WiFi.begin(ssid.c_str(), password.c_str());
 }
@@ -93,6 +96,16 @@ void Wifi::loop() {
       return;
     }
   }
+}
+
+std::string Wifi::failedNetwork() const {
+  std::lock_guard<std::mutex> lock(failed_mutex_);
+  return failed_network_;
+}
+
+void Wifi::setFailedNetwork(const std::string& ssid) {
+  std::lock_guard<std::mutex> lock(failed_mutex_);
+  failed_network_ = ssid;
 }
 
 bool Wifi::hasCredentials() {

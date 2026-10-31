@@ -49,6 +49,8 @@ bool time_sync_started = false;
 bool connected_since_start = false;
 bool firmware_pending = false;  // new firmware not confirmed yet
 bool notice_whole_screen = false;
+// No settings yet: the settings page opens once Wi-Fi is connected.
+bool open_settings_once = false;
 std::string wifi_network;  // name of the saved network, for the notice
 
 void printIssues(const core::ConfigIssues& issues) {
@@ -107,6 +109,8 @@ void updateNotice(bool connected) {
         core::Wifi::loadCredentials(wifi_network, password);
       }
       notice.network = wifi_network;
+    } else if (notice.mode == core::AccessMode::kWifiNotSetUp) {
+      notice.network = wifi.failedNetwork();  // a failed Improv attempt, if any
     }
   }
   const bool whole_screen = notice.mode == core::AccessMode::kWifiNotSetUp ||
@@ -161,7 +165,9 @@ void setup() {
   JsonDocument config;
   // Partition label "littlefs" (partitions.csv); formatted on first start.
   if (LittleFS.begin(true, "/littlefs", 10, "littlefs")) {
-    core::loadConfigFile(config, issues);
+    const bool exists = LittleFS.exists(core::kConfigPath);
+    const bool loaded = core::loadConfigFile(config, issues);
+    open_settings_once = core::opensSettingsOnStart(exists, loaded, config.as<JsonVariantConst>());
   } else {
     issues.push_back({"", "file system not available, using defaults"});
   }
@@ -205,6 +211,10 @@ void loop() {
     time_sync_started = true;
   }
   app->controller().setNetworkConnected(connected);
+  if (open_settings_once && connected) {
+    open_settings_once = false;
+    settings.openIfClosed();
+  }
   updateNotice(connected);
   confirmFirmware(connected);
   const int64_t wait = app->step();

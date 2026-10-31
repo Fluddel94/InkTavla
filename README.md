@@ -99,7 +99,9 @@ Long presses (held for 5 s) are supported but not used yet.
 ### Without Wi-Fi
 
 Wi-Fi is set up over the USB cable with Improv. Without a saved network,
-the screen shows the steps for that at once. If a saved network has not
+the screen shows the steps for that at once. A setup attempt that fails
+(e.g. a wrong password) saves nothing; the screen then names the network
+that was tried. If a saved network has not
 been reached for 10 minutes since the start (e.g. a new router), the same
 screen shows its name; the device keeps trying in the background. A
 connection lost later only shows the offline hints of the normal screen
@@ -174,8 +176,10 @@ Nothing user-specific is compiled in.
   code and a QR code. The page in the browser sets everything else
   (departures with station search, weather place, calendar address, layout,
   language, a new Wi-Fi, a firmware update) and closes 30 minutes after the
-  last action. Plain HTTP, so use it only in your private home network. See
-  [docs/configuration.md](docs/configuration.md#the-settings-page).
+  last action. On a new device (no settings yet) the page opens by itself
+  once Wi-Fi is connected. Plain HTTP, so use it only in your private home
+  network. See [docs/configuration.md](docs/configuration.md#the-settings-page).
+  Problems while flashing or setting up: [docs/troubleshooting.md](docs/troubleshooting.md).
 - **Calendar address:** the private iCal address of your calendar is a
   secret as well; it is set on the settings page (or sent over USB with
   `tools/inktavla_config.py calendar-url`), stored only in NVS and can be

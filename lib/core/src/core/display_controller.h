@@ -175,6 +175,7 @@ class DisplayController {
   bool wall_valid_ = false;
   AccessNotice notice_;
   bool starting_ = false;
+  bool start_redraw_ = false;        // network changed while starting
   int64_t first_connected_ms_ = -1;  // -1: not connected yet
 };
 

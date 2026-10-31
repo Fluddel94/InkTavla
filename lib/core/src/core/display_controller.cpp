@@ -44,6 +44,8 @@ void DisplayController::setNetworkConnected(bool connected) {
   network_connected_ = connected;
   network_changed_ms_ = clock_.monotonicMs();
   if (connected && first_connected_ms_ < 0) first_connected_ms_ = network_changed_ms_;
+  // The start screen tells whether it waits for Wi-Fi or for the data.
+  if (starting_) start_redraw_ = true;
   // Attempts without a connection have failed; fetch again at once instead
   // of waiting for the next retry.
   if (connected) requestUpdate();
@@ -73,6 +75,13 @@ void DisplayController::setAccessNotice(const AccessNotice& notice) {
 int64_t DisplayController::step() {
   const int64_t now_ms = clock_.monotonicMs();
   int64_t wall_s = clock_.wallTime();
+  // The start screen, if shown already, shows a new network state before
+  // the fetches, which may take seconds.
+  if (starting_ && start_redraw_ && !shown_.empty()) {
+    start_redraw_ = false;
+    redraw(now_ms);
+  }
+  start_redraw_ = false;
   bool redraw_needed = force_redraw_;
 
   // The first valid time (NTP) shows the date and realigns the schedule.

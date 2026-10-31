@@ -9,9 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Start screen after power-on and every restart: the word mark "InkTavla"
-  (Fraunces, only its seven letters as a 96 px font), the firmware version
-  and "Daten werden geladen …" at the bottom. It switches to the briefing with
+- The settings page opens by itself once after the start when there are no
+  settings yet (no `config.json`, or an empty one), as soon as Wi-Fi is
+  connected; one-time code, QR code and time limit as with KEY3.
+- Wi-Fi setup screen after a failed setup attempt (Improv): "WLAN-Verbindung
+  fehlgeschlagen." with the network tried and a hint to check the password.
+- `docs/troubleshooting.md`: bootloader mode after erasing the flash, Wi-Fi
+  setup with several devices connected, a failed Wi-Fi setup.
+- Start screen after power-on and every restart: the logo (a grid of four
+  fields with one black, the word mark "InkTavla" in Fraunces 96 px and a
+  rule below), the firmware version and at the bottom
+  "Verbinde mit WLAN „…“ …" or "Daten werden geladen …". It switches to the briefing with
   a full refresh once every data source has a first result (data, or a
   failed attempt while connected), at the latest 20 s after the start (15 s
   after a later first connection). Without Wi-Fi it stays and names the
@@ -259,6 +267,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Default of `display.full_refresh_minutes` 60 → 360 (no ghosting seen on
+  the panel).
+- Columns without their settings name what is missing and "Auf der
+  Einstellungsseite einrichten (Taste 3)" instead of a `config.json` key or
+  a USB command.
+- Roboto Condensed Medium 16 is rasterised 8x oversampled with a 45 %
+  threshold (`tools/fontgen`): FreeType's 1-bit hinting gave some digits
+  thinner stems ("Offen bis 14:35").
+
 - Weather column: rain symbols of the forecast days by intensity (one,
   two or three strokes for slight, moderate and heavy rain; drizzle counts as
   slight), showers with the sun behind the cloud and a new symbol for
@@ -400,6 +417,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uses the probability.
 
 ### Fixed
+
+- Wi-Fi setup with a wrong password (Improv) on a device without a saved
+  network: the device counted the network as saved and left the Wi-Fi
+  setup screen for an empty briefing. Only credentials that connected count
+  now, and the Wi-Fi driver keeps no copy of an attempt
+  (`WiFi.persistent(false)`).
+- The start screen switches from "Verbinde mit WLAN …" to "Daten werden
+  geladen …" as soon as Wi-Fi is connected, before the first fetches.
 
 - Departures: a delayed train that the API listed twice under two planned
   times (for example 20:27 +24 and 20:47 +4, both expected at 20:51, next

@@ -18,7 +18,11 @@ the same Wi-Fi as the display:
 
 1. Press **KEY3** on the display. The band at the top shows the address of
    the page (e.g. `192.168.178.45`), a one-time code of six digits and a QR
-   code.
+   code. On a new device without settings (no `config.json`, or an empty
+   one, e.g. after resetting) the page opens by itself once after the
+   start, as soon as Wi-Fi is connected. Until then, columns without their
+   settings say what is missing and "Auf der Einstellungsseite einrichten
+   (Taste 3)".
 2. Scan the QR code (address and code in one), or open the address in a
    browser and enter the code.
 3. Change what you like and press **Speichern und neu starten** / **Save
@@ -113,7 +117,7 @@ The commands are plain text lines on the serial line, next to Improv; see
   "language": "de",
   "ntp_server": "pool.ntp.org",
   "display": {
-    "full_refresh_minutes": 60
+    "full_refresh_minutes": 360
   },
   "layout": {
     "slots": ["mvg", "calendar", "weather"]
@@ -163,7 +167,7 @@ the settings page when saving.
 | `time_zone` | text | `"CET-1CEST,M3.5.0,M10.5.0/3"` | Time zone as a [POSIX TZ string](https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html) (Central European Time with daylight saving time by default). Names such as `"Europe/Berlin"` are not supported. |
 | `language` | `"de"`, `"en"` | `"de"` | Language of texts on the display. |
 | `ntp_server` | text | `"pool.ntp.org"` | Time server (host name or IP address). |
-| `display.full_refresh_minutes` | 1–1440 | `60` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
+| `display.full_refresh_minutes` | 1–1440 | `360` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
 | `layout.slots` | list of 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. A widget may appear more than once; its data is fetched only once. |
 | `layout.grid` | `"standard"`, `"equal"` | `"standard"` | Widths of the columns: 280/214/214 px, or three columns of 237 px (for trying out on the display; the departure column gets narrower). |
 | `layout.dividers` | `true`, `false` | `true` | Dotted vertical lines in the middle between the columns; `false` turns them off. |

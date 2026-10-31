@@ -963,7 +963,7 @@ function fillDisplay() {
     box.append(el("div", {}, el("label", { class: "label", for: "slot" + i }, size === "wide" ? t("wideColumn") : t("column") + " " + (i + 1)), select));
   });
   $("language").value = config.language === "en" ? "en" : "de";
-  const refresh = (config.display && config.display.full_refresh_minutes) || 60;
+  const refresh = (config.display && config.display.full_refresh_minutes) || 360;
   const choices = REFRESH_CHOICES.includes(refresh) ? REFRESH_CHOICES : [...REFRESH_CHOICES, refresh].sort((a, b) => a - b);
   $("fullRefresh").replaceChildren(...choices.map((m) =>
     el("option", { value: m, selected: m === refresh }, m % 60 === 0 && m >= 60 ? m / 60 + " h" : m + " min")));

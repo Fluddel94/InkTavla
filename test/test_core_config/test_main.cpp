@@ -2,6 +2,7 @@
 
 #include <unity.h>
 
+#include <cstring>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -40,7 +41,7 @@ void assertDefaults(const CoreConfig& c) {
   TEST_ASSERT_EQUAL_STRING(core::kDefaultTimeZone, c.time_zone.c_str());
   TEST_ASSERT_EQUAL_STRING("de", c.language.c_str());
   TEST_ASSERT_EQUAL_STRING("pool.ntp.org", c.ntp_server.c_str());
-  TEST_ASSERT_EQUAL_INT(60, c.full_refresh_minutes);
+  TEST_ASSERT_EQUAL_INT(360, c.full_refresh_minutes);
   TEST_ASSERT_EQUAL_size_t(3, c.slots.size());
   TEST_ASSERT_EQUAL_STRING("mvg", c.slots[0].c_str());
   TEST_ASSERT_EQUAL_STRING("calendar", c.slots[1].c_str());
@@ -215,6 +216,21 @@ void test_layout_variants() {
   TEST_ASSERT_FALSE(c.equal_columns);
 }
 
+void test_settings_page_opens_only_without_settings() {
+  JsonDocument doc;
+  ConfigIssues issues;
+  TEST_ASSERT_TRUE(core::opensSettingsOnStart(false, false, doc.as<JsonVariantConst>()));
+  TEST_ASSERT_TRUE(core::readConfig("{}\n", 3, doc, issues));
+  TEST_ASSERT_TRUE(core::opensSettingsOnStart(true, true, doc.as<JsonVariantConst>()));
+  const char* set_up = R"({"language": "en"})";
+  TEST_ASSERT_TRUE(core::readConfig(set_up, strlen(set_up), doc, issues));
+  TEST_ASSERT_FALSE(core::opensSettingsOnStart(true, true, doc.as<JsonVariantConst>()));
+  // A broken file: its problems are shown, the page does not open by itself.
+  const char* broken = "{\"language\": ";
+  TEST_ASSERT_FALSE(core::readConfig(broken, strlen(broken), doc, issues));
+  TEST_ASSERT_FALSE(core::opensSettingsOnStart(true, false, doc.as<JsonVariantConst>()));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_empty_object_gives_defaults_without_issues);
@@ -230,5 +246,6 @@ int main() {
   RUN_TEST(test_helpers);
   RUN_TEST(test_removed_templates_are_reported);
   RUN_TEST(test_layout_variants);
+  RUN_TEST(test_settings_page_opens_only_without_settings);
   return UNITY_END();
 }

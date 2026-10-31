@@ -10,7 +10,7 @@ CalendarSource::CalendarSource(Source& api) : api_(api) {}
 
 SetupMessage CalendarSource::setupMessage(ui::Language language) const {
   return {ui::text(language, ui::Text::kCalendarAddressMissing),
-          "USB: tools/inktavla_config.py calendar-url"};
+          ui::text(language, ui::Text::kSetUpOnSettingsPage)};
 }
 
 bool CalendarSource::fetch(int64_t wall_s) {

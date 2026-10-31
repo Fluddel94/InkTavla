@@ -12,7 +12,8 @@ namespace widgets::mvg {
 MvgSource::MvgSource(Config config, Source& api) : config_(std::move(config)), api_(api) {}
 
 SetupMessage MvgSource::setupMessage(ui::Language language) const {
-  return {ui::text(language, ui::Text::kStationMissing), "config.json: widgets.mvg.station"};
+  return {ui::text(language, ui::Text::kStationMissing),
+          ui::text(language, ui::Text::kSetUpOnSettingsPage)};
 }
 
 const std::string& MvgSource::stationName() const {

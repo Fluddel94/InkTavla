@@ -360,8 +360,14 @@ void test_controller_start_screen_waits_for_the_network_and_first_results() {
   // Connected: a's data and b's failure are both results.
   a.succeed = true;
   const size_t before = display.updates().size();
+  const size_t drawn = renderer.states.size();
   c.setNetworkConnected(true);
   c.step();
+  // Drawn once more before the fetches: "loading data" instead of "waiting
+  // for Wi-Fi".
+  TEST_ASSERT_TRUE(renderer.states.size() >= drawn + 2);
+  TEST_ASSERT_TRUE(renderer.states[drawn].starting);
+  TEST_ASSERT_TRUE(renderer.states[drawn].network_up);
   TEST_ASSERT_FALSE(c.starting());
   TEST_ASSERT_FALSE(c.state().starting);
   TEST_ASSERT_TRUE(c.state().network_up);

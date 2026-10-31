@@ -483,6 +483,18 @@ void SettingsServer::begin(Wifi& w, SettingsServerOptions o) {
   xTaskCreate(task, "settings", kTaskStack, nullptr, 1, nullptr);
 }
 
+namespace {
+
+// Opens a new session (new one-time code); the mutex is held.
+void openLocked(int64_t now) {
+  session.open(now);
+  shown_close_ms = 0;
+  shown_close_wall_s = 0;
+  wifi_test = WifiTest::kIdle;
+}
+
+}  // namespace
+
 void SettingsServer::toggle() {
   std::lock_guard<std::mutex> lock(mutex);
   const int64_t now = monotonicMs();
@@ -490,12 +502,17 @@ void SettingsServer::toggle() {
     session.close();
     Serial.println("Settings page: closed by the button");
   } else {
-    session.open(now);
-    shown_close_ms = 0;
-    shown_close_wall_s = 0;
-    wifi_test = WifiTest::kIdle;
+    openLocked(now);
     Serial.println("Settings page: opened by the button");
   }
+}
+
+void SettingsServer::openIfClosed() {
+  std::lock_guard<std::mutex> lock(mutex);
+  const int64_t now = monotonicMs();
+  if (session.isOpen(now)) return;
+  openLocked(now);
+  Serial.println("Settings page: opened automatically (no settings yet)");
 }
 
 bool SettingsServer::isOpen() {

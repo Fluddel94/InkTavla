@@ -481,6 +481,14 @@ void test_access_notices() {
   TEST_ASSERT_TRUE(rig.display.updates().back().mode == hal::Refresh::kFull);
   checkPanel(rig.display, "sim_wifi_missing");
 
+  // No network saved, a setup attempt failed (wrong password?).
+  core::AccessNotice failed;
+  failed.mode = core::AccessMode::kWifiNotSetUp;
+  failed.network = "Heimnetz";
+  rig.app.controller().setAccessNotice(failed);
+  rig.runUntil(2500);
+  checkPanel(rig.display, "sim_wifi_failed");
+
   // Closed again: the briefing as before.
   rig.app.controller().setAccessNotice({});
   rig.runUntil(3000);

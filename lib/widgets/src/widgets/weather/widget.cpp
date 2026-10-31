@@ -10,7 +10,7 @@ WeatherSource::WeatherSource(Config config, Source& api) : config_(std::move(con
 
 SetupMessage WeatherSource::setupMessage(ui::Language language) const {
   return {ui::text(language, ui::Text::kLocationMissing),
-          "config.json: widgets.weather.latitude/longitude"};
+          ui::text(language, ui::Text::kSetUpOnSettingsPage)};
 }
 
 bool WeatherSource::fetch(int64_t wall_s) {

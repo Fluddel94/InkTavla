@@ -27,7 +27,8 @@ struct AccessNotice {
   // kSettings: one-time code for the page. Shown on the display only,
   // never logged.
   std::string code;
-  // kWifiNotConnected: name of the saved network.
+  // kWifiNotConnected: name of the saved network. kWifiNotSetUp: name of
+  // the network a setup attempt (Improv) failed with; empty = none failed.
   std::string network;
   // Contents of the QR code (kSettings: page address with code); empty =
   // no QR code.

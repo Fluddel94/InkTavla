@@ -224,6 +224,11 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
   return c;
 }
 
+bool opensSettingsOnStart(bool file_exists, bool loaded, JsonVariantConst doc) {
+  if (!file_exists) return true;
+  return loaded && doc.is<JsonObjectConst>() && doc.as<JsonObjectConst>().size() == 0;
+}
+
 #if defined(ARDUINO)
 bool loadConfigFile(JsonDocument& doc, ConfigIssues& issues, const char* path) {
   doc.clear();

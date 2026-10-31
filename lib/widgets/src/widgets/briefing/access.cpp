@@ -95,6 +95,8 @@ void drawWifiScreen(ui::Canvas& canvas, const DrawContext& context,
   constexpr int kLeft = kHeaderX;
   constexpr int kRight = ui::kScreenWidth - kHeaderX;
   const bool saved = notice.mode == core::AccessMode::kWifiNotConnected;
+  // Not set up, but an attempt with this network failed (wrong password?).
+  const bool failed = !saved && !notice.network.empty();
 
   // Header line: "WLAN-EINRICHTUNG", the clock if known.
   std::string header = ui::toUpper(ui::text(lang, ui::Text::kSetupHeading));
@@ -102,7 +104,9 @@ void drawWifiScreen(ui::Canvas& canvas, const DrawContext& context,
   if (!now.empty()) header += " \u00b7 " + now;
   ui::drawTrackedText(canvas, headerFont(), kLeft, kHeaderBaseline, header, 16);
 
-  const ui::Text title = saved ? ui::Text::kWifiNotConnectedTitle : ui::Text::kWifiNotSetUpTitle;
+  const ui::Text title = saved    ? ui::Text::kWifiNotConnectedTitle
+                         : failed ? ui::Text::kWifiFailedTitle
+                                  : ui::Text::kWifiNotSetUpTitle;
   ui::drawText(canvas, fonts::kFraunces38, kSentenceX, 88, ui::text(lang, title));
   canvas.hLine(kLeft, 112, kRight - kLeft, Color::kBlack);
 
@@ -111,9 +115,10 @@ void drawWifiScreen(ui::Canvas& canvas, const DrawContext& context,
   constexpr int kTextX = kLeft + 34;
   constexpr int kLine = 28;
   int y = 158;
-  if (saved && !notice.network.empty()) {
-    labelValue(canvas, kLeft, y, ui::text(lang, ui::Text::kWifiSaved), notice.network, text_font,
-               bold, kRight);
+  if (!notice.network.empty()) {
+    labelValue(canvas, kLeft, y,
+               ui::text(lang, saved ? ui::Text::kWifiSaved : ui::Text::kWifiTried), notice.network,
+               text_font, bold, kRight);
     y += kLine + 22;
   }
 
@@ -129,9 +134,9 @@ void drawWifiScreen(ui::Canvas& canvas, const DrawContext& context,
     y += 14;
   }
 
-  if (saved) {
+  if (saved || failed) {
     ui::drawText(canvas, fonts::kRobotoCondensedMedium16, kLeft, ui::kBriefingContentBottom,
-                 ui::text(lang, ui::Text::kWifiRetrying));
+                 ui::text(lang, saved ? ui::Text::kWifiRetrying : ui::Text::kWifiCheckPassword));
   }
 }
 

@@ -74,6 +74,10 @@ class SettingsServer {
   // The button: opens the page, or closes it when it is open.
   void toggle();
 
+  // Opens the page unless it is open already (once after the start when
+  // there are no settings yet, see core::opensSettingsOnStart()).
+  void openIfClosed();
+
   bool isOpen();
 
   // What the display shows while the page is open (mode kNone if closed or

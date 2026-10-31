@@ -4,7 +4,7 @@
   "language": "de",
   "ntp_server": "pool.ntp.org",
   "display": {
-    "full_refresh_minutes": 60
+    "full_refresh_minutes": 360
   },
   "layout": {
     "slots": ["mvg", "calendar", "weather"]

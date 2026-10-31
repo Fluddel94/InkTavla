@@ -56,7 +56,11 @@ enum class Text {
   kWifiRetrying,           // footer: still trying the saved network
   kStartVersion,           // start screen: "Version 0.1.0"
   kStartLoading,           // start screen: waiting for the first data
-  kStartWaitingForWifi,    // start screen: "Warte auf WLAN" (+ network name)
+  kStartConnecting,        // start screen: "Verbinde mit WLAN" (+ network name)
+  kWifiFailedTitle,        // "WLAN-Verbindung fehlgeschlagen." (Improv attempt failed)
+  kWifiTried,              // before the name of the network tried: "Versucht:"
+  kWifiCheckPassword,      // footer: check the password, set up again over USB
+  kSetUpOnSettingsPage,    // column without settings: where to set it up
 };
 
 const char* text(Language language, Text id);

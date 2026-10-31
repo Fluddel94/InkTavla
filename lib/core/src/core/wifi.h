@@ -12,6 +12,7 @@
 #if defined(ARDUINO)
 
 #include <atomic>
+#include <mutex>
 #include <string>
 
 #include "core/wifi_policy.h"
@@ -33,15 +34,22 @@ class Wifi {
   // pauses.
   void setBusy(bool busy) { busy_ = busy; }
 
-  // Whether a network is saved (cached, no NVS access).
+  // Whether a network is saved (cached, no NVS access). Only credentials
+  // that connected are saved; call markCredentialsSaved() after saving.
   bool credentialsSaved() const { return has_credentials_; }
+  void markCredentialsSaved() { has_credentials_ = true; }
+
+  // Name of the network a setup attempt (Improv) last failed with, "" if
+  // none failed since the last successful setup. For the Wi-Fi notice.
+  std::string failedNetwork() const;
+  void setFailedNetwork(const std::string& ssid);
 
   static bool hasCredentials();
   static bool loadCredentials(std::string& ssid, std::string& password);
   static bool saveCredentials(const std::string& ssid, const std::string& password);
 
   // Starts an attempt with the given credentials (also from the Improv task;
-  // the policy itself is only touched in loop()).
+  // the policy itself is only touched in loop()). Saves nothing.
   void connect(const std::string& ssid, const std::string& password);
 
  private:
@@ -49,6 +57,8 @@ class Wifi {
   std::atomic<bool> busy_{false};
   std::atomic<bool> has_credentials_{false};  // cached, NVS is not read every loop
   std::atomic<bool> attempt_started_{false};  // connect() may run in another task
+  mutable std::mutex failed_mutex_;           // failed_network_ is set in the Improv task
+  std::string failed_network_;
 };
 
 }  // namespace core

@@ -70,11 +70,15 @@ void handleWifiSettings(const improv::Rpc& rpc) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
   if (WiFi.status() == WL_CONNECTED && Wifi::saveCredentials(ssid, password)) {
+    wifi->markCredentialsSaved();
+    wifi->setFailedNetwork("");
     Serial.println("Improv: connected, credentials saved");
     sendState(improv::kProvisioned);
     send(improv::rpcResult(improv::kWifiSettings, {}));
   } else {
     Serial.println("Improv: connection failed, the old credentials stay");
+    // Only shown while no network is saved (the Wi-Fi setup screen).
+    wifi->setFailedNetwork(ssid);
     restoreSavedWifi();
     sendError(improv::kUnableToConnect);
     sendState(improv::kReady);

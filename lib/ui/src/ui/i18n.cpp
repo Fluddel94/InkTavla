@@ -121,8 +121,18 @@ const char* text(Language language, Text id) {
       return "Version";
     case Text::kStartLoading:
       return de ? "Daten werden geladen …" : "Loading data …";
-    case Text::kStartWaitingForWifi:
-      return de ? "Warte auf WLAN" : "Waiting for Wi-Fi";
+    case Text::kStartConnecting:
+      return de ? "Verbinde mit WLAN" : "Connecting to Wi-Fi";
+    case Text::kWifiFailedTitle:
+      return de ? "WLAN-Verbindung fehlgeschlagen." : "Wi-Fi connection failed.";
+    case Text::kWifiTried:
+      return de ? "Versucht:" : "Tried:";
+    case Text::kWifiCheckPassword:
+      return de ? "Passwort prüfen und das WLAN per USB neu einrichten."
+                : "Check the password and set up the Wi-Fi again over USB.";
+    case Text::kSetUpOnSettingsPage:
+      return de ? "Auf der Einstellungsseite einrichten (Taste 3)"
+                : "Set up on the settings page (button 3)";
   }
   return "";
 }
