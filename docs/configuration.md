@@ -43,14 +43,19 @@ has five tabs:
   if the display can connect (otherwise it goes back to the old one).
 - **Abfahrten - MVG / Departures - MVG:** station search; the display name
   follows the chosen station (and can still be edited); one list, two
-  directions or two stations; buttons for the means of transport that serve
-  the station (all on at first; switching one off hides its lines in the
-  table), then for every line and direction whether and where it is shown.
-  With two stations the display name is the title of the first one, and
-  the buttons above select or clear all lines of a means of transport at
-  both stations at once. Under **Erweitert** / **Advanced** a station can be
-  entered by its global ID (e.g. `de:09162:10`) when the search does not
-  find it; the display checks it with the MVG and shows its name.
+  directions or two stations; under every station buttons for the means of
+  transport that serve it, then for every line and direction whether and
+  where it is shown. At first all means of transport are on and all lines
+  ticked; switching one off clears and hides its lines, switching it on
+  again ticks them all (with two directions it hides its lines and restores
+  the previous assignment). When all lines of a station are ticked, no line
+  list is saved: the station then shows all its lines, also ones added
+  later, and the limit of 16 lines does not apply. With two stations the
+  display name is the title of the first one. Below the station search
+  (**Ändern** / **Change**) the link **Global-ID setzen** / **Set global ID**
+  opens a field for a station's global ID (e.g. `de:09162:10`) when the
+  search does not find it; the display checks it with the MVG and shows its
+  name.
   The example destinations come from the departures of the next 12 hours;
   the names of two directions are suggested as "Zentrum" / "Auswärts"
   ("Centre" / "Outbound" in English).

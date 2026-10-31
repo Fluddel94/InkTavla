@@ -20,7 +20,8 @@ const TEXTS = {
     departures: "Abfahrten",
     tabGeneral: "Allgemein", tabMvg: "Abfahrten - MVG", tabWeather: "Wetter - Open Meteo", tabCalendar: "Kalender - Google", tabDevice: "Gerät",
     transportModes: "Verkehrsmittel an dieser Haltestelle",
-    transportHint: "Abwählen blendet die Linien des Verkehrsmittels aus; schon gewählte Linien bleiben gewählt (Zahl am Knopf).",
+    transportHint: "Ein Knopf wählt alle Linien des Verkehrsmittels ab und blendet sie aus; erneut gedrückt sind alle wieder gewählt. Einzelne Linien lassen sich danach in den Listen ändern.",
+    transportHintDir: "Ein Knopf blendet alle Linien des Verkehrsmittels aus; erneut gedrückt gilt wieder die vorherige Zuordnung.",
     sectionDefault1: "Zentrum", sectionDefault2: "Auswärts",
     station: "Haltestelle",
     stationNone: "Noch keine Haltestelle gewählt.",
@@ -33,14 +34,14 @@ const TEXTS = {
     searchFailed: "Die Suche hat nicht geklappt. Ist das Display mit dem Internet verbunden?",
     displayName: "Anzeigename",
     displayNamePlaceholder: "wie bei der MVG",
-    globalId: "Haltestelle per Global-ID",
+    globalId: "Global-ID",
     globalIdHint: "Für Haltestellen, die die Suche nicht findet: die MVG-Global-ID, z. B. de:09162:10.",
     globalIdApply: "Übernehmen",
     globalIdBad: "Format: zwei Kleinbuchstaben, dann durch Doppelpunkte getrennte Teile, z. B. de:09162:10.",
     globalIdChecking: "Haltestelle wird geprüft …",
     globalIdUnknown: "Unter dieser ID hat die MVG keine Haltestelle gefunden (oder das Display ist nicht mit dem Internet verbunden).",
-    allStationsModes: "Verkehrsmittel an beiden Haltestellen",
-    allStationsHint: "Ein Knopf wählt bei jeder Haltestelle alle Linien des Verkehrsmittels an bzw. ab; einzelne Linien lassen sich danach je Haltestelle ändern.",
+    globalIdSet: "Global-ID setzen",
+    noLinesChosen: "Noch keine Linie gewählt.",
     firstSectionTitle: "Überschrift: der Anzeigename oben.",
     layout: "Darstellung",
     modeList: "Eine Liste",
@@ -49,8 +50,8 @@ const TEXTS = {
     section: "Abschnitt",
     linesAndDirections: "Linien und Richtungen",
     dirHint: "Je Richtung auswählen, in welchem Abschnitt sie erscheint. Die Ziele sind Beispiele aus den Abfahrten der nächsten Stunden.",
-    listHint: "Haken bei den Richtungen, die angezeigt werden. Ohne Haken erscheinen alle Linien.",
-    twoHint: "Jeder Abschnitt zeigt eine Haltestelle. Ohne Haken erscheinen alle Linien der Haltestelle.",
+    listHint: "Haken bei den Richtungen, die angezeigt werden. Sind alle angehakt, erscheinen auch Linien, die später hinzukommen.",
+    twoHint: "Jeder Abschnitt zeigt eine Haltestelle. Sind alle angehakt, erscheinen auch Linien, die später hinzukommen.",
     secondStation: "Zweite Haltestelle",
     sectionName: "Überschrift",
     hidden: "ausblenden",
@@ -176,7 +177,8 @@ const TEXTS = {
     departures: "Departures",
     tabGeneral: "General", tabMvg: "Departures - MVG", tabWeather: "Weather - Open Meteo", tabCalendar: "Calendar - Google", tabDevice: "Device",
     transportModes: "Modes of transport at this station",
-    transportHint: "Switching one off hides its lines; lines already chosen stay chosen (number on the button).",
+    transportHint: "A button clears and hides all lines of that mode; pressed again, they are all selected again. Single lines can then be changed in the lists.",
+    transportHintDir: "A button hides all lines of that mode; pressed again, the previous assignment applies again.",
     sectionDefault1: "Centre", sectionDefault2: "Outbound",
     station: "Station",
     stationNone: "No station chosen yet.",
@@ -189,14 +191,14 @@ const TEXTS = {
     searchFailed: "The search did not work. Is the display connected to the internet?",
     displayName: "Display name",
     displayNamePlaceholder: "as named by MVG",
-    globalId: "Station by global ID",
+    globalId: "Global ID",
     globalIdHint: "For stations the search does not find: the MVG global ID, e.g. de:09162:10.",
     globalIdApply: "Apply",
     globalIdBad: "Format: two lower-case letters, then parts separated by colons, e.g. de:09162:10.",
     globalIdChecking: "Checking the station …",
     globalIdUnknown: "The MVG has no station with this ID (or the display is not connected to the internet).",
-    allStationsModes: "Modes of transport at both stations",
-    allStationsHint: "A button selects or clears all lines of that mode at every station; single lines can be changed per station afterwards.",
+    globalIdSet: "Set global ID",
+    noLinesChosen: "No line chosen yet.",
     firstSectionTitle: "Title: the display name above.",
     layout: "Layout",
     modeList: "One list",
@@ -205,8 +207,8 @@ const TEXTS = {
     section: "Section",
     linesAndDirections: "Lines and directions",
     dirHint: "Choose for each direction in which section it appears. The destinations are examples from the departures of the next hours.",
-    listHint: "Tick the directions to show. Without ticks all lines appear.",
-    twoHint: "Each section shows one station. Without ticks all lines of the station appear.",
+    listHint: "Tick the directions to show. With all ticked, lines added later appear too.",
+    twoHint: "Each section shows one station. With all ticked, lines added later appear too.",
     secondStation: "Second station",
     sectionName: "Heading",
     hidden: "hide",
@@ -421,8 +423,15 @@ const mvg = {          // the departures form
   pick: {},
   pick2: {},
   names: ["", ""],
-  hiddenTypes: {},     // station id -> Set of modes switched off in the table
+  // Per station (0: first, 1: second): modes of transport switched off,
+  // saved assignments of switched-off modes (dir), set-up still to do once
+  // the lines are loaded, and whether everything is to be ticked then.
+  st: [],
 };
+
+function resetStationState(i, fillAll) {
+  mvg.st[i] = { off: new Set(), saved: {}, pending: true, fillAll };
+}
 
 function touched() {
   if (S) closesAt = Date.now() + S.timeout_s * 1000;
@@ -587,10 +596,16 @@ function fillMvg() {
       mvg.directionOnly = c.direction;
     }
   }
+  // No saved line list = all lines (list and two stations).
+  if (mvg.mode === "two") {
+    resetStationState(0, !Object.keys(mvg.pick).length);
+    resetStationState(1, !Object.keys(mvg.pick2).length);
+  } else {
+    resetStationState(0, mvg.mode === "list" && !Object.keys(mvg.pick).length);
+    resetStationState(1, false);
+  }
   $("mvgName").value = displayName;
   $("mvgName").placeholder = t("displayNamePlaceholder");
-  $("mvgGlobalId").value = "";
-  $("mvgGlobalIdStatus").hidden = true;
   segSet($("mvgMode"), mvg.mode);
   segSet($("mvgTime"), c.time_format === "minutes" ? "minutes" : "clock");
   $("mvgIncidents").checked = c.incidents !== false;
@@ -603,23 +618,42 @@ function showMvgStation() {
   renderStation($("mvgStation"), () => mvg.station, (s) => {
     mvg.station = s;
     mvg.pick = {};
+    resetStationState(0, true);
     // The display name follows the station; it stays editable.
     $("mvgName").value = s.name;
     renderMvgBody();
   });
 }
 
-// Station: chosen card or search.
+// Station by its global ID: format check here, the name from the MVG through
+// the display (also confirms that the station exists).
+const STATION_ID = /^[a-z]{2}(:[A-Za-z0-9_]+)+$/;
+
+// Station: chosen card or search. Below the search a link opens a field for
+// the global ID (for stations the search does not find).
 function renderStation(box, get, set) {
   box.replaceChildren();
   const current = get();
+  const choose = (s) => { set(s); setDirty(true); renderStation(box, get, set); };
   const results = el("div");
   const input = el("input", { type: "text", placeholder: t("searchPlaceholder"), "aria-label": t("station") });
+  const idInput = el("input", { type: "text", autocapitalize: "off", autocomplete: "off", spellcheck: "false",
+    placeholder: "de:09162:10", "aria-label": t("globalId") });
+  const idStatus = el("p", { hidden: true });
+  const idForm = el("div", { class: "globalid", hidden: true },
+    el("label", {}, t("globalId")),
+    el("div", { class: "row" }, idInput,
+      el("button", { type: "button", style: "flex:0 0 auto", onclick: () => applyId() }, t("globalIdApply"))),
+    el("p", { class: "hint" }, t("globalIdHint")),
+    idStatus);
+  const idLink = el("button", { type: "button", class: "quiet small",
+    onclick: () => { idForm.hidden = false; idLink.hidden = true; idInput.focus(); } }, t("globalIdSet"));
   const form = el("div", { hidden: !!current },
     el("div", { class: "row" }, input,
       el("button", { type: "button", style: "flex:0 0 auto", onclick: () => run() }, t("search"))),
-    results);
+    results, idLink, idForm);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
+  idInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyId(); } });
   async function run() {
     const q = input.value.trim();
     if (q.length < 2) return;
@@ -628,10 +662,22 @@ function renderStation(box, get, set) {
       const hits = await api("api/mvg/stations?q=" + encodeURIComponent(q));
       if (!hits.length) { results.replaceChildren(el("p", { class: "hint" }, t("noHits"))); return; }
       results.replaceChildren(el("div", { class: "hits" }, hits.map((h) =>
-        el("button", { type: "button", onclick: () => { set({ id: h.id, name: h.name, place: h.place }); setDirty(true); renderStation(box, get, set); } },
+        el("button", { type: "button", onclick: () => choose({ id: h.id, name: h.name, place: h.place }) },
           el("b", {}, h.name), " ", el("small", {}, [h.place, typesText(h.types)].filter(Boolean).join(" · "))))));
     } catch (e) {
       if (e.status !== 401) results.replaceChildren(el("p", { class: "err" }, t("searchFailed")));
+    }
+  }
+  async function applyId() {
+    const id = idInput.value.trim();
+    const say = (cls, ...content) => { idStatus.className = cls; idStatus.replaceChildren(...content); idStatus.hidden = false; };
+    if (!STATION_ID.test(id) || id.length > 32) { say("err", t("globalIdBad")); return; }
+    say("hint", el("span", { class: "spin" }), t("globalIdChecking"));
+    try {
+      const found = await api("api/mvg/station?id=" + encodeURIComponent(id));
+      choose({ id: found.id, name: found.name, place: "" });
+    } catch (e) {
+      if (e.status !== 401) say("err", t("globalIdUnknown"));
     }
   }
   if (current) {
@@ -678,6 +724,124 @@ function rowsFor(id, pick) {
   return lines;
 }
 
+// Directions listed for a line: those with departures in the next 12 hours
+// or already selected; a line without any departures lists both (in the
+// closed group at the end).
+const isInactive = (line) => !["H", "R"].some((d) => (line[d] || []).length);
+function dirsOf(line, pick) {
+  if (isInactive(line)) return ["H", "R"];
+  return ["H", "R"].filter((d) => (line[d] || []).length || (!!pick[line.key] && pick[line.key][d] !== undefined));
+}
+
+// Modes of transport that run at a station (in display order).
+function modesOf(rows) {
+  return [...TYPE_ORDER].filter((type) => rows.some((l) => l.type === type));
+}
+
+function catalogReady(id) {
+  const cat = mvg.catalogs[id];
+  return !!cat && cat.state === "ok";
+}
+
+// Sets up the mode buttons of a station once its lines are known. A new
+// station or one without a saved line list starts with everything selected;
+// a saved selection switches off the modes without a selected line.
+function initStationState(i, id, pick) {
+  const st = mvg.st[i];
+  if (!st.pending || !catalogReady(id)) return;
+  st.pending = false;
+  const rows = rowsFor(id, pick);
+  st.off = new Set();
+  if (mvg.mode === "dir") {
+    for (const type of modesOf(rows)) {
+      if (Object.keys(pick).length && !rows.some((l) => l.type === type && pick[l.key])) st.off.add(type);
+    }
+    return;
+  }
+  if (st.fillAll) {
+    for (const line of rows) setLine(pick, line, true);
+    st.fillAll = false;
+    return;
+  }
+  for (const type of modesOf(rows)) {
+    if (!rows.some((l) => l.type === type && pick[l.key])) st.off.add(type);
+  }
+}
+
+// list/two: ticks every listed direction of a line (on) or clears it.
+function setLine(pick, line, on) {
+  if (!on) { delete pick[line.key]; return; }
+  const it = pick[line.key] || (pick[line.key] = { type: line.type, label: line.label });
+  for (const d of dirsOf(line, pick)) it[d] = true;
+}
+
+// list/two: everything ticked = no line list is saved (all lines, also
+// future ones). Before the lines are loaded, a station without a saved list
+// counts as "all".
+function allTicked(i, id, pick) {
+  const st = mvg.st[i];
+  if (st.pending && st.fillAll) return true;
+  // Lines not loaded (failed): the saved selection stays as it is.
+  if (!catalogReady(id)) return !Object.keys(pick).length;
+  const rows = rowsFor(id, pick);
+  return rows.every((line) => dirsOf(line, pick).every((d) => !!pick[line.key] && pick[line.key][d] === true));
+}
+
+// One button per mode of transport at this station. list/two: pressing an
+// active mode clears all its lines and hides its list; pressing it again
+// shows the list with all its lines ticked. dir: pressing an active mode
+// hides all its lines and closes the list; pressing it again restores the
+// previous assignment.
+function modeButtons(i, id, pick, rows) {
+  const st = mvg.st[i];
+  const modes = modesOf(rows);
+  if (!modes.length) return null;
+  const toggle = (type) => {
+    const mine = rows.filter((l) => l.type === type);
+    if (!st.off.has(type)) {
+      st.off.add(type);
+      if (mvg.mode === "dir") {
+        const keep = {};
+        for (const line of mine) if (pick[line.key]) keep[line.key] = { ...pick[line.key] };
+        st.saved[type] = keep;
+      }
+      for (const line of mine) delete pick[line.key];
+    } else {
+      st.off.delete(type);
+      if (mvg.mode === "dir") {
+        for (const [key, v] of Object.entries(st.saved[type] || {})) pick[key] = v;
+        delete st.saved[type];
+      } else {
+        for (const line of mine) setLine(pick, line, true);
+      }
+    }
+    setDirty(true);
+    renderMvgBody();
+  };
+  return el("div", {},
+    el("span", { class: "label" }, t("transportModes")),
+    el("div", { class: "chips" }, modes.map((type) => el("button", {
+      type: "button", class: "chip", "aria-pressed": String(!st.off.has(type)), onclick: () => toggle(type),
+    }, t("type" + type)))),
+    el("p", { class: "hint" }, t(mvg.mode === "dir" ? "transportHintDir" : "transportHint")));
+}
+
+// Departures part of one station: status, mode buttons and the table.
+function stationLines(i, id, pick, control, rerender) {
+  const box = el("div");
+  loadCatalog(id, rerender);
+  initStationState(i, id, pick);
+  const status = catalogStatus(id, rerender);
+  if (status) box.append(status);
+  const rows = rowsFor(id, pick);
+  if (!mvg.st[i].pending) {
+    const buttons = modeButtons(i, id, pick, rows);
+    if (buttons) box.append(buttons);
+  }
+  box.append(linesTable(i, rows, pick, control));
+  return box;
+}
+
 function catalogStatus(id, rerender) {
   const cat = mvg.catalogs[id];
   if (!cat || cat.state === "loading") {
@@ -694,57 +858,35 @@ function sym(line) {
   return el("span", { class: "sym " + line.type }, line.label.replace(/\s/g, ""));
 }
 
-// Table of lines and directions. control(line, dir) returns the input.
-// A direction without departures in the next 12 hours is only listed when
-// it is selected; lines without any departures go into a closed group at
-// the end.
-// withModes: buttons to hide the lines of a mode of transport (not with two
-// stations, which have buttons for both stations above).
-function linesTable(id, pick, control, withModes = true) {
-  const rows = rowsFor(id, pick);
+// Table of lines and directions, one open list per mode of transport that
+// is switched on; lines without any departures go into a closed group at
+// the end. control(line, dir) returns the input.
+function linesTable(i, rows, pick, control) {
+  const off = mvg.st[i].off;
   const box = el("div", { class: "lines" });
-  const hiddenTypes = mvg.hiddenTypes[id] || (mvg.hiddenTypes[id] = new Set());
-  const isSelected = (line, dir) => !!pick[line.key] && pick[line.key][dir] !== undefined;
-  // Modes of transport that run here (lines with departures or already chosen).
-  const modes = [];
-  for (const line of rows) {
-    if (modes.includes(line.type)) continue;
-    if (["H", "R"].some((d) => (line[d] || []).length || isSelected(line, d))) modes.push(line.type);
-  }
-  if (withModes && modes.length > 1) {
-    const count = (type) => rows.filter((l) => l.type === type && pick[l.key]).length;
-    box.append(el("span", { class: "label" }, t("transportModes")),
-      el("div", { class: "chips" }, modes.map((type) => el("button", {
-        type: "button", class: "chip", "aria-pressed": String(!hiddenTypes.has(type)),
-        onclick: () => { if (hiddenTypes.has(type)) hiddenTypes.delete(type); else hiddenTypes.add(type); renderMvgBody(); },
-      }, t("type" + type), count(type) ? el("b", {}, count(type)) : null))),
-      el("p", { class: "hint" }, t("transportHint")));
-  }
   const row = (line, dir) => {
     const dest = (line[dir] || []).join(", ");
     return el("div", { class: "line" }, sym(line),
       el("div", { class: "dest" }, dest || el("i", {}, t("noDestinations")), el("small", {}, t("direction") + " " + dir)),
       control(line, dir));
   };
-  const selected = (line, dir) => !!pick[line.key] && pick[line.key][dir] !== undefined;
   const inactive = [];
   let group = null;
   let details = null;
   for (const line of rows) {
-    if (hiddenTypes.has(line.type)) continue;
-    const dirs = ["H", "R"].filter((d) => (line[d] || []).length || selected(line, d));
-    if (!dirs.length) { inactive.push(line); continue; }
+    if (off.has(line.type)) continue;
+    if (isInactive(line)) { inactive.push(line); continue; }
     if (line.type !== group) {
       group = line.type;
-      const anySelected = rows.some((l) => l.type === group && pick[l.key]);
-      const open = "SUTZ".includes(group) || anySelected;
-      details = el("details", { open: open || undefined }, el("summary", { class: "grp" }, t("type" + group)));
+      details = el("details", { open: true }, el("summary", { class: "grp" }, t("type" + group)));
       box.append(details);
     }
-    for (const dir of dirs) details.append(row(line, dir));
+    for (const dir of dirsOf(line, pick)) details.append(row(line, dir));
   }
   if (inactive.length) {
-    const rest = el("details", {}, el("summary", { class: "grp" }, t("inactiveLines") + " (" + inactive.length + ")"));
+    // Open when only some of these lines are chosen (so the choice is seen).
+    const ticked = inactive.filter((l) => pick[l.key]).length;
+    const rest = el("details", { open: (ticked && ticked < inactive.length) || undefined }, el("summary", { class: "grp" }, t("inactiveLines") + " (" + inactive.length + ")"));
     for (const line of inactive) for (const dir of ["H", "R"]) rest.append(row(line, dir));
     box.append(rest);
   }
@@ -759,10 +901,7 @@ function renderMvgBody() {
   if (mvg.mode === "list") {
     body.append(el("h3", {}, t("linesAndDirections")), el("p", { class: "hint" }, t("listHint")));
     if (!id) return;
-    loadCatalog(id, rerender);
-    const status = catalogStatus(id, rerender);
-    if (status) body.append(status);
-    body.append(linesTable(id, mvg.pick, (line, dir) => checkbox(mvg.pick, line, dir)));
+    body.append(stationLines(0, id, mvg.pick, (line, dir) => checkbox(mvg.pick, line, dir), rerender));
     body.append(el("p", { class: "err", id: "mvgLinesError", hidden: true }));
   } else if (mvg.mode === "dir") {
     body.append(el("div", { class: "pair" },
@@ -773,16 +912,10 @@ function renderMvgBody() {
           oninput: (e) => { mvg.names[i] = e.target.value; setDirty(true); } })))));
     body.append(el("h3", {}, t("linesAndDirections")), el("p", { class: "hint" }, t("dirHint")));
     if (!id) return;
-    loadCatalog(id, rerender);
-    const status = catalogStatus(id, rerender);
-    if (status) body.append(status);
-    body.append(linesTable(id, mvg.pick, (line, dir) => sectionSelect(line, dir)));
+    body.append(stationLines(0, id, mvg.pick, (line, dir) => sectionSelect(line, dir), rerender));
     body.append(el("p", { class: "err", id: "mvgLinesError", hidden: true }));
   } else {
     body.append(el("p", { class: "hint" }, t("twoHint")));
-    const both = [[mvg.station, mvg.pick], [mvg.station2, mvg.pick2]].filter(([st]) => st);
-    for (const [st] of both) loadCatalog(st.id, rerender);
-    body.append(modeButtonsForAll(both));
     [0, 1].forEach((i) => {
       const station = i === 0 ? mvg.station : mvg.station2;
       const pick = i === 0 ? mvg.pick : mvg.pick2;
@@ -794,59 +927,20 @@ function renderMvgBody() {
       if (i === 1) {
         const box = el("div");
         body.append(el("span", { class: "label" }, t("secondStation")), box);
-        renderStation(box, () => mvg.station2, (s) => { mvg.station2 = s; mvg.pick2 = {}; renderMvgBody(); });
+        renderStation(box, () => mvg.station2, (s) => {
+          mvg.station2 = s;
+          mvg.pick2 = {};
+          resetStationState(1, true);
+          renderMvgBody();
+        });
         body.append(el("label", { for: "secName1" }, t("sectionName")),
           el("input", { id: "secName1", type: "text", maxlength: 24, value: mvg.names[1], placeholder: station ? station.name : "",
             oninput: (e) => { mvg.names[1] = e.target.value; setDirty(true); } }));
       }
-      if (station) {
-        const status = catalogStatus(station.id, rerender);
-        if (status) body.append(status);
-        body.append(linesTable(station.id, pick, (line, dir) => checkbox(pick, line, dir), false));
-      }
+      if (station) body.append(stationLines(i, station.id, pick, (line, dir) => checkbox(pick, line, dir), rerender));
     });
     body.append(el("p", { class: "err", id: "mvgLinesError", hidden: true }));
   }
-}
-
-// Two stations: one button per mode of transport for both stations. It
-// selects all lines of that mode with departures at every station (all
-// already selected: clears them); single lines stay editable per station.
-function modeButtonsForAll(stations) {
-  const entries = [];  // [pick, line, dir] with departures
-  for (const [st, pick] of stations) {
-    for (const line of rowsFor(st.id, pick)) {
-      for (const dir of ["H", "R"]) if ((line[dir] || []).length) entries.push([pick, line, dir]);
-    }
-  }
-  const modes = [...TYPE_ORDER].filter((type) => entries.some(([, line]) => line.type === type));
-  if (!modes.length) return el("div");
-  const isOn = (pick, line, dir) => !!pick[line.key] && pick[line.key][dir] !== undefined;
-  return el("div", {},
-    el("span", { class: "label" }, t("allStationsModes")),
-    el("div", { class: "chips" }, modes.map((type) => {
-      const mine = entries.filter(([, line]) => line.type === type);
-      const all = mine.every(([pick, line, dir]) => isOn(pick, line, dir));
-      return el("button", {
-        type: "button", class: "chip", "aria-pressed": String(all),
-        onclick: () => {
-          for (const [pick, line, dir] of mine) {
-            if (all) {
-              const it = pick[line.key];
-              if (!it) continue;
-              delete it[dir];
-              if (it.H === undefined && it.R === undefined) delete pick[line.key];
-            } else {
-              const it = pick[line.key] || (pick[line.key] = { type: line.type, label: line.label });
-              it[dir] = true;
-            }
-          }
-          setDirty(true);
-          renderMvgBody();
-        },
-      }, t("type" + type));
-    })),
-    el("p", { class: "hint" }, t("allStationsHint")));
 }
 
 function checkbox(pick, line, dir) {
@@ -885,32 +979,11 @@ $("mvgMode").addEventListener("click", (e) => {
   mvg.pick = {};
   mvg.pick2 = {};
   mvg.names = ["", ""];
+  resetStationState(0, mvg.mode !== "dir");
+  resetStationState(1, true);
   segSet($("mvgMode"), mvg.mode);
   renderMvgBody();
   setDirty(true);
-});
-// Station by its global ID (Advanced): format check here, the name from the
-// MVG through the display (also confirms that the station exists).
-const STATION_ID = /^[a-z]{2}(:[A-Za-z0-9_]+)+$/;
-$("mvgGlobalIdApply").addEventListener("click", async () => {
-  const id = $("mvgGlobalId").value.trim();
-  const status = $("mvgGlobalIdStatus");
-  const show = (cls, ...content) => { status.className = cls; status.replaceChildren(...content); status.hidden = false; };
-  if (!STATION_ID.test(id) || id.length > 32) { show("err", t("globalIdBad")); return; }
-  show("hint", el("span", { class: "spin" }), t("globalIdChecking"));
-  try {
-    const found = await api("api/mvg/station?id=" + encodeURIComponent(id));
-    status.hidden = true;
-    mvg.station = { id: found.id, name: found.name, place: "" };
-    mvg.pick = {};
-    $("mvgName").value = found.name;
-    $("mvgGlobalId").value = "";
-    setDirty(true);
-    showMvgStation();
-    renderMvgBody();
-  } catch (e) {
-    if (e.status !== 401) show("err", t("globalIdUnknown"));
-  }
 });
 $("mvgTime").addEventListener("click", (e) => {
   const b = e.target.closest("button");
@@ -1280,9 +1353,12 @@ function buildConfig() {
   const lineError = (msg) => errors.push(["mvgLinesError", msg]);
   if (mvg.mode === "list") {
     setOrDelete(m, "station", mvg.station ? mvg.station.id : "");
-    const lines = linesOf(mvg.pick, true);
-    if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
-    if (lines.length) m.lines = lines;
+    if (mvg.station && !allTicked(0, mvg.station.id, mvg.pick)) {
+      const lines = linesOf(mvg.pick, true);
+      if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
+      if (!lines.length) lineError(t("noLinesChosen"));
+      m.lines = lines;
+    }
     if (!mvg.station && usesMvg) errors.push(["mvgStation", t("stationMissing")]);
   } else if (mvg.mode === "dir") {
     setOrDelete(m, "station", mvg.station ? mvg.station.id : "");
@@ -1307,11 +1383,15 @@ function buildConfig() {
       const own = i === 0 ? $("mvgName").value : mvg.names[i];
       const name = (own || (st ? st.name : "")).trim() || t("section") + " " + (i + 1);
       if (bytes(name) > 24) errors.push([i === 0 ? "mvgName" : "secName" + i, t("tooLong", { n: 24 })]);
-      const lines = linesOf(i === 0 ? mvg.pick : mvg.pick2, true);
-      if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
+      const pick = i === 0 ? mvg.pick : mvg.pick2;
       const s = { name };
       if (st) s.station = st.id;
-      if (lines.length) s.lines = lines;
+      if (st && !allTicked(i, st.id, pick)) {
+        const lines = linesOf(pick, true);
+        if (lines.length > MAX_LINES) lineError(t("tooManyLines"));
+        if (!lines.length) lineError(t("noLinesInSection", { name }));
+        s.lines = lines;
+      }
       return s;
     });
   }

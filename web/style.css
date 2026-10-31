@@ -73,6 +73,8 @@ button, a.button { font: inherit; text-decoration: none; display: inline-block; 
 button:disabled { opacity: .55; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 button.quiet { border: 0; background: none; color: var(--accent); padding: 4px 0; text-decoration: underline; }
+button.quiet.small { font-size: 13px; display: block; margin-top: 6px; }
+.globalid { margin-top: 8px; }
 button.danger { color: var(--bad); border-color: var(--bad); background: none; }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { flex: 1; border: 0; border-radius: 0; border-left: 1px solid var(--line); padding: 8px 4px; font-size: 14px; }

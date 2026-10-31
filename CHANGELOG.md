@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Settings page: the station of the departures can be entered by its
-  global ID under "Erweitert" (format check, name confirmed by the MVG
-  through the new device route `api/mvg/station`).
+- Settings page: every station of the departures can be entered by its
+  global ID ("Global-ID setzen" below the station search; format check,
+  name confirmed by the MVG through the new device route
+  `api/mvg/station`).
 - The settings page opens by itself once after the start when there are no
   settings yet (no `config.json`, or an empty one), as soon as Wi-Fi is
   connected; one-time code, QR code and time limit as with KEY3.
@@ -277,8 +278,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings page: resetting the settings also deletes the calendar address
   (Wi-Fi stays); the Wi-Fi signal as four drawn bars; the coordinates of the
   weather place are under "Erweitert"; with two stations the display name
-  is the title of the first station (no second title field), and buttons
-  above select or clear all lines of a means of transport at both stations.
+  is the title of the first station (no second title field).
 
 - Default of `display.full_refresh_minutes` 60 → 360 (no ghosting seen on
   the panel).
@@ -408,8 +408,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stay valid when a tool adds metadata to them.
 - Settings page in five tabs (General, Departures - MVG, Weather - Open Meteo,
   Calendar - Google, Device); the display name follows the chosen station and stays editable;
-  buttons for the means of transport of the station before the line table
-  (all on at first, switching one off hides its lines); names of two
+  buttons for the means of transport under every station (all on and all
+  lines ticked at first; switching one off clears and hides its lines,
+  switching it on again ticks them all; with two directions it hides the
+  lines and restores the previous assignment); with all lines ticked no
+  line list is saved, so later lines appear too; names of two
   directions suggested as "Zentrum" / "Auswärts" ("Centre" / "Outbound").
 - Margins of 20 px at the left, right and top and 15 px at the bottom
   instead of 28/22/16 px, as two constants (`ui::kMargin`,
