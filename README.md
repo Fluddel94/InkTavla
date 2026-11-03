@@ -182,6 +182,14 @@ clang-format --dry-run -Werror <files>
 
 Third-party code in `lib/qrcodegen/` keeps its original formatting.
 
+### Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
+request to `main`: formatting check, image metadata check, a warning for AI
+notes (see [Contributing](#contributing)), the unit tests and the firmware
+build. The run summary shows the flash and RAM usage, and the built
+`firmware.bin` can be downloaded from the run for 30 days.
+
 ## Flash layout
 
 Defined in `partitions.csv` (16 MB): NVS (20 KB), two 4 MB app slots for OTA
@@ -281,6 +289,15 @@ small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
   version is pinned, see [Formatting](#formatting)).
 - InkTavla is developed with the help of Claude, Anthropic's AI assistant;
   every change is reviewed and committed by the maintainer.
+- Because this is stated here once, commits, pull requests and files carry no
+  AI notes of their own (no co-author lines or "generated with" footers),
+  and links to AI chat sessions are never added: they can lead to private
+  conversations, and once the repository is public they stay in its history
+  (pull requests cannot be deleted). For contributors this is a request, not
+  a requirement; CI only warns (`tools/check_ai_notes.py`).
+- Images are committed without metadata (`python tools/png_strip.py <files>`,
+  checked by CI). Editors and other tools may embed details about the person
+  who made or edited an image, which would stay in the history for good.
 
 ## License
 

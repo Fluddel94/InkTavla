@@ -1,0 +1,155 @@
+# Continuous integration: checks, unit tests and the firmware build for every
+# push and pull request to main. Releases are still made by hand; the
+# firmware.bin built here can be downloaded from the run ("Artifacts") and
+# attached to a release.
+#
+# Every action is pinned to the commit of a release tag (the tag is noted
+# behind it); update them deliberately, one at a time.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PLATFORMIO_VERSION: "6.2.0"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Checks and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # commit messages of the push are checked below
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PlatformIO and tools
+        run: |
+          python -m pip install "platformio==${PLATFORMIO_VERSION}" -r tools/requirements.txt
+          clang-format --version
+
+      - name: Check formatting (clang-format, nothing is changed)
+        run: git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp' | xargs -0 clang-format --dry-run -Werror
+
+      # Image metadata can reveal details about the person who made or edited
+      # an image; in a public repository it stays in the history for good.
+      - name: Check that images have no metadata
+        run: git ls-files -z '*.png' | xargs -0 --no-run-if-empty python tools/png_strip.py --check
+
+      # The README notes once that the project is developed with Claude; chat
+      # session links can lead to private conversations. Only a warning,
+      # because for contributors this is a request (tools/check_ai_notes.py).
+      - name: Look for AI notes and chat session links (warning only)
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python tools/check_ai_notes.py
+          if [ "$EVENT" = pull_request ]; then
+            range="$PR_BASE..$PR_HEAD"
+            printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" \
+              | python tools/check_ai_notes.py --stdin "pull request description"
+          elif [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            range="$BEFORE..$AFTER"
+          else
+            range="$AFTER -1"
+          fi
+          # shellcheck disable=SC2086 # range may hold an option
+          for commit in $(git rev-list $range); do
+            git log -1 --format=%B "$commit" \
+              | python tools/check_ai_notes.py --stdin "commit message ${commit:0:7}" | grep -v '^check_ai_notes:' || true
+          done
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.platformio
+            !~/.platformio/.cache
+            .pio/libdeps
+          key: pio-${{ runner.os }}-native-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-native-
+
+      - name: Unit tests (native)
+        run: pio test -e native
+
+      # On a failed test, the drawn screens help to see what changed.
+      - name: Keep screen previews of a failed run
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screen-previews-${{ github.sha }}
+          path: .pio/preview/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build:
+    name: Firmware build (xiao_esp32s3_plus)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PlatformIO
+        run: python -m pip install "platformio==${PLATFORMIO_VERSION}"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.platformio
+            !~/.platformio/.cache
+            .pio/libdeps
+          key: pio-${{ runner.os }}-esp32-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-esp32-
+
+      - name: Build
+        run: pio run -e xiao_esp32s3_plus 2>&1 | tee build.log
+
+      - name: Report size
+        run: |
+          {
+            echo "### Firmware size (xiao_esp32s3_plus)"
+            echo
+            echo '```'
+            grep -E '^(RAM|Flash):' build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^(RAM|Flash):' build.log
+
+      - name: Upload firmware.bin
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: firmware-${{ github.sha }}
+          path: .pio/build/xiao_esp32s3_plus/firmware.bin
+          if-no-files-found: error
+          retention-days: 30

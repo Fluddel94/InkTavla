@@ -9,8 +9,13 @@ this before committing them:
     python tools/png_strip.py test/fixtures/ui
 
 Arguments are PNG files or folders (all *.png in them). Only critical chunks
-(IHDR, PLTE, IDAT, IEND) are kept; the pixels do not change. Uses the Python
-standard library only.
+(IHDR, PLTE, IDAT, IEND) are kept; the pixels do not change. With --check,
+nothing is written: the exit status is 1 if a file has metadata (used by CI).
+Uses the Python standard library only.
+
+Why: such metadata can reveal details about the person who made or edited the
+image (software, account, time). Once the repository is public it stays in
+the history for good, so images are committed without it.
 """
 
 import pathlib
@@ -50,6 +55,8 @@ def files(arguments):
 
 
 def main(arguments):
+    check = "--check" in arguments
+    arguments = [a for a in arguments if a != "--check"]
     if not arguments:
         print(__doc__.strip())
         return 2
@@ -59,6 +66,10 @@ def main(arguments):
         cleaned = strip(data)
         if cleaned is None:
             print(f"{path}: not a valid PNG, skipped")
+            status = 1
+        elif cleaned != data and check:
+            print(f"{path}: {len(data) - len(cleaned)} bytes of metadata, "
+                  "run tools/png_strip.py on it")
             status = 1
         elif cleaned != data:
             path.write_bytes(cleaned)
