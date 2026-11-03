@@ -158,6 +158,30 @@ The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
 folder on `PATH`). Test data lives in `test/fixtures/`.
 
+### Formatting
+
+C and C++ sources are formatted with clang-format (settings in
+`.clang-format`). The version is pinned in `tools/requirements.txt`, because
+other versions may format differently. Install it together with the other
+tool packages, e.g. into the Python that comes with PlatformIO:
+
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m pip install -r tools\requirements.txt
+```
+
+This puts `clang-format.exe` into `%USERPROFILE%\.platformio\penv\Scripts\`.
+To format on save in VS Code with exactly this version, set
+`C_Cpp.clang_format_path` in the user settings to its full path
+(e.g. `C:\Users\<name>\.platformio\penv\Scripts\clang-format.exe`) and
+enable `editor.formatOnSave` for C and C++. Check all files from the
+command line with:
+
+```sh
+clang-format --dry-run -Werror <files>
+```
+
+Third-party code in `lib/qrcodegen/` keeps its original formatting.
+
 ## Flash layout
 
 Defined in `partitions.csv` (16 MB): NVS (20 KB), two 4 MB app slots for OTA
@@ -253,7 +277,8 @@ small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
   `transit`, `weather`, `calendar`).
 - Versions follow [Semantic Versioning](https://semver.org/); changes are
   recorded in [CHANGELOG.md](CHANGELOG.md).
-- Code is formatted with `clang-format` (`.clang-format`, Google-based).
+- Code is formatted with `clang-format` (`.clang-format`, Google-based; the
+  version is pinned, see [Formatting](#formatting)).
 - InkTavla is developed with the help of Claude, Anthropic's AI assistant;
   every change is reviewed and committed by the maintainer.
 

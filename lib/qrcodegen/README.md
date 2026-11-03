@@ -9,5 +9,6 @@ License: MIT (see the header of both files). Used by `ui/qr.h` to draw the
 QR code of the settings notice, on the device and in
 the PC previews alike.
 
-Not formatted with the project's clang-format settings; update only by
-replacing both files with those of a newer release.
+Not formatted with the project's clang-format settings (`.clang-format` in
+this folder disables formatting); update only by replacing both files with
+those of a newer release.

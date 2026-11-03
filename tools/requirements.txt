@@ -1,3 +1,8 @@
-# Python packages for the tools in this folder (not for the firmware).
+# Python packages for the tools in this folder and for development (not for
+# the firmware). Install with: python -m pip install -r tools/requirements.txt
 # pyserial: BSD-3-Clause, https://github.com/pyserial/pyserial
 pyserial==3.5
+# clang-format: formats the C/C++ sources (.clang-format). LLVM is
+# Apache-2.0 with LLVM exception, the Python wheel Apache-2.0,
+# https://github.com/ssciwr/clang-format-wheel
+clang-format==23.1.3
