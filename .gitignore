@@ -8,6 +8,8 @@
 # Credentials must never be committed. They are entered at runtime; this
 # entry is a safety net in case such a file is ever created locally.
 secrets.h
+# ...except the secret store of the firmware, which is code, not credentials.
+!lib/core/src/core/secrets.h
 
 # OS and editor files
 .DS_Store
