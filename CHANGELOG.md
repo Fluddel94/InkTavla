@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Update button on the settings page (Gerät / Device): "Nach Updates suchen"
+  asks GitHub for the newest release, only when pressed, and offers a newer
+  version with a link to its release notes; "Installieren" downloads its
+  `firmware.bin` over HTTPS and installs it like an uploaded file (check,
+  second app slot, going back if it does not run). A development build is
+  never replaced by an older release. See `docs/updating.md`.
+- Every device build also writes `firmware-full.bin`, the whole flash image
+  from offset 0 (bootloader, partition table, OTA data, app); CI keeps it
+  next to `firmware.bin`. Releases carry both files.
+- Web installer (`installer/`, `tools/build_installer.py`) with ESP Web
+  Tools 10.4.0: flashes the display from Chrome or Edge over USB and sets up
+  Wi-Fi with Improv. It is published on GitHub Pages for every release
+  (`.github/workflows/pages.yml`) and can be tried locally on `localhost`.
+
+### Changed
+
+- The firmware check for uploads and downloads also requires the app
+  description at the start of the image, so the whole flash image
+  `firmware-full.bin` (which starts with the bootloader) is refused instead
+  of being written into the app slot.
+
 ## [0.1.0] - 2026-11-02
 
 First version. It runs on the reference hardware, the Seeed TRMNL 7.5" (OG)

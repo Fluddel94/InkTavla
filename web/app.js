@@ -122,7 +122,20 @@ const TEXTS = {
     uploadLoaded: "Datei geladen. Bitte prüfen und dann speichern.",
     uploadBad: "Die Datei ist keine gültige config.json.",
     firmwareUpdate: "Firmware aktualisieren",
-    firmwareHint: "Datei firmware.bin aus .pio\\build\\xiao_esp32s3_plus\\. Das Display prüft, ob es eine InkTavla-Firmware ist, und startet danach neu. Startet die neue Version nicht richtig, kehrt es zur bisherigen zurück.",
+    updateHint: "Fragt bei GitHub nach der neuesten veröffentlichten Version – nur, wenn du den Knopf drückst. GitHub sieht dabei die Adresse (IP) deines Internetanschlusses, sonst nichts.",
+    updateCheck: "Nach Updates suchen",
+    updateChecking: "Wird gesucht …",
+    updateAvailable: "Version {v} ist verfügbar (installiert: {i}).",
+    updateUpToDate: "Die Firmware ist aktuell ({i}).",
+    updateNewerInstalled: "Kein Update: Installiert ist {i}, ein Entwicklungsstand, der neuer ist als die letzte Version {v}.",
+    updateNoRelease: "Es gibt noch keine veröffentlichte Version.",
+    updateNotFound: "Keine Versionen gefunden – das Projekt ist (noch) nicht öffentlich.",
+    updateNoConnection: "GitHub ist nicht erreichbar. Hat das Display Internet?",
+    updateUnexpected: "Unerwartete Antwort von GitHub ({s}). Bitte später noch einmal versuchen.",
+    updateInstall: "Installieren",
+    updateNotes: "Was ist neu?",
+    updateDownloading: "Wird geladen: {p} – Display nicht ausschalten.",
+    firmwareHint: "Oder eine Datei firmware.bin hochladen (aus einem Release oder aus .pio\\build\\xiao_esp32s3_plus\\). In beiden Fällen prüft das Display, ob es eine InkTavla-Firmware ist, und startet danach neu. Startet die neue Version nicht richtig, kehrt es zur bisherigen zurück.",
     firmwareChoose: "Firmware-Datei wählen …",
     firmwareUploading: "Wird übertragen: {p} % – Display nicht ausschalten.",
     firmwareFailed: "Update fehlgeschlagen: {e}. Die bisherige Firmware bleibt.",
@@ -279,7 +292,20 @@ const TEXTS = {
     uploadLoaded: "File loaded. Please check it, then save.",
     uploadBad: "The file is not a valid config.json.",
     firmwareUpdate: "Update firmware",
-    firmwareHint: "The file firmware.bin from .pio\\build\\xiao_esp32s3_plus\\. The display checks that it is an InkTavla firmware and then restarts. If the new version does not start properly, it goes back to the previous one.",
+    updateHint: "Asks GitHub for the newest published version – only when you press the button. GitHub sees the address (IP) of your internet connection, nothing else.",
+    updateCheck: "Check for updates",
+    updateChecking: "Checking …",
+    updateAvailable: "Version {v} is available (installed: {i}).",
+    updateUpToDate: "The firmware is up to date ({i}).",
+    updateNewerInstalled: "No update: {i} is installed, a development build newer than the last version {v}.",
+    updateNoRelease: "There is no published version yet.",
+    updateNotFound: "No versions found – the project is not public (yet).",
+    updateNoConnection: "GitHub cannot be reached. Does the display have internet?",
+    updateUnexpected: "Unexpected answer from GitHub ({s}). Please try again later.",
+    updateInstall: "Install",
+    updateNotes: "What's new?",
+    updateDownloading: "Downloading: {p} – do not switch off the display.",
+    firmwareHint: "Or upload a file firmware.bin (from a release or from .pio\\build\\xiao_esp32s3_plus\\). Either way the display checks that it is an InkTavla firmware and then restarts. If the new version does not start properly, it goes back to the previous one.",
     firmwareChoose: "Choose firmware file …",
     firmwareUploading: "Uploading: {p} % – do not switch off the display.",
     firmwareFailed: "Update failed: {e}. The previous firmware stays.",
@@ -1230,6 +1256,8 @@ function fillDevice() {
   $("ntpServer").value = config.ntp_server || "pool.ntp.org";
   $("uploadResult").hidden = true;
   $("firmwareResult").hidden = true;
+  $("updateResult").hidden = true;
+  $("updateOffer").hidden = true;
   $("resetConfirm").hidden = true;
 }
 $("timeZone").addEventListener("change", (e) => {
@@ -1258,6 +1286,102 @@ $("uploadFile").addEventListener("change", async (e) => {
     out.textContent = t("uploadBad");
   }
 });
+// Reasons from the display (core/firmware_writer.h, settings_server.cpp).
+const FIRMWARE_ERRORS = {
+  "not an InkTavla firmware": { de: "keine InkTavla-Firmware", en: "not an InkTavla firmware" },
+  "not an ESP32-S3 firmware image": { de: "keine Firmware für den ESP32-S3", en: "not a firmware for the ESP32-S3" },
+  "the image is not valid": { de: "die Datei ist beschädigt", en: "the file is damaged" },
+  "the file is too large": { de: "die Datei ist zu groß", en: "the file is too large" },
+  "cannot start the update": { de: "das Update ließ sich nicht starten", en: "the update could not start" },
+  "cannot write to flash": { de: "Schreiben in den Speicher fehlgeschlagen", en: "writing to the flash failed" },
+  "upload aborted": { de: "Übertragung abgebrochen", en: "upload aborted" },
+  "an update is already running": { de: "es läuft schon ein Update", en: "an update is already running" },
+  "check for updates first": { de: "bitte zuerst nach Updates suchen", en: "please check for updates first" },
+  "the release has no firmware.bin": { de: "das Release enthält keine firmware.bin", en: "the release has no firmware.bin" },
+  "no connection": { de: "keine Verbindung zu GitHub", en: "no connection to GitHub" },
+  "download incomplete": { de: "Download unvollständig", en: "download incomplete" },
+  "not enough memory": { de: "zu wenig Speicher", en: "not enough memory" },
+};
+function firmwareError(error) {
+  return FIRMWARE_ERRORS[error] ? FIRMWARE_ERRORS[error][lang] : error;
+}
+
+// Update button: asks the display, which asks GitHub (core/update_check.h).
+let offeredVersion = null;
+function firmwareButtons(enabled) {
+  $("updateCheck").disabled = !enabled;
+  $("updateInstall").disabled = !enabled;
+  $("firmwareButton").disabled = !enabled;
+}
+$("updateCheck").addEventListener("click", async () => {
+  const out = $("updateResult");
+  out.hidden = false;
+  out.className = "hint";
+  out.textContent = t("updateChecking");
+  $("updateOffer").hidden = true;
+  offeredVersion = null;
+  firmwareButtons(false);
+  try {
+    const r = await api("api/update/check");
+    const vars = { i: r.installed || "–", v: r.latest || "–", s: r.http_status || "?" };
+    const texts = {
+      available: "updateAvailable", up_to_date: "updateUpToDate", newer_installed: "updateNewerInstalled",
+      no_release: "updateNoRelease", not_found: "updateNotFound", no_connection: "updateNoConnection",
+    };
+    out.textContent = t(texts[r.status] || "updateUnexpected", vars);
+    out.className = r.status === "no_connection" || !texts[r.status] ? "err" : "hint";
+    if (r.status === "available") {
+      offeredVersion = r.latest;
+      const notes = typeof r.notes_url === "string" && r.notes_url.startsWith("https://github.com/");
+      $("updateNotes").hidden = !notes;
+      if (notes) $("updateNotes").href = r.notes_url;
+      $("updateOffer").hidden = false;
+    }
+  } catch (e) {
+    if (e.status === 401) return;
+    out.className = "err";
+    let error = e.body && e.body.error;
+    out.textContent = error ? t("firmwareFailed", { e: firmwareError(error) }) : t("connectionLost");
+  } finally {
+    firmwareButtons(true);
+  }
+});
+$("updateInstall").addEventListener("click", async () => {
+  if (!offeredVersion) return;
+  const out = $("updateResult");
+  out.className = "hint";
+  out.textContent = t("updateDownloading", { p: "0 %" });
+  firmwareButtons(false);
+  const failed = (error) => {
+    out.className = "err";
+    out.textContent = t("firmwareFailed", { e: firmwareError(error) });
+    firmwareButtons(true);
+  };
+  try {
+    await api("api/update/install", { method: "POST", json: { version: offeredVersion } });
+  } catch (e) {
+    if (e.status !== 401) failed((e.body && e.body.error) || t("connectionLost"));
+    return;
+  }
+  let misses = 0;
+  const poll = async () => {
+    try {
+      const s = await api("api/update/status", { passive: true });
+      misses = 0;
+      if (s.state === "done") { waitForRestart(); return; }
+      if (s.state === "failed") { failed(s.error || "?"); return; }
+      const p = s.total ? Math.floor((s.bytes / s.total) * 100) + " %" : Math.floor(s.bytes / 1024) + " KB";
+      out.textContent = t("updateDownloading", { p });
+    } catch (e) {
+      if (e.status === 401) return;
+      // The display may already be restarting.
+      if (++misses >= 5) { waitForRestart(); return; }
+    }
+    setTimeout(poll, 1000);
+  };
+  setTimeout(poll, 1000);
+});
+
 // Firmware: upload with progress (XMLHttpRequest reports it, fetch does not).
 $("firmwareButton").addEventListener("click", () => $("firmwareFile").click());
 $("firmwareFile").addEventListener("change", (e) => {
@@ -1283,15 +1407,8 @@ $("firmwareFile").addEventListener("change", (e) => {
     if (xhr.status === 401) { pageClosed(); return; }
     let error = "HTTP " + xhr.status;
     try { error = JSON.parse(xhr.responseText).error || error; } catch (err) { /* keep */ }
-    const known = {
-      "not an InkTavla firmware": { de: "keine InkTavla-Firmware", en: "not an InkTavla firmware" },
-      "not an ESP32-S3 firmware image": { de: "keine Firmware für den ESP32-S3", en: "not a firmware for the ESP32-S3" },
-      "the image is not valid": { de: "die Datei ist beschädigt", en: "the file is damaged" },
-      "upload aborted": { de: "Übertragung abgebrochen", en: "upload aborted" },
-    };
-    if (known[error]) error = known[error][lang];
     out.className = "err";
-    out.textContent = t("firmwareFailed", { e: error });
+    out.textContent = t("firmwareFailed", { e: firmwareError(error) });
   };
   xhr.onerror = () => {
     $("firmwareButton").disabled = false;

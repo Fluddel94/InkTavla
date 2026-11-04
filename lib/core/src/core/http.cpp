@@ -38,6 +38,7 @@ class HttpBodyStream : public Stream {
 
   size_t bytes() const { return bytes_; }
   bool timedOut() const { return timed_out_; }
+  int64_t length() const { return length_; }  // negative if unknown
 
  private:
   // Next byte from the network, -1 at the end or after the timeout.
@@ -92,17 +93,20 @@ class HttpBodyStream : public Stream {
 // Common part of the requests: TLS with the certificate bundle, timeouts,
 // HTTP/1.0 (no chunks if the server honours it). read gets the body of a
 // response with status 200.
+void configure(NetworkClientSecure& client, HTTPClient& http) {
+  client.useBuiltinCACertBundle();  // certificate check with the core's CA bundle
+  client.setHandshakeTimeout(kHttpTimeoutMs / 1000);
+  http.setConnectTimeout(kHttpTimeoutMs);
+  http.setTimeout(kHttpTimeoutMs);
+  http.useHTTP10(true);  // no chunks if the server honours it
+}
+
 bool get(const std::string& url, bool follow_redirects,
          const std::function<bool(HttpBodyStream&, HttpResult&)>& read, HttpResult* result) {
   HttpResult r;
   NetworkClientSecure client;
-  client.useBuiltinCACertBundle();  // certificate check with the core's CA bundle
-  client.setHandshakeTimeout(kHttpTimeoutMs / 1000);
-
   HTTPClient http;
-  http.setConnectTimeout(kHttpTimeoutMs);
-  http.setTimeout(kHttpTimeoutMs);
-  http.useHTTP10(true);  // no chunks if the server honours it
+  configure(client, http);
   if (follow_redirects) http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   const char* header_keys[] = {"Transfer-Encoding"};
   http.collectHeaders(header_keys, 1);
@@ -145,11 +149,12 @@ bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocume
       result);
 }
 
-bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes,
-                 HttpResult* result) {
+bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes, HttpResult* result,
+                 const std::function<void(int64_t length)>& on_length) {
   return get(
       url, true,
       [&](HttpBodyStream& body, HttpResult& r) {
+        if (on_length) on_length(body.length());
         char buffer[512];
         size_t total = 0;
         while (true) {
@@ -171,6 +176,20 @@ bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes,
         }
       },
       result);
+}
+
+int fetchRedirect(const std::string& url, std::string& location) {
+  location.clear();
+  NetworkClientSecure client;
+  HTTPClient http;
+  configure(client, http);
+  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+  if (!http.begin(client, url.c_str())) return -1;
+  const int status = http.GET();
+  location = http.getLocation().c_str();
+  http.end();
+  if (status <= 0) Serial.printf("HTTP: request failed, status %d\n", status);
+  return status;
 }
 
 }  // namespace core

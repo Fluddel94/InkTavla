@@ -47,8 +47,16 @@ bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocume
 // GET url and hand the body to sink as it arrives, never holding all of it
 // (e.g. iCal files of several megabytes). Follows redirects. True on status
 // 200 if the whole body (at most max_bytes) was read and accepted.
+// on_length, if set, gets the Content-Length (negative if unknown) before
+// the first part of the body.
 bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes,
-                 HttpResult* result = nullptr);
+                 HttpResult* result = nullptr,
+                 const std::function<void(int64_t length)>& on_length = nullptr);
+
+// GET url without following a redirect and without reading the body: the
+// status (negative: error of the HTTP client) and the Location header
+// (empty if none). E.g. GitHub's releases/latest (core/update_check.h).
+int fetchRedirect(const std::string& url, std::string& location);
 #endif
 
 }  // namespace core

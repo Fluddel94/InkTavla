@@ -129,6 +129,11 @@ pio device monitor                        # serial output (115200 baud)
 
 If the board is not detected for flashing, hold BOOT while plugging in USB.
 
+A build writes `firmware.bin` (the app, for updates on the settings page) and
+`firmware-full.bin` (the whole flash image, for the web installer) to
+`.pio/build/xiao_esp32s3_plus/`. Installing without building, the web
+installer and the update button: [docs/updating.md](docs/updating.md).
+
 **Windows:** the framework package contains paths longer than 260 characters.
 Enable long path support once (PowerShell as administrator), then restart
 VS Code:
@@ -188,7 +193,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
 request to `main`: formatting check, image metadata check, a warning for AI
 notes (see [Contributing](#contributing)), the unit tests and the firmware
 build. The run summary shows the flash and RAM usage, and the built
-`firmware.bin` can be downloaded from the run for 30 days.
+`firmware.bin` and `firmware-full.bin` can be downloaded from the run for
+30 days. The web installer is built as a check, and published on GitHub
+Pages for every release by `.github/workflows/pages.yml`.
 
 ## Flash layout
 
@@ -207,7 +214,7 @@ Nothing user-specific is compiled in.
 - **Settings page:** press KEY3; the display shows an address, a one-time
   code and a QR code. The page in the browser sets everything else
   (departures with station search, weather place, calendar address, layout,
-  language, a new Wi-Fi, a firmware update) and closes 30 minutes after the
+  language, a new Wi-Fi, a firmware update or the update button) and closes 30 minutes after the
   last action. On a new device (no settings yet) the page opens by itself
   once Wi-Fi is connected. Plain HTTP, so use it only in your private home
   network. See [docs/configuration.md](docs/configuration.md#the-settings-page).
@@ -242,6 +249,9 @@ Nothing user-specific is compiled in.
   `src/generated/settings_page.h` (not in the repository).
 - The clock is set by NTP (`ntp_server`, default `pool.ntp.org`).
 - The device only talks to the services that are configured; no telemetry.
+  The one exception is on request: the update button on the settings page
+  asks GitHub for the newest release only when it is pressed
+  ([docs/updating.md](docs/updating.md#update-button-on-the-settings-page)).
 - Departures come from the **unofficial** MVG API, which is not endorsed by
   MVG and may change at any time.
 
@@ -268,6 +278,8 @@ Nothing user-specific is compiled in.
 | [Roboto Condensed](https://github.com/googlefonts/roboto-classic) (font) | 3.008 | SIL OFL 1.1 | Text on the display, converted by `tools/fontgen` |
 | [Fraunces](https://github.com/undercasetype/Fraunces) (font) | 1.000 | SIL OFL 1.1 (no Reserved Font Name) | Sentence and events of the "Briefing" layout, converted by `tools/fontgen` |
 | [Pillow](https://python-pillow.org/) | 12.3.0 | MIT-CMU | Font generator only, not part of the firmware |
+| [esptool](https://github.com/espressif/esptool) | 5.4.0 (pioarduino) | GPL-2.0-or-later | Merges `firmware-full.bin` during the build; a build tool, not part of the firmware |
+| [ESP Web Tools](https://github.com/esphome/esp-web-tools) | 10.4.0 | Apache-2.0 | Web installer page only (bundles esptool-js, Lit, Material Web, tslib), downloaded from npm when the site is built, not part of the firmware or the repository |
 
 MVV line symbols (S-Bahn, U-Bahn): from Wikimedia Commons ("München S1.svg"
 etc. by Claus Färber, marked as public domain), converted to 1 bit. They may

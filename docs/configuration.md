@@ -72,8 +72,14 @@ has five tabs:
 
 ### Updating the firmware on the settings page
 
-Choose the file `firmware.bin` (after a build in
-`.pio/build/xiao_esp32s3_plus/`). The display checks while receiving it
+**Nach Updates suchen / Check for updates** asks GitHub for the newest
+release, only when pressed, and offers a newer version with a link to its
+release notes; **Installieren / Install** downloads and installs it. Or
+choose a file `firmware.bin` (from a release, or after a build in
+`.pio/build/xiao_esp32s3_plus/`). Details:
+[docs/updating.md](updating.md#update-button-on-the-settings-page).
+
+Either way the display checks while receiving it
 that it is an InkTavla firmware for the ESP32-S3 and refuses anything else;
 the running firmware stays until the new one is complete. Then the display
 restarts with the new firmware and the page opens again. The new firmware

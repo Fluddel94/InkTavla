@@ -3,7 +3,6 @@
 #include "core/settings_server.h"
 
 #include <Arduino.h>
-#include <Update.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <esp_random.h>
@@ -13,11 +12,14 @@
 #include <mutex>
 
 #include "core/firmware_check.h"
+#include "core/firmware_writer.h"
+#include "core/http.h"
 #include "core/littlefs_store.h"
 #include "core/secrets.h"
 #include "core/settings_api.h"
 #include "core/settings_session.h"
 #include "core/time.h"
+#include "core/update_check.h"
 
 namespace core {
 
@@ -275,81 +277,242 @@ void handleWifiStatus() {
 
 // --- Firmware upload ------------------------------------------------------------------
 
+// Only one new firmware at a time: a file upload or a download (the
+// Update library has one OTA slot to write).
+bool firmware_busy = false;  // under mutex
+
+bool claimFirmware() {
+  std::lock_guard<std::mutex> lock(mutex);
+  if (firmware_busy) return false;
+  firmware_busy = true;
+  return true;
+}
+
+void releaseFirmware() {
+  std::lock_guard<std::mutex> lock(mutex);
+  firmware_busy = false;
+}
+
 struct Upload {
   bool allowed = false;
-  bool failed = false;
-  std::string error;
-  FirmwareCheck check;
-  size_t bytes = 0;
+  bool claimed = false;
+  std::string error;  // set when refused before the writer started
+  FirmwareWriter writer;
 };
-Upload upload;
+Upload* upload = nullptr;
 
-void failUpload(const char* error) {
-  if (!upload.failed) Serial.printf("Firmware update: %s\n", error);
-  upload.failed = true;
-  if (upload.error.empty()) upload.error = error;
-  if (Update.isRunning()) Update.abort();
-}
+bool uploadOk() { return upload != nullptr && upload->error.empty() && !upload->writer.failed(); }
 
 // Called for every part of the uploaded file (multipart form "firmware").
 void handleFirmwarePart() {
   HTTPUpload& part = server.upload();
   if (part.status == UPLOAD_FILE_START) {
-    upload = Upload{};
+    if (upload != nullptr && upload->claimed) releaseFirmware();
+    delete upload;
+    upload = new Upload();
     {
       std::lock_guard<std::mutex> lock(mutex);
       const int64_t now = monotonicMs();
-      upload.allowed = session.authorized(cookieToken(), now);
-      if (upload.allowed) session.touch(now);
+      upload->allowed = session.authorized(cookieToken(), now);
+      if (upload->allowed) session.touch(now);
     }
-    if (!upload.allowed) {
-      upload.failed = true;
-      upload.error = "not logged in";
+    if (!upload->allowed) {
+      upload->error = "not logged in";
       return;
     }
+    if (!claimFirmware()) {
+      upload->error = "an update is already running";
+      return;
+    }
+    upload->claimed = true;
     Serial.println("Firmware update: receiving");
-    if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) failUpload("cannot start the update");
+    upload->writer.begin();
   } else if (part.status == UPLOAD_FILE_WRITE) {
-    if (upload.failed) return;
-    if (!upload.check.feed(part.buf, part.currentSize)) {
-      failUpload("not an ESP32-S3 firmware image");
-      return;
-    }
-    if (Update.write(part.buf, part.currentSize) != part.currentSize) {
-      failUpload("cannot write to flash");
-      return;
-    }
-    upload.bytes += part.currentSize;
+    if (!uploadOk()) return;
+    upload->writer.write(part.buf, part.currentSize);
     std::lock_guard<std::mutex> lock(mutex);
     session.touch(monotonicMs());  // a long upload is an action
   } else if (part.status == UPLOAD_FILE_END) {
-    if (upload.failed) return;
-    if (!upload.check.complete()) {
-      failUpload("not an InkTavla firmware");
-      return;
-    }
-    if (!Update.end(true)) {
-      failUpload("the image is not valid");
-      return;
-    }
-    Serial.printf("Firmware update: %u bytes written, restarting\n",
-                  static_cast<unsigned>(upload.bytes));
+    if (!uploadOk()) return;
+    if (upload->writer.finish()) Serial.println("Firmware update: restarting");
   } else if (part.status == UPLOAD_FILE_ABORTED) {
-    failUpload("upload aborted");
+    if (upload != nullptr) {
+      if (upload->error.empty()) upload->error = "upload aborted";
+      upload->writer.abort();
+    }
   }
 }
 
 void handleFirmwareDone() {
-  if (!upload.allowed) {
+  if (upload == nullptr || !upload->allowed) {
     sendJson(401, "{\"open\":true}");
     return;
   }
-  if (upload.failed || !upload.check.complete()) {
-    sendError(422, upload.error.empty() ? "no file" : upload.error.c_str());
+  const bool ok = uploadOk() && upload->writer.finished();
+  const std::string error = !upload->error.empty()            ? upload->error
+                            : !upload->writer.error().empty() ? upload->writer.error()
+                                                              : std::string("no file");
+  if (!ok) upload->writer.abort();
+  if (upload->claimed && !ok) releaseFirmware();  // after success it stays busy until the restart
+  delete upload;
+  upload = nullptr;
+  if (!ok) {
+    sendError(422, error.c_str());
     return;
   }
   sendJson(200, "{\"ok\":true}");
   restartSoon();
+}
+
+// --- Update button (core/update_check.h) ----------------------------------------------
+
+// The largest firmware that fits into an OTA slot (partitions.csv: 4 MB).
+constexpr size_t kMaxFirmwareBytes = 0x400000;
+constexpr uint32_t kDownloadStack = 16384;  // HTTPS like the setup help
+
+enum class Download { kIdle, kRunning, kFailed, kDone };
+struct OnlineUpdate {
+  std::string tag;  // offered by the last check, empty if none
+  std::string version;
+  Download state = Download::kIdle;
+  size_t bytes = 0;
+  int64_t total = -1;
+  std::string error;
+};
+OnlineUpdate online;  // under mutex
+
+void handleUpdateCheck() {
+  if (!authorized()) return;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (online.state == Download::kRunning) {
+      sendError(409, "an update is already running");
+      return;
+    }
+  }
+  std::string location;
+  const int status = fetchRedirect(latestReleaseUrl(kUpdateRepository), location);
+  const UpdateInfo info =
+      evaluateLatestRelease(status, location, kUpdateRepository, options.firmware_version);
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    const bool offer = info.status == UpdateStatus::kAvailable;
+    online.tag = offer ? info.tag : "";
+    online.version = offer ? info.latest : "";
+    online.state = Download::kIdle;
+    online.error.clear();
+  }
+  const std::string json = updateInfoJson(info);
+  Serial.printf("Update check: %s\n", json.c_str());  // versions and status only
+  sendJson(200, json);
+}
+
+void downloadTask(void*) {
+  std::string tag;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    tag = online.tag;
+  }
+  Serial.printf("Firmware update: downloading %s\n", tag.c_str());
+  FirmwareWriter writer;
+  bool started = false;
+  HttpResult r;
+  const bool fetched = fetchStream(
+      releaseFirmwareUrl(kUpdateRepository, tag),
+      [&](const char* data, size_t length) {
+        if (!started) return false;
+        if (!writer.write(reinterpret_cast<const uint8_t*>(data), length)) return false;
+        std::lock_guard<std::mutex> lock(mutex);
+        online.bytes = writer.bytes();
+        session.touch(monotonicMs());  // a long download is an action
+        return true;
+      },
+      kMaxFirmwareBytes, &r,
+      [&](int64_t length) {
+        {
+          std::lock_guard<std::mutex> lock(mutex);
+          online.total = length;
+        }
+        started = writer.begin(length > 0 ? static_cast<size_t>(length) : 0);
+      });
+  const bool ok = fetched && writer.finish();
+  std::string error;
+  if (!ok) {
+    writer.abort();
+    if (writer.failed()) {
+      error = writer.error();
+    } else if (r.status == 404) {
+      error = "the release has no firmware.bin";
+    } else if (r.status <= 0) {
+      error = "no connection";
+    } else if (r.status != 200) {
+      error = "download failed (HTTP " + std::to_string(r.status) + ")";
+    } else {
+      error = r.error.empty() || r.timed_out ? "download incomplete" : r.error;
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    online.state = ok ? Download::kDone : Download::kFailed;
+    online.error = error;
+    if (ok) restart_requested = true;  // the server task restarts the device
+    firmware_busy = false;
+  }
+  if (ok) Serial.println("Firmware update: restarting");
+  vTaskDelete(nullptr);
+}
+
+void handleUpdateInstall() {
+  if (!authorized()) return;
+  JsonDocument body;
+  if (deserializeJson(body, server.arg("plain").c_str())) {
+    sendError(400, "invalid request");
+    return;
+  }
+  const std::string version = body["version"] | "";
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (online.tag.empty() || version != online.version) {
+      sendError(409, "check for updates first");
+      return;
+    }
+    if (firmware_busy) {
+      sendError(409, "an update is already running");
+      return;
+    }
+    firmware_busy = true;
+    online.state = Download::kRunning;
+    online.bytes = 0;
+    online.total = -1;
+    online.error.clear();
+  }
+  if (xTaskCreate(downloadTask, "fw-download", kDownloadStack, nullptr, 1, nullptr) != pdPASS) {
+    std::lock_guard<std::mutex> lock(mutex);
+    online.state = Download::kFailed;
+    online.error = "not enough memory";
+    firmware_busy = false;
+    sendError(500, "not enough memory");
+    return;
+  }
+  sendJson(202, "{\"ok\":true}");
+}
+
+void handleUpdateStatus() {
+  if (!authorized(true)) return;
+  JsonDocument out;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    out["state"] = online.state == Download::kRunning  ? "downloading"
+                   : online.state == Download::kFailed ? "failed"
+                   : online.state == Download::kDone   ? "done"
+                                                       : "idle";
+    out["bytes"] = online.bytes;
+    if (online.total > 0) out["total"] = online.total;
+    if (!online.error.empty()) out["error"] = online.error;
+  }
+  std::string json;
+  serializeJson(out, json);
+  sendJson(200, json);
 }
 
 void handleRoute(const SettingsRoute& route) {
@@ -380,6 +543,9 @@ void registerRoutes() {
   server.on("/api/wifi", HTTP_POST, handleWifi);
   server.on("/api/wifi/status", HTTP_GET, handleWifiStatus);
   server.on("/api/firmware", HTTP_POST, handleFirmwareDone, handleFirmwarePart);
+  server.on("/api/update/check", HTTP_GET, handleUpdateCheck);
+  server.on("/api/update/install", HTTP_POST, handleUpdateInstall);
+  server.on("/api/update/status", HTTP_GET, handleUpdateStatus);
   for (const SettingsRoute& r : options.routes) {
     server.on(("/api/" + r.path).c_str(), HTTP_GET, [&r] { handleRoute(r); });
   }

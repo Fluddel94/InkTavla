@@ -1,0 +1,88 @@
+# Web installer on GitHub Pages (tools/build_installer.py, installer/).
+#
+# Runs when a release is published, or by hand for an existing release tag.
+# It takes firmware-full.bin from that release (the browser cannot load
+# release files from GitHub itself: they are served without CORS headers),
+# adds the page, the manifest and ESP Web Tools (pinned npm package with
+# checksum) and publishes the site. No firmware is committed to the
+# repository. Pre-releases are not published.
+#
+# Setup once (when the repository is public): Settings → Pages → Source:
+# "GitHub Actions".
+#
+# Every action is pinned to the commit of a release tag (the tag is noted
+# behind it); update them deliberately, one at a time.
+
+name: Web installer
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (vX.Y.Z)"
+        required: true
+
+permissions:
+  contents: read
+
+# One deployment at a time; a running one is finished, not cancelled.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build the installer site
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Check the tag
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Not a release tag: $TAG" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Download firmware-full.bin of the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" --pattern firmware-full.bin --dir release
+
+      - name: Build the site
+        run: python tools/build_installer.py --firmware release/firmware-full.bin --version "${TAG#v}" --out site
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Publish on GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

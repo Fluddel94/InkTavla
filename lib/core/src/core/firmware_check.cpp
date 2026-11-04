@@ -15,7 +15,10 @@ bool FirmwareCheck::feed(const uint8_t* data, size_t length) {
       if (header_bytes_ == sizeof(header_)) {
         header_checked_ = true;
         const uint16_t chip = static_cast<uint16_t>(header_[12] | (header_[13] << 8));
-        header_ok_ = header_[0] == kImageMagic && chip == kChipIdEsp32S3;
+        uint32_t app_desc = 0;
+        for (int k = 3; k >= 0; k--) app_desc = (app_desc << 8) | header_[kAppDescOffset + k];
+        header_ok_ =
+            header_[0] == kImageMagic && chip == kChipIdEsp32S3 && app_desc == kAppDescMagic;
       }
     }
     if (header_checked_ && !header_ok_) return false;

@@ -403,11 +403,19 @@ void test_weather_place_search() {
 
 namespace {
 
-std::vector<uint8_t> image(uint8_t magic, uint16_t chip, const std::string& body) {
-  std::vector<uint8_t> data(16, 0);
+// Image header, segment header and the start of the app description
+// (magic word 0xABCD5432, little endian); app = false: like a bootloader.
+std::vector<uint8_t> image(uint8_t magic, uint16_t chip, const std::string& body, bool app = true) {
+  std::vector<uint8_t> data(36, 0);
   data[0] = magic;
   data[12] = static_cast<uint8_t>(chip & 0xFF);
   data[13] = static_cast<uint8_t>(chip >> 8);
+  if (app) {
+    data[32] = 0x32;
+    data[33] = 0x54;
+    data[34] = 0xCD;
+    data[35] = 0xAB;
+  }
   data.insert(data.end(), body.begin(), body.end());
   return data;
 }
@@ -439,6 +447,11 @@ void test_firmware_check() {
   core::FirmwareCheck check;
   const auto littlefs = image(0x00, 9, marker);
   TEST_ASSERT_FALSE(check.feed(littlefs.data(), littlefs.size()));
+  // The whole flash image (firmware-full.bin) starts with the bootloader:
+  // an ESP32-S3 image without app description, the marker comes later.
+  core::FirmwareCheck full = feedAll(image(0xE9, 9, marker, false), 7);
+  TEST_ASSERT_FALSE(full.headerOk());
+  TEST_ASSERT_FALSE(full.complete());
 }
 
 void test_new_firmware_is_confirmed_when_it_runs() {

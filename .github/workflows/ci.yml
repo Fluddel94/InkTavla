@@ -1,7 +1,7 @@
 # Continuous integration: checks, unit tests and the firmware build for every
 # push and pull request to main. Releases are still made by hand; the
-# firmware.bin built here can be downloaded from the run ("Artifacts") and
-# attached to a release.
+# firmware.bin and firmware-full.bin built here can be downloaded from the
+# run ("Artifacts") and attached to a release.
 #
 # Every action is pinned to the commit of a release tag (the tag is noted
 # behind it); update them deliberately, one at a time.
@@ -146,10 +146,19 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           grep -E '^(RAM|Flash):' build.log
 
-      - name: Upload firmware.bin
+      # The web installer is published from releases only (pages.yml); here
+      # it is built once to notice early if the script or the page broke.
+      - name: Build the web installer (not published)
+        run: python tools/build_installer.py --firmware .pio/build/xiao_esp32s3_plus/firmware-full.bin --version "ci-${GITHUB_SHA:0:7}" --out .pio/installer
+
+      # firmware.bin: the app (update on the settings page); firmware-full.bin:
+      # the whole flash image for a first installation (tools/full_image.py).
+      - name: Upload firmware.bin and firmware-full.bin
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: firmware-${{ github.sha }}
-          path: .pio/build/xiao_esp32s3_plus/firmware.bin
+          path: |
+            .pio/build/xiao_esp32s3_plus/firmware.bin
+            .pio/build/xiao_esp32s3_plus/firmware-full.bin
           if-no-files-found: error
           retention-days: 30

@@ -25,6 +25,13 @@
 //   GET  /api/wifi/status     {"state": "idle"|"testing"|"failed"}
 //   POST /api/firmware        upload of a firmware file (multipart), checked
 //                             with core/firmware_check.h, then restarts
+//   GET  /api/update/check    newest release on GitHub (core/update_check.h),
+//                             only on request; remembers an offered version
+//   POST /api/update/install  {"version"}: downloads the offered release in
+//                             its own task, written like an upload
+//                             (core/firmware_writer.h), then restarts
+//   GET  /api/update/status   {"state": "idle"|"downloading"|"failed"|"done",
+//                             "bytes", "total", "error"}; not an action
 //   GET  /api/<widget>/...    setup help of the widgets (SettingsRoute)
 //
 // After saving, the session is kept in memory that survives the restart,

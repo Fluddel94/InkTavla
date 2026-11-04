@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InkTavla – Web installer</title>
+<!-- Web installer (tools/build_installer.py, .github/workflows/pages.yml).
+     ESP Web Tools lies next to this page (esp-web-tools/, Apache-2.0); no
+     file is loaded from another server. -->
+<script type="module" src="esp-web-tools/install-button.js"></script>
+<style>
+  :root { --ink: #1b1d1f; --muted: #5d6166; --line: #d9dcdf; --panel: #fff; --bg: #f4f5f6; --accent: #0f5b5e; --on-accent: #fff; --warn: #8a5300; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #e8eaec; --muted: #a3a8ad; --line: #3a3e42; --panel: #1f2225; --bg: #141618; --accent: #5fb8bb; --on-accent: #0b1213; --warn: #f0b45a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 48px; }
+  h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: 0.01em; }
+  .version { color: var(--muted); margin: 0 0 24px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 0 0 16px; }
+  h2 { font-size: 18px; margin: 0 0 8px; }
+  ol, ul { padding-left: 22px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  .install { text-align: center; padding: 24px 20px; }
+  esp-web-install-button button, .fallback { font: inherit; font-weight: 600; padding: 11px 20px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); cursor: pointer; }
+  esp-web-install-button { --esp-tools-button-color: var(--accent); --esp-tools-button-text-color: var(--on-accent); }
+  .warn { color: var(--warn); }
+  .hint, footer { color: var(--muted); font-size: 14px; }
+  a { color: var(--accent); }
+  footer { margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>InkTavla</h1>
+  <p class="version"><span data-t="title"></span> · <span data-t="version"></span> <span id="version">…</span></p>
+
+  <section class="install">
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate" data-t="install"></button>
+      <span slot="unsupported" class="warn" data-t="unsupported"></span>
+      <span slot="not-allowed" class="warn" data-t="notAllowed"></span>
+    </esp-web-install-button>
+  </section>
+
+  <section>
+    <h2 data-t="needHead"></h2>
+    <ul>
+      <li data-t="needHardware"></li>
+      <li data-t="needBrowser"></li>
+      <li data-t="needCable"></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 data-t="stepsHead"></h2>
+    <ol>
+      <li data-t="step1"></li>
+      <li data-t="step2"></li>
+      <li data-t="step3"></li>
+      <li data-t="step4"></li>
+      <li data-t="step5"></li>
+    </ol>
+    <p class="hint" data-t="noPort"></p>
+  </section>
+
+  <section>
+    <h2 data-t="keepHead"></h2>
+    <p data-t="keep"></p>
+    <p class="hint" data-t="later"></p>
+  </section>
+
+  <footer>
+    <p><span data-t="source"></span> <a href="https://github.com/Fluddel94/InkTavla">github.com/Fluddel94/InkTavla</a></p>
+    <p><span data-t="credits"></span> <a href="esp-web-tools/LICENSE">Apache-2.0</a></p>
+  </footer>
+</main>
+<script>
+  const TEXTS = {
+    en: {
+      title: "Web installer",
+      version: "Version",
+      install: "Install InkTavla",
+      unsupported: "This browser cannot install firmware. Please use Chrome or Edge on a computer.",
+      notAllowed: "Installing needs a secure connection (HTTPS).",
+      needHead: "What you need",
+      needHardware: "The Seeed TRMNL 7.5\" (OG) DIY Kit – the only hardware InkTavla is tested on.",
+      needBrowser: "Chrome or Edge on a computer (Windows, macOS, Linux). Phones and Firefox/Safari cannot do it.",
+      needCable: "A USB-C cable that carries data (not a charging-only cable).",
+      stepsHead: "Installation",
+      step1: "Connect the display to the computer with the USB-C cable.",
+      step2: "Press \"Install InkTavla\" and choose the serial port of the display (often \"USB JTAG/serial debug unit\").",
+      step3: "On a first installation, confirm that the device is erased. The transfer takes about one minute; do not disconnect the display.",
+      step4: "Then enter your Wi-Fi when asked (Improv). The network name and password go straight to the display.",
+      step5: "The display restarts. Without settings (a new device or an erased one) it opens its settings page once: scan the QR code or open the address shown, enter the code and set up departures, weather and calendar.",
+      noPort: "No port to choose? Hold the BOOT button on the small XIAO board while plugging in the cable, then try again; press RESET after the installation.",
+      keepHead: "What happens to existing data",
+      keep: "The whole flash image is written. The Wi-Fi access and the calendar address are cleared every time; the settings stay unless you choose to erase the device.",
+      later: "Later updates do not need this page: on the settings page of the display, \"Check for updates\" installs a new version over Wi-Fi and keeps everything.",
+      source: "Open source:",
+      credits: "Installs with ESP Web Tools (ESPHome),",
+    },
+    de: {
+      title: "Web-Installer",
+      version: "Version",
+      install: "InkTavla installieren",
+      unsupported: "Dieser Browser kann keine Firmware installieren. Bitte Chrome oder Edge auf einem Computer verwenden.",
+      notAllowed: "Die Installation braucht eine sichere Verbindung (HTTPS).",
+      needHead: "Was du brauchst",
+      needHardware: "Das Seeed TRMNL 7.5\" (OG) DIY Kit – nur darauf ist InkTavla getestet.",
+      needBrowser: "Chrome oder Edge auf einem Computer (Windows, macOS, Linux). Mit Handy, Firefox oder Safari geht es nicht.",
+      needCable: "Ein USB-C-Kabel, das Daten überträgt (kein reines Ladekabel).",
+      stepsHead: "Installation",
+      step1: "Das Display mit dem USB-C-Kabel an den Computer anschließen.",
+      step2: "„InkTavla installieren“ drücken und den seriellen Anschluss des Displays wählen (oft „USB JTAG/serial debug unit“).",
+      step3: "Bei der ersten Installation bestätigen, dass das Gerät gelöscht wird. Die Übertragung dauert etwa eine Minute; das Display nicht abziehen.",
+      step4: "Danach das WLAN eingeben, wenn danach gefragt wird (Improv). Name und Passwort gehen direkt an das Display.",
+      step5: "Das Display startet neu. Ohne Einstellungen (neues oder gelöschtes Gerät) öffnet es einmal seine Einstellungsseite: QR-Code scannen oder die angezeigte Adresse öffnen, Code eingeben und Abfahrten, Wetter und Kalender einrichten.",
+      noPort: "Kein Anschluss zur Auswahl? Die Taste BOOT auf der kleinen XIAO-Platine beim Einstecken des Kabels gedrückt halten und es erneut versuchen; nach der Installation RESET drücken.",
+      keepHead: "Was mit vorhandenen Daten passiert",
+      keep: "Es wird das ganze Speicherabbild geschrieben. WLAN-Zugang und Kalender-Adresse werden dabei jedes Mal gelöscht; die Einstellungen bleiben, außer du lässt das Gerät löschen.",
+      later: "Für spätere Updates braucht es diese Seite nicht: Auf der Einstellungsseite des Displays installiert „Nach Updates suchen“ eine neue Version über WLAN, und alles bleibt erhalten.",
+      source: "Quelloffen:",
+      credits: "Installiert mit ESP Web Tools (ESPHome),",
+    },
+  };
+  const lang = (navigator.language || "en").toLowerCase().startsWith("de") ? "de" : "en";
+  document.documentElement.lang = lang;
+  for (const e of document.querySelectorAll("[data-t]")) e.textContent = TEXTS[lang][e.dataset.t];
+  document.title = "InkTavla – " + TEXTS[lang].title;
+  fetch("manifest.json")
+    .then((r) => r.json())
+    .then((m) => { document.getElementById("version").textContent = m.version; })
+    .catch(() => { document.getElementById("version").textContent = "–"; });
+</script>
+</body>
+</html>

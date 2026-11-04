@@ -1,11 +1,14 @@
 #pragma once
 
-// Checks a firmware file while it is uploaded on the settings page (from
-// the MVG departure display): it must be an ESP32-S3 app image (first byte
-// 0xE9, chip ID 9 at offset 12) and contain kFirmwareMarker, which every
-// InkTavla firmware contains (it is part of this check). So a wrong file
-// (another project, a file system image, a firmware for another chip) is
-// refused before the device restarts with it.
+// Checks a firmware file while it is uploaded on the settings page or
+// downloaded by the update button (from the MVG departure display): it
+// must be an ESP32-S3 app image (first byte 0xE9, chip ID 9 at offset 12,
+// the app description esp_app_desc_t with its magic word 0xABCD5432 at the
+// start of the first segment, offset 32) and contain kFirmwareMarker, which
+// every InkTavla firmware contains (it is part of this check). So a wrong
+// file (another project, a file system image, a firmware for another chip,
+// the whole flash image firmware-full.bin, which starts with the
+// bootloader) is refused before the device restarts with it.
 //
 // After the restart the new firmware is only confirmed once it runs
 // properly (see firmwareConfirmed()); if it crashes before, the bootloader
@@ -26,6 +29,8 @@ class FirmwareCheck {
  public:
   static constexpr uint8_t kImageMagic = 0xE9;
   static constexpr uint16_t kChipIdEsp32S3 = 9;
+  static constexpr uint32_t kAppDescMagic = 0xABCD5432;
+  static constexpr size_t kAppDescOffset = 32;  // 24-byte image + 8-byte segment header
 
   // Feeds the next part of the file. False as soon as the header shows it
   // is no ESP32-S3 app image.
@@ -37,7 +42,7 @@ class FirmwareCheck {
   bool complete() const { return header_ok_ && found_; }
 
  private:
-  uint8_t header_[16] = {};
+  uint8_t header_[36] = {};
   size_t header_bytes_ = 0;
   bool header_checked_ = false;
   bool header_ok_ = false;
