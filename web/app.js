@@ -82,6 +82,24 @@ const TEXTS = {
     calendarHint: "Private iCal-Adresse, z. B. aus Google Kalender („Privatadresse im iCal-Format“). Sie wird nie angezeigt und lässt sich nicht auslesen, nur ersetzen oder entfernen.",
     calendarNew: "Neue Adresse",
     calendarRemove: "Adresse entfernen",
+    calShow: "Anzeige",
+    calDays: "Tage",
+    calDaysOne: "nur heute",
+    calDaysTwo: "heute und morgen",
+    calDaysWeek: "eine Woche",
+    calAllDay: "Ganztägige und mehrtägige Termine anzeigen",
+    calPast: "Vergangene Termine von heute bis Mitternacht anzeigen",
+    calLocation: "Ort unter dem Titel anzeigen (heute und am nächsten Tag)",
+    calMore: "„+ 2 weitere Termine“ anzeigen, wenn nicht alle Termine passen",
+    calWrap: "Lange Titel in zwei Zeilen",
+    calSpaceHint: "Ort und zweite Zeilen kommen nur dazu, wo Platz ist; dafür kann der nächste Tag entfallen.",
+    calFilter: "Filter",
+    calExclude: "Termine ausblenden mit diesen Wörtern im Titel",
+    calExcludeHint: "Durch Komma getrennt, z. B. „Geburtstag, Müll“. Groß- und Kleinschreibung egal, ein Teil des Titels genügt.",
+    calExcludeTooMany: "Höchstens {n} Wörter.",
+    calFetch: "Abruf",
+    calRefresh: "Kalender abrufen alle",
+    calRefreshHint: "Google aktualisiert die iCal-Adresse selbst nur alle paar Stunden; öfter abrufen bringt dort nichts.",
     display: "Anzeige",
     columns: "Spalten von links nach rechts",
     wideColumn: "Breite Spalte",
@@ -252,6 +270,24 @@ const TEXTS = {
     calendarHint: "Private iCal address, e.g. from Google Calendar (“Secret address in iCal format”). It is never shown and cannot be read back, only replaced or removed.",
     calendarNew: "New address",
     calendarRemove: "Remove address",
+    calShow: "Display",
+    calDays: "Days",
+    calDaysOne: "today only",
+    calDaysTwo: "today and tomorrow",
+    calDaysWeek: "one week",
+    calAllDay: "Show all-day and multi-day events",
+    calPast: "Show past events of today until midnight",
+    calLocation: "Show the place below the title (today and the next day)",
+    calMore: "Show “+ 2 more events” if not all events fit",
+    calWrap: "Long titles in two lines",
+    calSpaceHint: "Places and second lines are only added where there is room; the next day may give way for them.",
+    calFilter: "Filter",
+    calExclude: "Hide events with these words in the title",
+    calExcludeHint: "Separated by commas, e.g. “Birthday, Bins”. Upper and lower case do not matter, part of the title is enough.",
+    calExcludeTooMany: "At most {n} words.",
+    calFetch: "Updates",
+    calRefresh: "Fetch the calendar every",
+    calRefreshHint: "Google itself updates the iCal address only every few hours; fetching more often does not help there.",
     display: "Display",
     columns: "Columns from left to right",
     wideColumn: "Wide column",
@@ -361,6 +397,8 @@ const TIME_ZONES = [
 ];
 const DEFAULT_TZ = TIME_ZONES[0][0];
 const REFRESH_CHOICES = [15, 30, 60, 120, 180, 360, 720, 1440];
+const CAL_REFRESH_CHOICES = [5, 10, 15, 30, 60, 120, 180, 360];
+const CAL_MAX_DAYS = 14, CAL_MAX_WORDS = 10, CAL_MAX_WORD = 32;
 const TYPE_ORDER = "SUTBRZ";
 const MAX_LINES = 16;
 
@@ -1099,10 +1137,28 @@ function parseNumber(text) {
 
 // --- Calendar ---------------------------------------------------------------------
 
+function minutesText(m) {
+  return m % 60 === 0 && m >= 60 ? m / 60 + " h" : m + " min";
+}
 function fillCalendar() {
   calendarChange = undefined;
   $("calendarUrl").value = "";
   showCalendarState();
+  const c = sec("calendar");
+  const days = Number.isInteger(c.days) ? c.days : 7;
+  const dayNames = { 1: "calDaysOne", 2: "calDaysTwo", 7: "calDaysWeek" };
+  $("calDays").replaceChildren(...Array.from({ length: CAL_MAX_DAYS }, (_, i) => i + 1).map((n) =>
+    el("option", { value: n, selected: n === days }, dayNames[n] ? n + " (" + t(dayNames[n]) + ")" : String(n))));
+  $("calAllDay").checked = c.all_day !== false;
+  $("calPast").checked = c.past !== false;
+  $("calLocation").checked = c.location === true;
+  $("calMore").checked = c.more === true;
+  $("calWrap").checked = c.wrap !== false;
+  $("calExclude").value = Array.isArray(c.exclude) ? c.exclude.filter((w) => typeof w === "string").join(", ") : "";
+  const refresh = Number.isInteger(c.refresh_minutes) ? c.refresh_minutes : 15;
+  const choices = CAL_REFRESH_CHOICES.includes(refresh) ? CAL_REFRESH_CHOICES : [...CAL_REFRESH_CHOICES, refresh].sort((a, b) => a - b);
+  $("calRefresh").replaceChildren(...choices.map((m) =>
+    el("option", { value: m, selected: m === refresh }, minutesText(m))));
 }
 function showCalendarState() {
   const p = $("calendarState");
@@ -1147,7 +1203,7 @@ function fillDisplay() {
   const refresh = (config.display && config.display.full_refresh_minutes) || 360;
   const choices = REFRESH_CHOICES.includes(refresh) ? REFRESH_CHOICES : [...REFRESH_CHOICES, refresh].sort((a, b) => a - b);
   $("fullRefresh").replaceChildren(...choices.map((m) =>
-    el("option", { value: m, selected: m === refresh }, m % 60 === 0 && m >= 60 ? m / 60 + " h" : m + " min")));
+    el("option", { value: m, selected: m === refresh }, minutesText(m))));
   $("gridEqual").checked = layout.grid === "equal";
   $("dividers").checked = layout.dividers !== false;  // on by default
 }
@@ -1524,6 +1580,23 @@ function buildConfig() {
 
   // Calendar address
   if (calendarChange && !/^(https|webcal):\/\//i.test(calendarChange)) errors.push(["calendarError", t("urlBad")]);
+  // Calendar: only what differs from the defaults is stored.
+  const k = c.widgets.calendar = c.widgets.calendar || {};
+  const days = Number($("calDays").value);
+  if (days === 7) delete k.days; else k.days = days;
+  const flag = (key, id, def) => { if ($(id).checked === def) delete k[key]; else k[key] = !def; };
+  flag("all_day", "calAllDay", true);
+  flag("past", "calPast", true);
+  flag("location", "calLocation", false);
+  flag("more", "calMore", false);
+  flag("wrap", "calWrap", true);
+  const words = $("calExclude").value.split(",").map((w) => w.trim()).filter((w) => w);
+  if (words.length > CAL_MAX_WORDS) errors.push(["calExcludeError", t("calExcludeTooMany", { n: CAL_MAX_WORDS })]);
+  if (words.some((w) => bytes(w) > CAL_MAX_WORD)) errors.push(["calExcludeError", t("tooLong", { n: CAL_MAX_WORD })]);
+  if (words.length) k.exclude = words; else delete k.exclude;
+  const every = Number($("calRefresh").value);
+  if (every === 15) delete k.refresh_minutes; else k.refresh_minutes = every;
+  if (!Object.keys(k).length) delete c.widgets.calendar;
 
   // Display
   c.layout = c.layout || {};
@@ -1572,7 +1645,7 @@ function markTabErrors(errors) {
 
 function showFieldErrors(errors) {
   document.querySelectorAll(".bad").forEach((e) => e.classList.remove("bad"));
-  for (const id of ["mvgLinesError", "weatherCoordError", "calendarError"]) {
+  for (const id of ["mvgLinesError", "weatherCoordError", "calendarError", "calExcludeError"]) {
     if ($(id)) $(id).hidden = true;
   }
   document.querySelectorAll(".fielderr").forEach((e) => e.remove());

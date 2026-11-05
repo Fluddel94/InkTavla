@@ -11,7 +11,10 @@
 // (2026-10-25: the next event is no longer bold). A long title wraps once
 // onto a second line if there is room (today: as long as all events of today
 // that fit in single lines still fit), else it is shortened with "…";
-// all-day events with a small calendar sheet instead of the time.
+// all-day events with a small calendar sheet instead of the time. Settings
+// (2026-11-05): the place below the title and a hint "+ 2 weitere Termine"
+// below today and the next day if events are left out; titles in single
+// lines only.
 
 #include <string>
 #include <vector>
@@ -19,6 +22,7 @@
 #include "ui/canvas.h"
 #include "ui/i18n.h"
 #include "widgets/calendar/agenda.h"
+#include "widgets/calendar/config.h"
 #include "widgets/calendar/widget.h"
 #include "widgets/widget.h"
 
@@ -28,6 +32,7 @@ struct ColumnOptions {
   std::string note;  // right of "HEUTE": "KW 43", or the age badge
   bool note_alert = false;
   ui::Language language = ui::Language::kGerman;
+  DisplayConfig display;  // wrap, location, more (the agenda is built with it)
 };
 
 // Row heights (Briefing design): today and the next day, the week lines.
@@ -36,6 +41,10 @@ inline constexpr int kColumnWeekRowHeight = 22;
 // Extra height of a title that wraps onto a second line.
 inline constexpr int kColumnDayLineHeight = 22;
 inline constexpr int kColumnWeekLineHeight = 20;
+// Place below the title (setting "location") and the hint "+ 2 weitere
+// Termine" below today or the next day (setting "more").
+inline constexpr int kColumnLocationLineHeight = 18;
+inline constexpr int kColumnMoreLineHeight = 20;
 
 // Draws the agenda (from buildAgenda(); today first).
 void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,

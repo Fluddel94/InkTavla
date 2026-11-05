@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "ui/i18n.h"
+#include "widgets/calendar/config.h"
 #include "widgets/calendar/parser.h"
 
 namespace widgets::calendar {
@@ -20,6 +21,7 @@ struct Occurrence {
   int64_t last_day = 0;   // inclusive
   bool all_day = false;
   Text summary;
+  Text location;
 };
 
 using Occurrences = std::vector<Occurrence, core::PsramAllocator<Occurrence>>;
@@ -36,12 +38,13 @@ Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_d
 struct Entry {
   enum class Kind { kTimed, kAllDay, kNone };
   Kind kind = Kind::kTimed;
-  std::string time;    // kTimed: "08:30"
-  std::string title;   // kNone: "Keine Termine"
-  std::string suffix;  // kAllDay: "ganztägig", "bis Fr", "bis 12:00"
-  std::string note;    // right edge: "in 48 min", "läuft"
-  bool next = false;   // the next event of today (no longer drawn in bold)
-  bool past = false;   // an event of today that is over (stays until midnight)
+  std::string time;      // kTimed: "08:30"
+  std::string title;     // kNone: "Keine Termine"
+  std::string suffix;    // kAllDay: "ganztägig", "bis Fr", "bis 12:00"
+  std::string location;  // "" if none
+  std::string note;      // right edge: "in 48 min", "läuft"
+  bool next = false;     // the next event of today (no longer drawn in bold)
+  bool past = false;     // an event of today that is over (stays until midnight)
 };
 
 struct AgendaDay {
@@ -49,16 +52,18 @@ struct AgendaDay {
   std::vector<Entry> entries;
 };
 
-// Days shown: today and the following ones.
-inline constexpr int kAgendaDays = 7;
 // The countdown switches from minutes to hours from this many minutes on.
 inline constexpr int kCountdownMinutes = 60;
 
-// Agenda for the current time: today and tomorrow always (with a kNone
-// entry if empty), the other days only if they have events. Events of today
-// that are over stay until the day changes (marked past).
+// Agenda for the current time: today and the following display.days - 1
+// days; today and tomorrow always (with a kNone entry if empty), the other
+// days only if they have events. Events of today that are over stay until
+// the day changes (marked past) unless display.past is false. Without
+// display.all_day all-day events and the later days of events that last
+// several days are left out; events whose title contains a word of
+// display.exclude too.
 std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s,
-                                   ui::Language language, int days = kAgendaDays);
+                                   ui::Language language, const DisplayConfig& display = {});
 
 // Local day (since 1970) of an instant in the device's time zone.
 int64_t localDay(int64_t utc);

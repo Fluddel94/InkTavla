@@ -69,8 +69,8 @@ hour as bars.
 The display controller (`core/display_controller.h`) runs the device:
 
 - It fetches each widget's data when it is due (MVG: at second 1 of every
-  minute, calendar: every 15 minutes, weather: every 30 minutes) and redraws
-  the screen, at the latest once a minute for the clock.
+  minute, calendar: every 15 minutes or as set, weather: every 30 minutes)
+  and redraws the screen, at the latest once a minute for the clock.
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
   data shows "Keine Verbindung". A failing widget only affects its own column.

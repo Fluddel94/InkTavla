@@ -1,12 +1,15 @@
 #include "widgets/calendar/widget.h"
 
+#include <utility>
+
 #include "core/time.h"
 #include "widgets/calendar/datetime.h"
 #include "widgets/calendar/timezone.h"
 
 namespace widgets::calendar {
 
-CalendarSource::CalendarSource(Source& api) : api_(api) {}
+CalendarSource::CalendarSource(Source& api, Config config)
+    : api_(api), config_(std::move(config)) {}
 
 SetupMessage CalendarSource::setupMessage(ui::Language language) const {
   return {ui::text(language, ui::Text::kCalendarAddressMissing),
@@ -42,7 +45,7 @@ Problem CalendarSource::problem(ui::Language language) const {
 bool CalendarSource::fetch(int64_t wall_s) {
   if (!core::isValidUnixTime(wall_s)) return false;
   const int64_t today = localDay(wall_s);
-  const int64_t last_day = today + kAgendaDays - 1 + kExtraDays;
+  const int64_t last_day = today + config_.display.days - 1 + kExtraDays;
   Parser parser(deviceToUtc(today * kSecondsPerDay), deviceToUtc((last_day + 1) * kSecondsPerDay));
   const bool fetched = api_.fetchCalendar(parser);
   if (fetched) parser.finish();

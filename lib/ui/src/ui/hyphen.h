@@ -6,7 +6,8 @@
 // No pattern tables: a small dictionary of railway words with their
 // syllables and the usual rules for syllable breaks (a single consonant
 // goes to the next syllable, of several only the last one; "ch", "sch",
-// "ck", "ph", "th" and "qu" stay together). Breaks at word boundaries of
+// "ck", "ph", "th" and "qu" stay together, and so do "schr", "spr" and "str"
+// at the start of a syllable). Breaks at word boundaries of
 // compounds (dictionary) are preferred to breaks between syllables.
 
 #include <cstddef>

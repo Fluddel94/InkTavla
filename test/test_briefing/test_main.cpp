@@ -673,13 +673,16 @@ cal::Occurrences occurrences(const char* fixture, int64_t now) {
 }
 
 void drawCalendar(ui::Bitmap& bitmap, int x, const char* fixture, int64_t now,
-                  const char* note = "KW 43", bool alert = false) {
+                  const char* note = "KW 43", bool alert = false,
+                  const cal::DisplayConfig& display = {}) {
   ui::BitmapCanvas column(bitmap, x, 0, 214, 260);
   cal::ColumnOptions options;
   options.note = note;
   options.note_alert = alert;
+  options.display = display;
   cal::drawAgendaColumn(
-      column, cal::buildAgenda(occurrences(fixture, now), now, ui::Language::kGerman), options);
+      column, cal::buildAgenda(occurrences(fixture, now), now, ui::Language::kGerman, display),
+      options);
 }
 
 void test_preview_calendar_columns() {
@@ -690,6 +693,80 @@ void test_preview_calendar_columns() {
   drawCalendar(bitmap, 468, "busy.ics", kMorning);              // today fills the column
   drawCalendar(bitmap, 702, "week.ics", kMorning + 3 * kDay, "Stand 07:41", true);  // Friday
   check(bitmap, "briefing_calendar_columns");
+}
+
+// An agenda of today with the given timed events (from 08:00, hourly).
+std::vector<cal::AgendaDay> todayWith(const std::vector<std::string>& titles) {
+  cal::AgendaDay day;
+  day.day = cal::localDay(kMorning);
+  int hour = 8;
+  for (const std::string& title : titles) {
+    cal::Entry e;
+    e.time = (hour < 10 ? "0" : "") + std::to_string(hour) + ":00";
+    hour++;
+    e.title = title;
+    day.entries.push_back(e);
+  }
+  return {day};
+}
+
+// Settings of the calendar (2026-11-05): the hint "+ 2 weitere Termine",
+// places, single lines, events left out; long titles filled up to "…".
+void test_preview_calendar_settings() {
+  ui::Bitmap bitmap(5 * 214 + 4 * 20, 260);
+  bitmap.clear(ui::Color::kWhite);
+  cal::DisplayConfig more;
+  more.more = true;
+  more.location = true;
+  drawCalendar(bitmap, 0, "busy.ics", kMorning, "KW 43", false, more);  // places first
+  drawCalendar(bitmap, 234, "week.ics", kMorning, "KW 43", false, more);
+  cal::DisplayConfig plain;
+  plain.wrap = false;
+  plain.all_day = false;
+  plain.past = false;
+  plain.exclude = {"KINO"};
+  drawCalendar(bitmap, 468, "week.ics", kMorning + 308 * 60, "KW 43", false, plain);
+  cal::ColumnOptions options;
+  options.note = "KW 43";
+  ui::BitmapCanvas long_titles(bitmap, 702, 0, 214, 260);
+  cal::drawAgendaColumn(
+      long_titles,
+      todayWith({"Mittagessen mit Jonas und Mareike", "Elterngespräch mit der Klassenlehrerin",
+                 "Abstimmung mit dem Vertrieb zur Messeplanung", "Zahnarzt"}),
+      options);
+  std::vector<std::string> many;
+  for (int i = 0; i < 9; i++) many.push_back("Termin " + std::to_string(i + 1));
+  options.display.more = true;
+  ui::BitmapCanvas hint(bitmap, 936, 0, 214, 260);
+  cal::drawAgendaColumn(hint, todayWith(many), options);
+  check(bitmap, "briefing_calendar_settings");
+}
+
+// The hint counts only events that are still ahead and needs its line.
+void test_calendar_more_hint() {
+  std::vector<std::string> titles;
+  for (int i = 0; i < 9; i++) titles.push_back("Termin " + std::to_string(i + 1));
+  cal::ColumnOptions options;
+  options.display.more = true;
+  ui::Bitmap with(214, 260), without(214, 260);
+  ui::BitmapCanvas a(with), b(without);
+  cal::drawAgendaColumn(a, todayWith(titles), options);
+  options.display.more = false;
+  cal::drawAgendaColumn(b, todayWith(titles), options);
+  // Without the hint 8 rows fit (37 + 8 * 27 = 253), with it 7 and the hint
+  // ("+ 2 weitere Termine") below.
+  const auto blackRows = [](const ui::Bitmap& bm, int y0, int y1) {
+    int n = 0;
+    for (int y = y0; y < y1; y++) {
+      for (int x = 0; x < bm.width(); x++) n += bm.get(x, y) == ui::Color::kBlack;
+    }
+    return n;
+  };
+  TEST_ASSERT_GREATER_THAN(0, blackRows(without, 37 + 7 * 27, 37 + 8 * 27));
+  TEST_ASSERT_EQUAL_INT(0, blackRows(with, 37 + 7 * 27, 37 + 7 * 27 + 4));
+  TEST_ASSERT_GREATER_THAN(0, blackRows(with, 37 + 7 * 27 + 4, 37 + 7 * 27 + 20));
+  TEST_ASSERT_EQUAL_STRING("+ 2 weitere Termine", ui::moreEvents(ui::Language::kGerman, 2).c_str());
+  TEST_ASSERT_EQUAL_STRING("+ 1 more event", ui::moreEvents(ui::Language::kEnglish, 1).c_str());
 }
 
 std::vector<widgets::mvg::Section> pasing(bool sections) {
@@ -1405,6 +1482,8 @@ int main() {
   RUN_TEST(test_rain_bars_between_the_hour_marks);
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
+  RUN_TEST(test_preview_calendar_settings);
+  RUN_TEST(test_calendar_more_hint);
   RUN_TEST(test_preview_departure_columns);
   RUN_TEST(test_view_incidents_switch);
   RUN_TEST(test_incident_label);

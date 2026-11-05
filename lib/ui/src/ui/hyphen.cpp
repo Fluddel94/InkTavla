@@ -133,6 +133,15 @@ void syllableBreaks(const std::u32string& w, size_t begin, size_t end, std::vect
       last = i;
       i += consonantUnit(w, i, to);
     }
+    // Onsets that stay together although they have several consonants
+    // ("Be-spre-chung", "ab-strakt", "be-schrei-ben"), not "besp-rechung".
+    for (const char32_t* onset : {U"schr", U"spr", U"str"}) {
+      const size_t len = std::char_traits<char32_t>::length(onset);
+      if (to - from >= len && w.compare(to - len, len, onset) == 0) {
+        last = to - len;
+        break;
+      }
+    }
     out.push_back({from, to, last});
   }
 }

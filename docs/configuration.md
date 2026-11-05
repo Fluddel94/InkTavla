@@ -61,8 +61,9 @@ has five tabs:
   ("Centre" / "Outbound" in English).
 - **Wetter - Open Meteo / Weather - Open Meteo:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
   display name, coordinates under **Erweitert** / **Advanced**.
-- **Kalender - Google / Calendar - Google:** replace or remove the private iCal address. The
-  page only shows whether one is set.
+- **Kalender - Google / Calendar - Google:** replace or remove the private iCal address (the
+  page only shows whether one is set), and the settings of the column under
+  **Anzeige** / **Display**, **Filter** and **Abruf** / **Updates**.
 - **Gerät / Device:** download and load `config.json` (a backup; secrets are
   never in it), **Firmware aktualisieren** / **Update firmware** (see below),
   time zone and time server, restart, and **Einstellungen zurücksetzen** /
@@ -274,15 +275,16 @@ screen. The picture shows by daylight the weather of the rest of the
 daylight hours (the umbrella with drops for likely rain, a cloud for rain
 that is only possible), at night the weather of now.
 
-The calendar column shows today (past events stay until midnight, "Keine
-Termine" without any), then the next day that has events ("MORGEN" or its
-weekday) if there is room, then the following events of the week, one line
-each, as many as fit. The departure column shows one list (title: the
-station) or the two `sections` (titles with an arrow, or with the location
-pin for two stations), 28 px per row. Disruption messages of the shown lines
-follow the station title: a warning sign and the texts of the API for the
-departures drawn, with their lines (each once, at most three lines, two with
-sections).
+The calendar column shows today (past events stay until midnight unless
+switched off, "Keine Termine" without any), then the next day that has
+events ("MORGEN" or its weekday) if there is room, then the following events
+of the week, one line each, as many as fit (settings: see [the calendar
+widget](#calendar-calendar-agenda)). The departure column shows one list
+(title: the station) or the two `sections` (titles with an arrow, or with
+the location pin for two stations), 28 px per row. Disruption messages of
+the shown lines follow the station title: a warning sign and the texts of
+the API for the departures drawn, with their lines (each once, at most three
+lines, two with sections).
 
 ## Widgets
 
@@ -460,7 +462,7 @@ and the curve of the day is averaged from the hourly values.
 ### `calendar`: Calendar agenda
 
 An agenda of one calendar from its private iCal address, updated every 15
-minutes. The address works with Google Calendar, Outlook, Nextcloud, iCloud
+minutes (setting `refresh_minutes`). The address works with Google Calendar, Outlook, Nextcloud, iCloud
 and other services that publish a calendar in iCalendar format.
 
 The column shows today with the week number ("KW 43"), then the next day
@@ -471,7 +473,38 @@ weight; a long title wraps once onto a second line where there is room
 with long words hyphenated as in the disruption text of the departures,
 else it is shortened with "…". All-day events have a small calendar symbol.
 
-The section has no settings yet; the widget only needs the address.
+The widget only needs the address; the settings below are optional. Without
+them the column looks as described above.
+
+```json
+"calendar": {
+  "days": 7,
+  "location": true,
+  "more": true,
+  "exclude": ["Geburtstag", "Müll"]
+}
+```
+
+| Key | Values | Default | Meaning |
+|---|---|---|---|
+| `days` | 1 to 14 | `7` | Days of the agenda: today and the following ones. `1` shows only today, `2` today and tomorrow. Today and tomorrow are always there (with "Keine Termine"), later days only if they have events. |
+| `all_day` | `true`, `false` | `true` | All-day events, and the later days of events that last several days. `false` leaves them out. |
+| `past` | `true`, `false` | `true` | Events of today that are over stay until midnight. `false` removes them as soon as they end. |
+| `location` | `true`, `false` | `false` | The place of an event (`LOCATION`) in small letters below the title, today and on the next day. |
+| `more` | `true`, `false` | `false` | If not all events of today or of the next day fit, "+ 2 weitere Termine" in small letters below them, right-aligned. Past events that give way are not counted. |
+| `wrap` | `true`, `false` | `true` | Long titles wrap once onto a second line where there is room. `false`: always one line, shortened with "…". |
+| `exclude` | list of words | `[]` | Events whose title contains one of the words are left out, e.g. `["Geburtstag"]`. Upper and lower case do not matter, part of the title is enough. At most 10 words of at most 32 bytes. |
+| `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched. Google updates the private address itself only every few hours, so fetching more often does not show changes sooner there. Every request blocks the device for a few seconds. |
+
+How the column uses its room: today first gets as many events as fit in one
+line each (past events give way first, then the last ones; with `more` the
+hint line is kept free). The space that is left goes first to the places,
+then to second title lines, from the top; they can push the next day out of
+the column. The next day is filled the same way with `more`; without it,
+row by row, each with its place and second line as long as they fit. The
+rest of the week has one line per event and no places. A title that is too
+long ends with "…" where the line is full, also in the middle of a word
+("Mittagessen mit Jonas und Mare…").
 
 #### Setting the address
 

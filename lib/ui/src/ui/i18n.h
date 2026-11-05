@@ -79,4 +79,8 @@ const char* weekdayShort(Language language, int weekday);
 // Long date for the header: "Dienstag, 20. Oktober" / "Tuesday, 20 October".
 std::string longDate(Language language, int weekday, int day, int month);
 
+// Hint below a list of events that did not all fit: "+ 2 weitere Termine" /
+// "+ 2 more events" (singular for 1).
+std::string moreEvents(Language language, int count);
+
 }  // namespace ui

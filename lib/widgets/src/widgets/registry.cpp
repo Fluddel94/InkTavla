@@ -39,9 +39,9 @@ std::unique_ptr<DataSource> createWeather(JsonObjectConst root, const Services& 
 
 std::unique_ptr<DataSource> createCalendar(JsonObjectConst root, const Services& services,
                                            core::ConfigIssues& issues) {
-  calendar::checkConfig(core::widgetSection(root, "calendar"), issues);
+  calendar::Config config = calendar::parseConfig(core::widgetSection(root, "calendar"), issues);
   if (services.calendar == nullptr) return nullptr;
-  return std::make_unique<calendar::CalendarSource>(*services.calendar);
+  return std::make_unique<calendar::CalendarSource>(*services.calendar, std::move(config));
 }
 
 }  // namespace

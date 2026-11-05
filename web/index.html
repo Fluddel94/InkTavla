@@ -100,6 +100,24 @@
     <input id="calendarUrl" type="password" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…">
     <p id="calendarError" class="err" hidden></p>
     <div class="actions"><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
+    <h3 data-t="calShow"></h3>
+    <label for="calDays" data-t="calDays"></label>
+    <select id="calDays"></select>
+    <div class="cb"><input id="calAllDay" type="checkbox"><label for="calAllDay" data-t="calAllDay"></label></div>
+    <div class="cb"><input id="calPast" type="checkbox"><label for="calPast" data-t="calPast"></label></div>
+    <div class="cb"><input id="calLocation" type="checkbox"><label for="calLocation" data-t="calLocation"></label></div>
+    <div class="cb"><input id="calMore" type="checkbox"><label for="calMore" data-t="calMore"></label></div>
+    <div class="cb"><input id="calWrap" type="checkbox"><label for="calWrap" data-t="calWrap"></label></div>
+    <p class="hint" data-t="calSpaceHint"></p>
+    <h3 data-t="calFilter"></h3>
+    <label for="calExclude" data-t="calExclude"></label>
+    <input id="calExclude" type="text" maxlength="400">
+    <p id="calExcludeError" class="err" hidden></p>
+    <p class="hint" data-t="calExcludeHint"></p>
+    <h3 data-t="calFetch"></h3>
+    <label for="calRefresh" data-t="calRefresh"></label>
+    <select id="calRefresh"></select>
+    <p class="hint" data-t="calRefreshHint"></p>
   </section>
 
   <!-- Display -->

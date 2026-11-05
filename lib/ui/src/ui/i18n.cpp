@@ -163,4 +163,15 @@ std::string longDate(Language language, int weekday, int day, int month) {
   return out;
 }
 
+std::string moreEvents(Language language, int count) {
+  const bool one = count == 1;
+  std::string out = "+ " + std::to_string(count) + " ";
+  if (language == Language::kGerman) {
+    out += one ? "weiterer Termin" : "weitere Termine";
+  } else {
+    out += one ? "more event" : "more events";
+  }
+  return out;
+}
+
 }  // namespace ui

@@ -152,7 +152,8 @@ bool Parser::startValue() {
   } else if (!stack_.empty()) {
     switch (stack_.back()) {
       case Component::kEvent:
-        if (equalsUpper(name, "SUMMARY") || equalsUpper(name, "UID")) {
+        if (equalsUpper(name, "SUMMARY") || equalsUpper(name, "UID") ||
+            equalsUpper(name, "LOCATION")) {
           value_cap_ = 512;
         } else if (equalsUpper(name, "EXDATE")) {
           value_cap_ = 2048;
@@ -307,6 +308,28 @@ void Parser::handleEvent(std::string_view name, std::string_view value) {
     const std::string summary = unescapeText(value);
     event_.summary.assign(summary.data(), summary.size());
     cutUtf8(event_.summary, kMaxSummaryBytes);
+  } else if (equalsUpper(name, "LOCATION")) {
+    // Addresses come with line breaks ("\n", Outlook): one line, parts
+    // separated by ", " (unescapeText() would only put a space).
+    std::string location;
+    for (size_t i = 0; i < value.size(); i++) {
+      char c = value[i];
+      if (c == '\\' && i + 1 < value.size()) {
+        c = value[++i];
+        if (c == 'n' || c == 'N') {
+          while (!location.empty() && location.back() == ' ') location.pop_back();
+          if (!location.empty() && location.back() != ',') location += ',';
+          location += ' ';
+          continue;
+        }
+      }
+      location += c;
+    }
+    while (!location.empty() && (location.back() == ' ' || location.back() == ',')) {
+      location.pop_back();
+    }
+    event_.location.assign(location.data(), location.size());
+    cutUtf8(event_.location, kMaxSummaryBytes);
   } else if (equalsUpper(name, "DTSTART")) {
     parseDateParam(value, event_.start);
   } else if (equalsUpper(name, "DTEND")) {

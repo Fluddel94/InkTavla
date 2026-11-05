@@ -125,12 +125,19 @@ int64_t utc(int y, int m, int d, int h, int mi) {
 }
 
 std::vector<cal::AgendaDay> weekAgenda(int64_t now, ui::Language language = ui::Language::kGerman,
-                                       const char* fixture = "week.ics") {
-  const cal::Parser parser =
-      parse(readFile(std::string("test/fixtures/calendar/") + fixture), now - kDay, now + 8 * kDay);
+                                       const char* fixture = "week.ics",
+                                       const cal::DisplayConfig& display = {}) {
+  const cal::Parser parser = parse(readFile(std::string("test/fixtures/calendar/") + fixture),
+                                   now - kDay, now + 15 * kDay);
   TEST_ASSERT_TRUE(parser.valid());
   const int64_t today = cal::localDay(now);
-  return cal::buildAgenda(cal::expandEvents(parser, today, today + 7), now, language);
+  return cal::buildAgenda(cal::expandEvents(parser, today, today + 14), now, language, display);
+}
+
+cal::Config parseCalendarConfig(const char* json, core::ConfigIssues& issues) {
+  JsonDocument doc;
+  deserializeJson(doc, json);
+  return cal::parseConfig(doc.as<JsonObjectConst>(), issues);
 }
 
 // "kind:time title suffix note" of the entries of one agenda day.
@@ -533,7 +540,7 @@ void test_config() {
   core::ConfigIssues issues;
   JsonDocument doc;
   deserializeJson(doc, R"({"url": "https://example.invalid/secret.ics", "colour": 1})");
-  cal::checkConfig(doc.as<JsonObjectConst>(), issues);
+  cal::parseConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(2, issues.size());
   for (const core::ConfigIssue& i : issues) {
     // The value is never repeated in a message.
@@ -541,12 +548,114 @@ void test_config() {
   }
   TEST_ASSERT_EQUAL_STRING("widgets.calendar.url", issues[0].path.c_str());
   TEST_ASSERT_TRUE(issues[0].message.find("inktavla_config.py calendar-url") != std::string::npos);
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.colour", issues[1].path.c_str());
 
   // Through the validation of the whole file; an empty section is fine.
   issues.clear();
   deserializeJson(doc, R"({"widgets": {"calendar": {}}})");
   widgets::validateConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
+}
+
+void test_config_settings() {
+  // Defaults: the column as before the settings.
+  core::ConfigIssues issues;
+  cal::Config c = parseCalendarConfig("{}", issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_INT(7, c.display.days);
+  TEST_ASSERT_TRUE(c.display.all_day && c.display.past && c.display.wrap);
+  TEST_ASSERT_FALSE(c.display.more || c.display.location);
+  TEST_ASSERT_TRUE(c.display.exclude.empty());
+  TEST_ASSERT_EQUAL_INT(15, c.calendar.refresh_minutes);
+
+  c = parseCalendarConfig(R"({"days": 3, "all_day": false, "past": false, "more": true,
+      "location": true, "wrap": false, "exclude": [" Geburtstag ", "müll", ""],
+      "refresh_minutes": 60})",
+                          issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_INT(3, c.display.days);
+  TEST_ASSERT_FALSE(c.display.all_day || c.display.past || c.display.wrap);
+  TEST_ASSERT_TRUE(c.display.more && c.display.location);
+  TEST_ASSERT_EQUAL_size_t(2, c.display.exclude.size());
+  TEST_ASSERT_EQUAL_INT(60, c.calendar.refresh_minutes);
+  TEST_ASSERT_TRUE(cal::excluded(c.display, "Geburtstag Oma"));
+  TEST_ASSERT_TRUE(cal::excluded(c.display, "MÜLLABFUHR"));
+  TEST_ASSERT_FALSE(cal::excluded(c.display, "Zahnarzt"));
+
+  // Invalid values: a message each, the default instead.
+  c = parseCalendarConfig(R"({"days": 0, "more": "ja", "refresh_minutes": 2,
+      "exclude": "Geburtstag"})",
+                          issues);
+  TEST_ASSERT_EQUAL_size_t(4, issues.size());
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.days", issues[0].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("must be between 1 and 14", issues[0].message.c_str());
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.more", issues[1].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.exclude", issues[2].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.refresh_minutes", issues[3].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("must be between 5 and 360", issues[3].message.c_str());
+  TEST_ASSERT_EQUAL_INT(7, c.display.days);
+  TEST_ASSERT_FALSE(c.display.more);
+  TEST_ASSERT_TRUE(c.display.exclude.empty());
+  TEST_ASSERT_EQUAL_INT(15, c.calendar.refresh_minutes);
+
+  // Too many or too long words, entries that are no words.
+  issues.clear();
+  c = parseCalendarConfig(R"({"exclude": ["a","b","c","d","e","f","g","h","i","j","k",
+      "abcdefghijklmnopqrstuvwxyzabcdefghij", 3]})",
+                          issues);
+  TEST_ASSERT_EQUAL_size_t(10, c.display.exclude.size());
+  TEST_ASSERT_EQUAL_size_t(1, issues.size());
+  TEST_ASSERT_TRUE(issues[0].message.find("at most 10") != std::string::npos);
+  issues.clear();
+  c = parseCalendarConfig(R"({"exclude": ["abcdefghijklmnopqrstuvwxyzabcdefghij", 3]})", issues);
+  TEST_ASSERT_EQUAL_size_t(2, issues.size());
+  TEST_ASSERT_TRUE(c.display.exclude.empty());
+}
+
+void test_agenda_settings() {
+  cal::DisplayConfig d;
+  // Two days: today and tomorrow only.
+  d.days = 2;
+  auto agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_size_t(2, agenda.size());
+  // 14 days: also the next stand-up (Tuesday) and choir (Thursday).
+  d.days = 14;
+  agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_size_t(6, agenda.size());
+  TEST_ASSERT_EQUAL_INT64(cal::localDay(kNow) + 9, agenda.back().day);
+
+  // Without all-day events (the paper bin, the birthday disappear).
+  d = {};
+  d.all_day = false;
+  agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_STRING("18:30 Kino mit Lena", entries(agenda[1]).c_str());
+  TEST_ASSERT_EQUAL_size_t(3, agenda.size());
+
+  // Without past events: at 12:50 the stand-up is gone; in the evening
+  // "Keine Termine".
+  d = {};
+  d.past = false;
+  agenda = weekAgenda(kNow + 308 * 60, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_STRING("12:30 Mittagessen mit Jonas (läuft) | 17:15 *Zahnarzt (in 4 h)",
+                           entries(agenda[0]).c_str());
+  agenda = weekAgenda(kNow + 648 * 60, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_STRING("(Keine Termine)", entries(agenda[0]).c_str());
+
+  // Words left out, ignoring the case.
+  d = {};
+  d.exclude = {"KINO", "TEAM"};
+  agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
+  TEST_ASSERT_EQUAL_STRING("12:30 *Mittagessen mit Jonas (in 5 h) | 17:15 Zahnarzt",
+                           entries(agenda[0]).c_str());
+  TEST_ASSERT_EQUAL_STRING("[Papiertonne] ganztägig", entries(agenda[1]).c_str());
+
+  // Places, in one line.
+  agenda = weekAgenda(kNow);
+  TEST_ASSERT_EQUAL_STRING("Besprechungsraum 2", agenda[0].entries[0].location.c_str());
+  TEST_ASSERT_EQUAL_STRING("Praxis am Markt, Hauptstraße 4, 80331 München",
+                           agenda[0].entries[2].location.c_str());
+  TEST_ASSERT_EQUAL_STRING("", agenda[1].entries[0].location.c_str());
+  TEST_ASSERT_EQUAL_STRING("Kino am Park, Parkstraße 1", agenda[1].entries[1].location.c_str());
 }
 
 void test_not_a_calendar() {
@@ -657,6 +766,16 @@ void test_widget() {
   }
   TEST_ASSERT_GREATER_THAN(1000, black);
 
+  // Default interval 15 minutes; refresh_minutes changes it.
+  TEST_ASSERT_EQUAL_UINT32(900, data.schedule().interval_s);
+  cal::Config config;
+  config.calendar.refresh_minutes = 60;
+  config.display.days = 14;
+  cal::CalendarSource hourly(source, config);
+  TEST_ASSERT_EQUAL_UINT32(3600, hourly.schedule().interval_s);
+  TEST_ASSERT_TRUE(hourly.fetch(kNow));
+  TEST_ASSERT_TRUE(hourly.occurrences().size() > data.occurrences().size());
+
   // A failed request or an incomplete file keeps the last data.
   source.fail = true;
   TEST_ASSERT_FALSE(data.fetch(kNow + 900));
@@ -686,6 +805,8 @@ int main(int, char**) {
   RUN_TEST(test_agenda_during_the_day);
   RUN_TEST(test_agenda_multi_day);
   RUN_TEST(test_config);
+  RUN_TEST(test_config_settings);
+  RUN_TEST(test_agenda_settings);
   RUN_TEST(test_widget);
   RUN_TEST(test_not_a_calendar);
   RUN_TEST(test_fetch_errors);

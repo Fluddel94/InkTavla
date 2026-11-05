@@ -596,6 +596,11 @@ void test_hyphenation_of_railway_words() {
   // Words not in the dictionary: syllable rules ("ck" and "ch" stay together).
   TEST_ASSERT_EQUAL_STRING("Fens|ter", hyphenated("Fenster").c_str());
   TEST_ASSERT_EQUAL_STRING("Zu|cker", hyphenated("Zucker").c_str());
+  // "schr", "spr" and "str" start a syllable together (2026-11-05, was
+  // "Besp|re|chung").
+  TEST_ASSERT_EQUAL_STRING("Be|spre|chung", hyphenated("Besprechung").c_str());
+  TEST_ASSERT_EQUAL_STRING("be|schrei|ben", hyphenated("beschreiben").c_str());
+  TEST_ASSERT_EQUAL_STRING("ab|strakt", hyphenated("abstrakt").c_str());
   // Short words and numbers stay whole: two letters before, three after.
   TEST_ASSERT_EQUAL_STRING("Hbf", hyphenated("Hbf").c_str());
   TEST_ASSERT_EQUAL_STRING("Mün|chen", hyphenated("München").c_str());

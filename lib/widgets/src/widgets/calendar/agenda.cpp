@@ -38,6 +38,7 @@ Occurrence makeOccurrence(const Parser& parser, const Event& e, const DateTime& 
                           int64_t length) {
   Occurrence o;
   o.summary = e.summary;
+  o.location = e.location;
   if (start.date_only) {
     o.all_day = true;
     o.first_day = start.days();
@@ -155,10 +156,10 @@ Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_d
 }
 
 std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s,
-                                   ui::Language language, int days) {
+                                   ui::Language language, const DisplayConfig& display) {
   std::vector<AgendaDay> agenda;
   const int64_t today = localDay(now_s);
-  for (int64_t d = today; d < today + days; d++) {
+  for (int64_t d = today; d < today + display.days; d++) {
     AgendaDay day;
     day.day = d;
     std::vector<Entry> timed;
@@ -166,10 +167,16 @@ std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s
     for (const Occurrence& o : occurrences) {
       if (o.last_day < d || o.first_day > d) continue;
       const bool timed_start = !o.all_day && o.first_day == d;
+      if (!display.all_day && !timed_start) continue;
+      const std::string_view summary(o.summary.data(), o.summary.size());
+      if (excluded(display, summary)) continue;
       Entry entry;
-      entry.title.assign(o.summary.data(), o.summary.size());
-      // Over (events without length count for one minute); still shown.
+      entry.title.assign(summary);
+      entry.location.assign(o.location.data(), o.location.size());
+      // Over (events without length count for one minute); shown until
+      // midnight unless switched off.
       entry.past = d == today && !o.all_day && std::max(o.end, o.start + 60) <= now_s;
+      if (entry.past && !display.past) continue;
       if (o.all_day) {
         entry.kind = Entry::Kind::kAllDay;
         entry.suffix = o.last_day > d ? untilDay(o.last_day, d, language)

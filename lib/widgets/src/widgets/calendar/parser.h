@@ -24,7 +24,7 @@ namespace widgets::calendar {
 
 // Longest title kept (bytes of UTF-8); longer ones are cut. The column shows
 // far less.
-inline constexpr size_t kMaxSummaryBytes = 96;
+inline constexpr size_t kMaxSummaryBytes = 96;  // also for LOCATION
 // Most events kept from one file; more are dropped (truncated()).
 inline constexpr size_t kMaxEvents = 400;
 
@@ -34,6 +34,7 @@ using Text = std::basic_string<char, std::char_traits<char>, core::PsramAllocato
 struct Event {
   uint64_t uid = 0;  // hash of the UID (overrides refer to their series)
   Text summary;
+  Text location;  // LOCATION, one line; empty if missing
   DateTime start;
   DateTime end;           // invalid if missing
   int64_t duration = -1;  // DURATION in seconds, -1 if missing

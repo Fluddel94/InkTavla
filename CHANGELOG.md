@@ -22,6 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Tools 10.4.0: flashes the display from Chrome or Edge over USB and sets up
   Wi-Fi with Improv. It is published on GitHub Pages for every release
   (`.github/workflows/pages.yml`) and can be tried locally on `localhost`.
+- Settings for the calendar column, on the settings page (Kalender / Calendar)
+  and in `config.json` under `widgets.calendar`: number of days (1 to 14),
+  all-day events, past events of today, the place of an event below its
+  title, a hint "+ 2 weitere Termine" when not all events of today or of the
+  next day fit, titles in one line only, words that hide events, and the
+  update interval (5 to 360 minutes). Without them the column looks as
+  before. See `docs/configuration.md`.
 
 ### Changed
 
@@ -29,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   description at the start of the image, so the whole flash image
   `firmware-full.bin` (which starts with the bootloader) is refused instead
   of being written into the app slot.
+- Calendar titles that are too long now fill their last line and end with
+  "…" where it is full, also in the middle of a word, instead of leaving out
+  the whole next word.
+- Hyphenation keeps "schr", "spr" and "str" together at the start of a
+  syllable ("Be-spre-chung" instead of "Besp-re-chung"); it is used for
+  calendar titles and disruption texts.
 
 ## [0.1.0] - 2026-11-02
 
