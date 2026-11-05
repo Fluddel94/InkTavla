@@ -296,7 +296,8 @@ small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
   (`type(scope): description`, scopes = modules such as `core`, `display`,
   `transit`, `weather`, `calendar`).
 - Versions follow [Semantic Versioning](https://semver.org/); changes are
-  recorded in [CHANGELOG.md](CHANGELOG.md).
+  recorded in [CHANGELOG.md](CHANGELOG.md). How a version is released:
+  [docs/releasing.md](docs/releasing.md).
 - Code is formatted with `clang-format` (`.clang-format`, Google-based; the
   version is pinned, see [Formatting](#formatting)).
 - InkTavla is developed with the help of Claude, Anthropic's AI assistant;
