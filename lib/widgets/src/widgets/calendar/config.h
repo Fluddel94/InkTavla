@@ -16,8 +16,8 @@
 namespace widgets::calendar {
 
 // Limits of the settings.
-inline constexpr int kMinDays = 1;
-inline constexpr int kMaxDays = 14;
+// Days of the agenda: today, today and tomorrow, three days or a week.
+inline constexpr int kDayChoices[] = {1, 2, 3, 7};
 inline constexpr int kMinRefreshMinutes = 5;
 inline constexpr int kMaxRefreshMinutes = 360;
 inline constexpr size_t kMaxExcludeWords = 10;

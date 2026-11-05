@@ -6,7 +6,9 @@
 //    midnight; "Keine Termine" without any);
 //  - then the next day that has events ("MORGEN" or its weekday) if there
 //    is room;
-//  - then the following events of the week, as many as fit.
+//  - then the following events of the week, as many as fit: the weekday on
+//    the first line of each day, then the time and the title
+//    (2026-11-05; "MORGEN" has only the weekday on the right, "Mi").
 // Times in Roboto Condensed, titles in Fraunces, all in the same weight
 // (2026-10-25: the next event is no longer bold). A long title wraps once
 // onto a second line if there is room (today: as long as all events of today

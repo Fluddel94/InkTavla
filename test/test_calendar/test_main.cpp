@@ -588,7 +588,7 @@ void test_config_settings() {
                           issues);
   TEST_ASSERT_EQUAL_size_t(4, issues.size());
   TEST_ASSERT_EQUAL_STRING("widgets.calendar.days", issues[0].path.c_str());
-  TEST_ASSERT_EQUAL_STRING("must be between 1 and 14", issues[0].message.c_str());
+  TEST_ASSERT_EQUAL_STRING("must be 1, 2, 3 or 7", issues[0].message.c_str());
   TEST_ASSERT_EQUAL_STRING("widgets.calendar.more", issues[1].path.c_str());
   TEST_ASSERT_EQUAL_STRING("widgets.calendar.exclude", issues[2].path.c_str());
   TEST_ASSERT_EQUAL_STRING("widgets.calendar.refresh_minutes", issues[3].path.c_str());
@@ -618,11 +618,16 @@ void test_agenda_settings() {
   d.days = 2;
   auto agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
   TEST_ASSERT_EQUAL_size_t(2, agenda.size());
-  // 14 days: also the next stand-up (Tuesday) and choir (Thursday).
-  d.days = 14;
+  // Three days: up to Thursday (choir), without the birthday on Saturday.
+  d.days = 3;
   agenda = weekAgenda(kNow, ui::Language::kGerman, "week.ics", d);
-  TEST_ASSERT_EQUAL_size_t(6, agenda.size());
-  TEST_ASSERT_EQUAL_INT64(cal::localDay(kNow) + 9, agenda.back().day);
+  TEST_ASSERT_EQUAL_size_t(3, agenda.size());
+  TEST_ASSERT_EQUAL_STRING("19:00 Chorprobe", entries(agenda[2]).c_str());
+  // Only 1, 2, 3 and 7 are allowed.
+  core::ConfigIssues day_issues;
+  TEST_ASSERT_EQUAL_INT(7, parseCalendarConfig(R"({"days": 5})", day_issues).display.days);
+  TEST_ASSERT_EQUAL_size_t(1, day_issues.size());
+  TEST_ASSERT_EQUAL_STRING("must be 1, 2, 3 or 7", day_issues[0].message.c_str());
 
   // Without all-day events (the paper bin, the birthday disappear).
   d = {};

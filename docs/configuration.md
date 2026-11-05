@@ -277,8 +277,10 @@ that is only possible), at night the weather of now.
 
 The calendar column shows today (past events stay until midnight unless
 switched off, "Keine Termine" without any), then the next day that has
-events ("MORGEN" or its weekday) if there is room, then the following events
-of the week, one line each, as many as fit (settings: see [the calendar
+events ("MORGEN" with the weekday on the right, or the name of the weekday
+with the date) if there is room, then the following events of the week, one
+line each with the weekday on the first line of every day, the time and the
+title, as many as fit (settings: see [the calendar
 widget](#calendar-calendar-agenda)). The departure column shows one list
 (title: the station) or the two `sections` (titles with an arrow, or with
 the location pin for two stations), 28 px per row. Disruption messages of
@@ -487,7 +489,7 @@ them the column looks as described above.
 
 | Key | Values | Default | Meaning |
 |---|---|---|---|
-| `days` | 1 to 14 | `7` | Days of the agenda: today and the following ones. `1` shows only today, `2` today and tomorrow. Today and tomorrow are always there (with "Keine Termine"), later days only if they have events. |
+| `days` | `1`, `2`, `3`, `7` | `7` | Days of the agenda: today only, today and tomorrow, the next 3 or the next 7 days (counting today). Today and tomorrow are always there (with "Keine Termine"), later days only if they have events. |
 | `all_day` | `true`, `false` | `true` | All-day events, and the later days of events that last several days. `false` leaves them out. |
 | `past` | `true`, `false` | `true` | Events of today that are over stay until midnight. `false` removes them as soon as they end. |
 | `location` | `true`, `false` | `false` | The place of an event (`LOCATION`) in small letters below the title, today and on the next day. |

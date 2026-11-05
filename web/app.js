@@ -83,10 +83,11 @@ const TEXTS = {
     calendarNew: "Neue Adresse",
     calendarRemove: "Adresse entfernen",
     calShow: "Anzeige",
-    calDays: "Tage",
-    calDaysOne: "nur heute",
-    calDaysTwo: "heute und morgen",
-    calDaysWeek: "eine Woche",
+    calDays: "Zeitraum",
+    calDaysOne: "Heute",
+    calDaysTwo: "Heute und morgen",
+    calDaysThree: "Nächste 3 Tage",
+    calDaysWeek: "Nächste 7 Tage",
     calAllDay: "Ganztägige und mehrtägige Termine anzeigen",
     calPast: "Vergangene Termine von heute bis Mitternacht anzeigen",
     calLocation: "Ort unter dem Titel anzeigen (heute und am nächsten Tag)",
@@ -271,10 +272,11 @@ const TEXTS = {
     calendarNew: "New address",
     calendarRemove: "Remove address",
     calShow: "Display",
-    calDays: "Days",
-    calDaysOne: "today only",
-    calDaysTwo: "today and tomorrow",
-    calDaysWeek: "one week",
+    calDays: "Period",
+    calDaysOne: "Today",
+    calDaysTwo: "Today and tomorrow",
+    calDaysThree: "Next 3 days",
+    calDaysWeek: "Next 7 days",
     calAllDay: "Show all-day and multi-day events",
     calPast: "Show past events of today until midnight",
     calLocation: "Show the place below the title (today and the next day)",
@@ -398,7 +400,7 @@ const TIME_ZONES = [
 const DEFAULT_TZ = TIME_ZONES[0][0];
 const REFRESH_CHOICES = [15, 30, 60, 120, 180, 360, 720, 1440];
 const CAL_REFRESH_CHOICES = [5, 10, 15, 30, 60, 120, 180, 360];
-const CAL_MAX_DAYS = 14, CAL_MAX_WORDS = 10, CAL_MAX_WORD = 32;
+const CAL_DAYS = [1, 2, 3, 7], CAL_MAX_WORDS = 10, CAL_MAX_WORD = 32;
 const TYPE_ORDER = "SUTBRZ";
 const MAX_LINES = 16;
 
@@ -1145,10 +1147,10 @@ function fillCalendar() {
   $("calendarUrl").value = "";
   showCalendarState();
   const c = sec("calendar");
-  const days = Number.isInteger(c.days) ? c.days : 7;
-  const dayNames = { 1: "calDaysOne", 2: "calDaysTwo", 7: "calDaysWeek" };
-  $("calDays").replaceChildren(...Array.from({ length: CAL_MAX_DAYS }, (_, i) => i + 1).map((n) =>
-    el("option", { value: n, selected: n === days }, dayNames[n] ? n + " (" + t(dayNames[n]) + ")" : String(n))));
+  const days = CAL_DAYS.includes(c.days) ? c.days : 7;
+  const dayNames = { 1: "calDaysOne", 2: "calDaysTwo", 3: "calDaysThree", 7: "calDaysWeek" };
+  $("calDays").replaceChildren(...CAL_DAYS.map((n) =>
+    el("option", { value: n, selected: n === days }, t(dayNames[n]))));
   $("calAllDay").checked = c.all_day !== false;
   $("calPast").checked = c.past !== false;
   $("calLocation").checked = c.location === true;

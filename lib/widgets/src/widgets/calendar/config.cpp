@@ -1,5 +1,8 @@
 #include "widgets/calendar/config.h"
 
+#include <algorithm>
+#include <iterator>
+
 #include "ui/text.h"
 
 namespace widgets::calendar {
@@ -59,7 +62,16 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
                            "refresh_minutes", "url", "ical", "ical_url", "address"},
                           kPath, issues);
   DisplayConfig& d = c.display;
-  d.days = core::readInt(section, "days", d.days, kMinDays, kMaxDays, kPath, issues);
+  JsonVariantConst days = section["days"];
+  if (!days.isNull()) {
+    const bool valid = days.is<int>() && std::find(std::begin(kDayChoices), std::end(kDayChoices),
+                                                   days.as<int>()) != std::end(kDayChoices);
+    if (valid) {
+      d.days = days.as<int>();
+    } else {
+      issues.push_back({core::configPath(kPath, "days"), "must be 1, 2, 3 or 7"});
+    }
+  }
   d.all_day = core::readBool(section, "all_day", d.all_day, kPath, issues);
   d.past = core::readBool(section, "past", d.past, kPath, issues);
   d.more = core::readBool(section, "more", d.more, kPath, issues);

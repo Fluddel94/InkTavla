@@ -20,11 +20,30 @@ constexpr int kTimeColumn = 50;  // titles start here
 constexpr int kRowsBelowTitle = 8;
 constexpr int kRuleBelowRows = 10;
 constexpr int kTitleBelowRows = 32;
-constexpr int kWeekTimeSpace = 44;  // kept free for the time on the right
 
 const ui::Font& kTimeFont = ui::fonts::kRobotoCondensedMedium17;
 const ui::Font& kTitleFont = ui::fonts::kFraunces20;
 const ui::Font& kWeekTitleFont = ui::fonts::kFraunces18;
+const ui::Font& kWeekdayFont = ui::fonts::kRobotoCondensedBold16;
+const ui::Font& kWeekTimeFont = ui::fonts::kRobotoCondensedMedium15;
+
+// Where time and title start in the lines of the rest of the week: after
+// the widest short weekday of the language ("Mi", "Wed") and after a time.
+struct WeekColumns {
+  int time = 0;
+  int title = 0;
+};
+
+WeekColumns weekColumns(ui::Language language) {
+  int widest = 0;
+  for (int d = 0; d < 7; d++) {
+    widest = std::max(widest, ui::textWidth(kWeekdayFont, ui::weekdayShort(language, d)));
+  }
+  WeekColumns c;
+  c.time = widest + 6;
+  c.title = c.time + ui::textWidth(kWeekTimeFont, "00:00") + 12;
+  return c;
+}
 
 // The rest of title after the given lines of wrapText() (which drops
 // spaces at line breaks and may add a hyphen); false if the lines do not
@@ -260,16 +279,24 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
   const std::string name = day.day == agenda[0].day + 1
                                ? std::string(ui::text(lang, ui::Text::kTomorrow))
                                : std::string(ui::weekdayName(lang, weekday));
-  ui::drawColumnTitle(canvas, 0, width, title, name, shortDate(day.day, lang));
+  // "MORGEN  Mi" (2026-11-05: without the date), "DONNERSTAG  Do 22.".
+  const bool tomorrow = day.day == agenda[0].day + 1;
+  ui::drawColumnTitle(
+      canvas, 0, width, title, name,
+      tomorrow ? std::string(ui::weekdayShort(lang, weekday)) : shortDate(day.day, lang));
   y = title + kRowsBelowTitle;
   const DayLayout layout = display.more ? fitDay(day, width, bottom - y, display)
                                         : fillDay(day, width, bottom - y, display);
   y = drawDay(canvas, layout, y, lang);
   if (layout.rows.size() < day.entries.size()) return;
 
-  // The rest of the week, one line per event.
+  // The rest of the week, one line per event (2026-11-05): the weekday on
+  // the first line of each day, then the time (or the calendar sheet) and
+  // the title, so that the time stays in front as above.
+  const WeekColumns columns = weekColumns(lang);
   bool rule = false;
   for (size_t i = next + 1; i < agenda.size(); i++) {
+    bool first = true;
     for (const Entry& e : agenda[i].entries) {
       if (e.kind == Entry::Kind::kNone) continue;
       const int baseline = y + (rule ? 0 : kRuleBelowRows) + kColumnWeekRowHeight;
@@ -281,22 +308,24 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
         rule = true;
       }
       y = baseline;
-      ui::drawText(canvas, ui::fonts::kRobotoCondensedBold16, 0, y,
-                   ui::weekdayShort(lang, weekdayFromDays(agenda[i].day)));
-      const bool timed = e.kind == Entry::Kind::kTimed;
-      const int title_width = width - kTimeColumn - (timed ? kWeekTimeSpace : 0);
+      if (first) {
+        ui::drawText(canvas, kWeekdayFont, 0, y,
+                     ui::weekdayShort(lang, weekdayFromDays(agenda[i].day)));
+        first = false;
+      }
+      if (e.kind == Entry::Kind::kTimed) {
+        ui::drawText(canvas, kWeekTimeFont, columns.time, y, e.time);
+      } else {
+        ui::drawIcon(canvas, columns.time + 2, y - 13, ui::kCalendarIcon);
+      }
       // A second line only if it still fits above the bottom edge.
       const bool room =
           display.wrap && y + kColumnWeekLineHeight + kWeekTitleFont.descent <= bottom;
       const std::vector<std::string> lines =
-          titleLines(kWeekTitleFont, e.title, title_width, room ? 2 : 1);
+          titleLines(kWeekTitleFont, e.title, width - columns.title, room ? 2 : 1);
       for (size_t l = 0; l < lines.size(); l++) {
-        ui::drawText(canvas, kWeekTitleFont, kTimeColumn,
+        ui::drawText(canvas, kWeekTitleFont, columns.title,
                      y + static_cast<int>(l) * kColumnWeekLineHeight, lines[l]);
-      }
-      if (timed) {
-        ui::drawText(canvas, ui::fonts::kRobotoCondensedMedium15, width, y, e.time, Color::kBlack,
-                     ui::Align::kRight);
       }
       if (lines.size() > 1) y += kColumnWeekLineHeight;
     }
