@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+The display can now be installed without building it yourself (web
+installer) and updated over Wi-Fi from the settings page. The calendar
+column gets its own settings.
+
 ### Added
 
 - Update button on the settings page (Gerät / Device): "Nach Updates suchen"
