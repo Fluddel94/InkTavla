@@ -494,7 +494,7 @@ them the column looks as described above.
 | `more` | `true`, `false` | `false` | If not all events of today or of the next day fit, "+ 2 weitere Termine" in small letters below them, right-aligned. Past events that give way are not counted. |
 | `wrap` | `true`, `false` | `true` | Long titles wrap once onto a second line where there is room. `false`: always one line, shortened with "…". |
 | `exclude` | list of words | `[]` | Events whose title contains one of the words are left out, e.g. `["Geburtstag"]`. Upper and lower case do not matter, part of the title is enough. At most 10 words of at most 32 bytes. |
-| `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched. Google updates the private address itself only every few hours, so fetching more often does not show changes sooner there. Every request blocks the device for a few seconds. |
+| `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched; changes appear with the next fetch. Every request loads the whole calendar file and blocks the device for a few seconds. |
 
 How the column uses its room: today first gets as many events as fit in one
 line each (past events give way first, then the last ones; with `more` the
