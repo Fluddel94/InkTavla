@@ -80,6 +80,10 @@ The display controller (`core/display_controller.h`) runs the device:
 - It compares the new frame with the one on the panel and refreshes only the
   changed areas; every `display.full_refresh_minutes` it does a full refresh
   against ghosting.
+- It notes failed and recovered updates in the system log
+  (`core/syslog.h`) and sums up the updates of every source once an hour;
+  the system page (KEY2) and the tab "System" of the settings page show the
+  log and the state of the device ([docs/system-log.md](docs/system-log.md)).
 
 ### Buttons
 
@@ -91,7 +95,7 @@ table (`core/keys.cpp`):
 | Button | Short press |
 |---|---|
 | KEY1 (GPIO2) | Fetch everything now and refresh the whole panel |
-| KEY2 (GPIO3) | – (planned: system log) |
+| KEY2 (GPIO3) | Show the system page (state and log, see [docs/system-log.md](docs/system-log.md)); again: back |
 | KEY3 (GPIO5) | Open the settings page (close it when open) |
 
 Long presses (held for 5 s) are supported but not used yet.

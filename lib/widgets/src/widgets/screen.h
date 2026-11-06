@@ -19,18 +19,22 @@
 // sentence; without Wi-Fi (see core::wifiNoticeMode()) the whole screen
 // shows how to set it up (widgets/briefing/access.h). After the start, until
 // the first data, the whole screen shows the start screen
-// (widgets/briefing/start.h).
+// (widgets/briefing/start.h). The system page (KEY2) covers all of it
+// (widgets/briefing/system_page.h).
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "core/display_controller.h"
+#include "core/system_report.h"
 #include "ui/bitmap.h"
 #include "ui/i18n.h"
 #include "ui/layout.h"
 #include "widgets/briefing/start.h"
+#include "widgets/briefing/system_page.h"
 #include "widgets/widget.h"
 
 namespace widgets {
@@ -50,6 +54,10 @@ class Screen : public core::ScreenRenderer {
   void setViews(std::vector<View*> views) { views_ = std::move(views); }
   // Firmware version and saved Wi-Fi for the start screen.
   void setStartInfo(briefing::StartInfo info) { start_info_ = std::move(info); }
+  // Source of the system page (KEY2), see App::systemReport().
+  void setSystemReport(std::function<core::SystemReport()> report) {
+    system_report_ = std::move(report);
+  }
 
   core::FrameView render(const core::ScreenState& state) override;
   std::vector<hal::Rect> areas() const override;
@@ -66,6 +74,7 @@ class Screen : public core::ScreenRenderer {
   std::vector<const DataSource*> sources_;
   std::vector<View*> views_;
   briefing::StartInfo start_info_;
+  std::function<core::SystemReport()> system_report_;
 };
 
 }  // namespace widgets

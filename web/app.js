@@ -195,6 +195,19 @@ const TEXTS = {
     pathFile: "Datei", pathMvg: "Abfahrten", pathWeather: "Wetter", pathCalendar: "Kalender",
     pathLayout: "Anzeige", pathLanguage: "Sprache", pathTimeZone: "Zeitzone", pathNtp: "Zeitserver",
     pathCalendarUrl: "Kalender-Adresse",
+    tabSystem: "System", system: "System", sysSources: "Datenquellen", sysLog: "Protokoll",
+    sysLogHint: "Neueste Einträge zuerst. Es enthält nur feste Texte und Zahlen – keine Adressen, WLAN-Namen oder Kalendertitel – und lässt sich zur Fehlersuche weitergeben. Warnungen und Fehler überstehen einen Neustart, nach einem Stromausfall beginnt es neu. Am Display zeigt die Taste KEY2 dasselbe.",
+    sysAll: "Alle", sysWarn: "Warnungen + Fehler", sysErrors: "Nur Fehler", sysRefresh: "Aktualisieren",
+    sysDownload: "Herunterladen (.txt)", sysFirmware: "Firmware", sysUptime: "Laufzeit",
+    sysRestart: "Letzter Neustart", sysUnplanned: "ungeplant", sysStart: "{n}. Start seit dem Einschalten",
+    sysWifi: "WLAN", sysConnected: "verbunden, {rssi} dBm ({q})", sysNotConnected: "nicht verbunden",
+    sysClock: "Uhrzeit", sysClockSet: "gestellt (NTP)", sysClockNotSet: "noch nicht gestellt",
+    sysMemory: "Speicher", sysMemoryText: "{free} KB frei, niedrigster Stand {min} KB, größter Block {block} KB",
+    sysPsram: "PSRAM", sysPsramText: "{free} von {size} MB frei", sysCounts: "Protokoll",
+    sysCountsText: "{w} Warnungen, {e} Fehler", qExcellent: "sehr gut", qGood: "gut", qFair: "mäßig", qWeak: "schwach",
+    stateOk: "aktuell", stateStale: "veraltet", stateWaiting: "wartet", stateNoData: "keine Daten", stateNotSetUp: "nicht eingerichtet",
+    sysLastOk: "zuletzt {time} ({s} s)", sysFailing: "Fehler seit {time}: {problem} ({n}×)", sysLastFailure: "letzter Fehler {time}: {problem}",
+    sysTotals: "{ok} ok, {failed} fehlgeschlagen seit dem Start", sysNoEntries: "Keine Einträge.", sysLoadFailed: "Konnte nicht geladen werden.",
   },
   en: {
     loading: "Loading …",
@@ -384,6 +397,19 @@ const TEXTS = {
     pathFile: "File", pathMvg: "Departures", pathWeather: "Weather", pathCalendar: "Calendar",
     pathLayout: "Display", pathLanguage: "Language", pathTimeZone: "Time zone", pathNtp: "Time server",
     pathCalendarUrl: "Calendar address",
+    tabSystem: "System", system: "System", sysSources: "Data sources", sysLog: "Log",
+    sysLogHint: "Newest entries first. It holds fixed texts and numbers only – no addresses, Wi-Fi names or calendar titles – and can be shared to get help. Warnings and errors survive a restart; after a power cut it starts again. On the display, KEY2 shows the same.",
+    sysAll: "All", sysWarn: "Warnings + errors", sysErrors: "Errors only", sysRefresh: "Refresh",
+    sysDownload: "Download (.txt)", sysFirmware: "Firmware", sysUptime: "Uptime",
+    sysRestart: "Last restart", sysUnplanned: "unplanned", sysStart: "start {n} since power on",
+    sysWifi: "Wi-Fi", sysConnected: "connected, {rssi} dBm ({q})", sysNotConnected: "not connected",
+    sysClock: "Clock", sysClockSet: "set (NTP)", sysClockNotSet: "not set yet",
+    sysMemory: "Memory", sysMemoryText: "{free} KB free, lowest {min} KB, largest block {block} KB",
+    sysPsram: "PSRAM", sysPsramText: "{free} of {size} MB free", sysCounts: "Log",
+    sysCountsText: "{w} warnings, {e} errors", qExcellent: "excellent", qGood: "good", qFair: "fair", qWeak: "weak",
+    stateOk: "up to date", stateStale: "outdated", stateWaiting: "waiting", stateNoData: "no data", stateNotSetUp: "not set up",
+    sysLastOk: "last {time} ({s} s)", sysFailing: "failing since {time}: {problem} ({n}×)", sysLastFailure: "last failure {time}: {problem}",
+    sysTotals: "{ok} ok, {failed} failed since the start", sysNoEntries: "No entries.", sysLoadFailed: "Could not be loaded.",
   },
 };
 
@@ -1619,14 +1645,126 @@ function buildConfig() {
   return { config: c, errors };
 }
 
+// --- System (core/system_report.h, core/syslog.h) ------------------------------------------
+
+// Reasons of the last restart (core::restartReason()) in German.
+const RESTART_REASONS = {
+  "power on": "Strom eingeschaltet", "reset pin": "Reset-Taste",
+  "software restart": "Neustart durch die Firmware", "crash (panic)": "Absturz (Panic)",
+  "watchdog (interrupt)": "Watchdog (Interrupt)", "watchdog (task)": "Watchdog (Task)", "watchdog": "Watchdog",
+  "voltage drop (brownout)": "Spannungseinbruch", "USB (flashing or reset)": "USB (Aufspielen/Reset)",
+  "power glitch": "Stromstörung",
+};
+const SOURCE_NAMES = { mvg: "pathMvg", weather: "pathWeather", calendar: "pathCalendar" };
+const STATE_KEYS = { "ok": "stateOk", "stale": "stateStale", "waiting": "stateWaiting", "no data": "stateNoData", "not set up": "stateNotSetUp" };
+// One line of GET /api/log (core::formatLogLine()).
+const LOG_LINE = /^(.{19}) (INFO |WARN |ERROR) (\S+) +(.*)$/;
+let sysLines = [];      // the log, oldest first
+let sysFilter = "all";
+let sysLoading = false;
+
+const num = (v, digits) => Number(v).toLocaleString(lang === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: digits || 0 });
+function quality(rssi) {
+  return t(rssi >= -55 ? "qExcellent" : rssi >= -67 ? "qGood" : rssi >= -75 ? "qFair" : "qWeak");
+}
+function sysTime(unix) {
+  if (!unix) return "–";
+  const d = new Date(unix * 1000);
+  const today = new Date().toDateString() === d.toDateString();
+  return today ? hhmm(d) : d.toLocaleDateString(lang === "en" ? "en-GB" : "de-DE", { day: "2-digit", month: "2-digit" }) + " " + hhmm(d);
+}
+function kv(label, value, cls) { return [el("dt", {}, label), el("dd", { class: cls }, value)]; }
+
+function renderSystem(r) {
+  const d = r.device || {};
+  const reason = lang === "de" ? (RESTART_REASONS[d.restart_reason] || d.restart_reason) : d.restart_reason;
+  $("sysInfo").replaceChildren(
+    ...kv(t("sysFirmware"), d.firmware || "–"),
+    ...kv(t("sysUptime"), duration(d.uptime_s || 0)),
+    ...kv(t("sysRestart"), reason + (d.restart_unplanned ? " – " + t("sysUnplanned") : "") + " · " + t("sysStart", { n: d.boot || 1 }),
+      d.restart_unplanned ? "error" : ""),
+    ...kv(t("sysWifi"), d.wifi_connected ? t("sysConnected", { rssi: d.rssi, q: quality(d.rssi) }) : t("sysNotConnected"),
+      d.wifi_connected ? (d.rssi < -75 ? "warn" : "") : "warn"),
+    ...kv(t("sysClock"), t(d.time_valid ? "sysClockSet" : "sysClockNotSet"), d.time_valid ? "" : "warn"),
+    ...kv(t("sysMemory"), t("sysMemoryText", { free: Math.round(d.heap_free / 1024), min: Math.round(d.heap_min_free / 1024), block: Math.round(d.heap_largest / 1024) })),
+    ...kv(t("sysPsram"), t("sysPsramText", { free: num(d.psram_free / 1048576, 1), size: num(d.psram_size / 1048576, 1) })),
+    ...kv(t("sysCounts"), t("sysCountsText", { w: r.log.warnings, e: r.log.errors }), r.log.errors ? "error" : r.log.warnings ? "warn" : ""));
+  $("sysSources").replaceChildren(...(r.sources || []).flatMap((s) => {
+    const parts = [t(STATE_KEYS[s.state] || s.state)];
+    if (s.last_success) parts.push(t("sysLastOk", { time: sysTime(s.last_success), s: num(s.duration_ms / 1000, 1) }));
+    if (s.failures_in_row) parts.push(t("sysFailing", { time: sysTime(s.last_failure), problem: s.problem, n: s.failures_in_row }));
+    else if (s.failures) parts.push(t("sysLastFailure", { time: sysTime(s.last_failure), problem: s.problem }));
+    parts.push(t("sysTotals", { ok: s.successes, failed: s.failures }));
+    const bad = s.state === "stale" || s.state === "no data" || s.failures_in_row > 0;
+    return kv(SOURCE_NAMES[s.name] ? t(SOURCE_NAMES[s.name]) : s.name, parts.join(" · "), bad ? "warn" : "");
+  }));
+}
+
+function parseLog(text) {
+  const lines = [];
+  for (const line of text.split("\n")) {
+    const m = LOG_LINE.exec(line);
+    if (!m) continue;  // the header ("# ...") and empty lines
+    lines.push({ time: m[1].trim(), level: m[2].trim(), area: m[3], text: m[4] });
+  }
+  return lines;
+}
+// "2026-11-06 07:42:05" -> "06.11. 07:42:05"; "+0:00:12" (before the clock was set) as it is.
+function logTime(s) {
+  const m = /^(\d{4})-(\d\d)-(\d\d) (.*)$/.exec(s);
+  return m ? (lang === "en" ? m[3] + "/" + m[2] : m[3] + "." + m[2] + ".") + " " + m[4] : s;
+}
+function renderLog() {
+  const keep = sysFilter === "error" ? ["ERROR"] : sysFilter === "warn" ? ["WARN", "ERROR"] : ["INFO", "WARN", "ERROR"];
+  const rows = [];
+  for (let i = sysLines.length - 1; i >= 0; i--) {
+    const l = sysLines[i];
+    if (!keep.includes(l.level)) continue;
+    // A start begins with the entry "start ..." of the area "system"; a dashed
+    // line below it separates the start before.
+    const boot = l.area === "system" && l.text.startsWith("start ");
+    rows.push(el("div", { class: (l.level === "ERROR" ? "error" : l.level === "WARN" ? "warn" : "") + (boot ? " boot" : "") },
+      el("span", {}, logTime(l.time)), el("span", {}, l.level), el("span", {}, l.area), el("span", {}, l.text)));
+  }
+  $("sysLog").replaceChildren(...(rows.length ? rows : [el("p", {}, t("sysNoEntries"))]));
+}
+async function loadSystem() {
+  if (sysLoading) return;
+  sysLoading = true;
+  $("sysProblem").hidden = true;
+  try {
+    renderSystem(await api("api/system", { passive: true }));
+    const text = await api("api/log", { passive: true });
+    sysLines = parseLog(typeof text === "string" ? text : "");
+    renderLog();
+  } catch (e) {
+    if (!(e instanceof HttpError && e.status === 401)) {
+      $("sysProblem").textContent = t("sysLoadFailed");
+      $("sysProblem").hidden = false;
+    }
+  } finally {
+    sysLoading = false;
+  }
+}
+segSet($("sysFilter"), sysFilter);
+$("sysFilter").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  sysFilter = b.dataset.v;
+  segSet($("sysFilter"), sysFilter);
+  renderLog();
+});
+$("sysRefresh").addEventListener("click", loadSystem);
+
 // --- Tabs ----------------------------------------------------------------------------
 
-const TABS = ["general", "mvg", "weather", "calendar", "device"];
+const TABS = ["general", "mvg", "weather", "calendar", "device", "system"];
 function selectTab(name) {
   if (!TABS.includes(name)) name = "general";
   document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
   document.querySelectorAll("main section[data-tab]").forEach((s) => { s.hidden = s.dataset.tab !== name; });
   try { sessionStorage.setItem("inktavlaTab", name); } catch (e) { /* not available */ }
+  if (name === "system") loadSystem();
 }
 $("tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button");

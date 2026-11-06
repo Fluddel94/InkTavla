@@ -174,7 +174,7 @@ void test_min_interval_and_old_presses() {
 
 void test_key_table() {
   TEST_ASSERT_TRUE(core::keyAction(0, ButtonEvent::kShort) == core::KeyAction::kRefresh);
-  TEST_ASSERT_TRUE(core::keyAction(1, ButtonEvent::kShort) == core::KeyAction::kNone);
+  TEST_ASSERT_TRUE(core::keyAction(1, ButtonEvent::kShort) == core::KeyAction::kSystem);
   TEST_ASSERT_TRUE(core::keyAction(2, ButtonEvent::kShort) == core::KeyAction::kSettings);
   TEST_ASSERT_TRUE(core::keyAction(2, ButtonEvent::kLong) == core::KeyAction::kNone);
   TEST_ASSERT_TRUE(core::keyAction(3, ButtonEvent::kShort) == core::KeyAction::kNone);

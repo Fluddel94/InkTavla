@@ -7,6 +7,7 @@
 //   INKTAVLA CONFIG PUT <bytes> <crc32>   then exactly <bytes> bytes of JSON
 //   INKTAVLA CONFIG GET                   the stored /config.json
 //   INKTAVLA INFO                         firmware version and memory
+//   INKTAVLA LOG                          the system log (core/syslog.h)
 //   INKTAVLA SECRET SET <name> <bytes> <crc32>   then exactly <bytes> bytes
 //   INKTAVLA SECRET CLEAR <name>
 //
@@ -16,7 +17,8 @@
 //
 // Replies are lines starting with "INKTAVLA ": "OK ...", "ERR <reason>",
 // "ISSUE <path>: <message>" (problems found in a new configuration),
-// "DATA <bytes> <crc32>" followed by the file, "INFO ...". The CRC-32 is
+// "DATA <bytes> <crc32>" followed by the file, "INFO ...", "LOG <lines>"
+// followed by the lines of the log and "OK". The CRC-32 is
 // the usual one (zlib, PNG) in hexadecimal. tools/inktavla_config.py
 // implements the PC side.
 
@@ -40,7 +42,16 @@ class CommandParser {
   static constexpr int64_t kPayloadTimeoutMs = 5000;
 
   struct Event {
-    enum class Kind { kNone, kConfigPut, kConfigGet, kInfo, kSecretSet, kSecretClear, kError };
+    enum class Kind {
+      kNone,
+      kConfigPut,
+      kConfigGet,
+      kInfo,
+      kLog,
+      kSecretSet,
+      kSecretClear,
+      kError
+    };
     Kind kind = Kind::kNone;
     std::string payload;  // kConfigPut: the received file, kSecretSet: the value (CRC checked)
     std::string name;     // kSecretSet, kSecretClear: name of the secret

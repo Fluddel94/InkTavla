@@ -76,6 +76,9 @@ EmojiIcon iconFor(uint32_t cp) {
       return I::kCoffee;
     case 0x26BD:
       return I::kSoccer;
+    case 0x1F384:  // Christmas tree
+    case 0x1F332:  // evergreen tree
+      return I::kTree;
     default:
       return I::kCount;
   }

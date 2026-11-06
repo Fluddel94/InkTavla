@@ -5,12 +5,15 @@
 #include <unity.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "core/display_controller.h"
 #include "core/freshness.h"
 #include "core/refresh.h"
+#include "core/syslog.h"
 #include "hal/png_display.h"
 
 using core::DataState;
@@ -39,10 +42,13 @@ class FakeContent : public core::Content {
   bool isSetUp() const override { return set_up_; }
   bool fetch(int64_t wall_s) override {
     calls.push_back(wall_s);
+    if (!succeed && !problem.empty()) core::noteFetchProblem("%s", problem.c_str());
     return succeed;
   }
+  const char* logName() const override { return "test"; }
 
   bool succeed = true;
+  std::string problem;
   std::vector<int64_t> calls;
 
  private:
@@ -68,6 +74,22 @@ class FakeRenderer : public core::ScreenRenderer {
   std::vector<uint8_t> frame;
   std::vector<core::ScreenState> states;
 };
+
+// Texts of the log entries of the area "test" after the running number seq.
+std::vector<std::string> logged(uint32_t seq, core::LogLevel level = core::LogLevel::kInfo) {
+  std::vector<std::string> result;
+  core::LogEntry e;
+  while (core::systemLog().next(seq, e)) {
+    seq = e.seq;
+    if (std::string(e.area) == "test" && e.level == level) result.push_back(e.text);
+  }
+  return result;
+}
+
+uint32_t lastSeq() {
+  const std::vector<core::LogEntry> n = core::systemLog().newest(1);
+  return n.empty() ? 0 : n[0].seq;
+}
 
 core::FrameView view(const std::vector<uint8_t>& data, uint16_t w, uint16_t h) {
   return {data.data(), w, h, static_cast<size_t>((w + 7) / 8)};
@@ -415,6 +437,102 @@ void test_controller_without_wall_clock_uses_plain_intervals() {
   TEST_ASSERT_EQUAL_size_t(drawn + 1, renderer.states.size());
 }
 
+void test_controller_logs_failures_once_and_the_recovery() {
+  FakeClock clock;
+  core::setLogClock([&] { return clock.ms; }, [&] { return clock.wallTime(); });
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  c.setNetworkConnected(true);
+  const uint32_t seq = lastSeq();
+  c.step();
+  a.succeed = false;
+  a.problem = "HTTP 503";
+  // Retries every 10 s for 10 minutes: one warning only.
+  while (clock.ms < 600000) clock.advance(std::max<int64_t>(c.step(), 1));
+  std::vector<std::string> w = logged(seq, core::LogLevel::kWarning);
+  TEST_ASSERT_EQUAL_size_t(1, w.size());
+  TEST_ASSERT_EQUAL_STRING("fetch failed: HTTP 503 (0.0 s)", w[0].c_str());
+  // Another reason is logged again.
+  a.problem = "timed out after 0 bytes";
+  while (clock.ms < 700000) clock.advance(std::max<int64_t>(c.step(), 1));
+  TEST_ASSERT_EQUAL_size_t(2, logged(seq, core::LogLevel::kWarning).size());
+  // After 30 minutes once as an error.
+  while (clock.ms < 2000000) clock.advance(std::max<int64_t>(c.step(), 1));
+  const std::vector<std::string> e = logged(seq, core::LogLevel::kError);
+  TEST_ASSERT_EQUAL_size_t(1, e.size());
+  TEST_ASSERT_EQUAL_STRING("failing for 30 min (181 attempts): timed out after 0 bytes",
+                           e[0].c_str());
+  const core::SourceReport r = c.sourceReports()[0];
+  TEST_ASSERT_EQUAL_STRING("test", r.name.c_str());
+  TEST_ASSERT_TRUE(r.failures_in_row > 180);
+  TEST_ASSERT_EQUAL_STRING("timed out after 0 bytes", r.problem.c_str());
+  TEST_ASSERT_TRUE(r.state == DataState::kStale);
+  // Works again: one line with the count and the time.
+  a.succeed = true;
+  const unsigned failures = r.failures_in_row;
+  clock.advance(std::max<int64_t>(c.step(), 1));
+  c.step();
+  const std::vector<std::string> i = logged(seq);
+  TEST_ASSERT_FALSE(i.empty());
+  char expected[96];
+  std::snprintf(expected, sizeof(expected),
+                "works again after %u failed attempts (0:33:", failures);
+  TEST_ASSERT_EQUAL_STRING_LEN(expected, i.back().c_str(), std::strlen(expected));
+  TEST_ASSERT_EQUAL(0, c.sourceReports()[0].failures_in_row);
+  // The published copy for the settings page is the same.
+  TEST_ASSERT_EQUAL(1, core::publishedSourceReports().size());
+  core::setLogClock(nullptr, nullptr);
+}
+
+void test_controller_logs_a_summary_every_hour() {
+  FakeClock clock;
+  core::setLogClock([&] { return clock.ms; }, [&] { return clock.wallTime(); });
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  c.setNetworkConnected(true);
+  int hooks = 0;
+  c.setSummaryHook([&] { hooks++; });
+  const uint32_t seq = lastSeq();
+  while (clock.ms < core::DisplayController::kLogSummaryMs + 1000) {
+    clock.advance(std::max<int64_t>(c.step(), 1));
+  }
+  const std::vector<std::string> i = logged(seq);
+  TEST_ASSERT_EQUAL_size_t(1, i.size());
+  TEST_ASSERT_EQUAL_STRING("last hour: 61 ok, 0 failed, avg 0.0 s, max 0.0 s", i[0].c_str());
+  TEST_ASSERT_EQUAL(1, hooks);
+  core::setLogClock(nullptr, nullptr);
+}
+
+void test_controller_system_page_closes_after_two_minutes() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  clock.advance(c.step());
+  const int64_t opened = clock.ms;
+  c.showSystemPage(true);
+  c.step();
+  TEST_ASSERT_TRUE(renderer.states.back().system_page);
+  TEST_ASSERT_TRUE(display.updates().back().mode == hal::Refresh::kFull);
+  while (clock.ms < 200000) {
+    const int64_t wait = c.step();
+    if (!c.systemPageShown()) break;
+    clock.advance(std::max<int64_t>(wait, 1));
+  }
+  TEST_ASSERT_FALSE(c.systemPageShown());
+  TEST_ASSERT_EQUAL_INT64(opened + core::DisplayController::kSystemPageMs, clock.ms);
+  TEST_ASSERT_FALSE(renderer.states.back().system_page);
+  TEST_ASSERT_TRUE(display.updates().back().mode == hal::Refresh::kFull);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_freshness_bridges_short_failures);
@@ -432,5 +550,8 @@ int main() {
   RUN_TEST(test_controller_start_screen_waits_for_the_network_and_first_results);
   RUN_TEST(test_controller_start_screen_ends_with_a_wifi_notice_or_the_time_limit);
   RUN_TEST(test_controller_without_wall_clock_uses_plain_intervals);
+  RUN_TEST(test_controller_logs_failures_once_and_the_recovery);
+  RUN_TEST(test_controller_logs_a_summary_every_hour);
+  RUN_TEST(test_controller_system_page_closes_after_two_minutes);
   return UNITY_END();
 }

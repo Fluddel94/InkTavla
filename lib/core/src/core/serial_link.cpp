@@ -10,11 +10,14 @@
 
 #include "core/improv.h"
 #include "core/littlefs_store.h"
+#include "core/syslog.h"
 #include "core/time.h"
 
 namespace core {
 
 namespace {
+
+constexpr char kLogPrefix[] = "INKTAVLA LOG ";
 
 constexpr uint32_t kTaskStack = 8192;
 constexpr uint32_t kPollMs = 20;
@@ -73,10 +76,12 @@ void handleWifiSettings(const improv::Rpc& rpc) {
     wifi->markCredentialsSaved();
     wifi->setFailedNetwork("");
     Serial.println("Improv: connected, credentials saved");
+    logInfo("wifi", "new network set up over USB, saved");  // never its name
     sendState(improv::kProvisioned);
     send(improv::rpcResult(improv::kWifiSettings, {}));
   } else {
     Serial.println("Improv: connection failed, the old credentials stay");
+    logWarning("wifi", "network from the USB setup not reached, nothing saved");
     // Only shown while no network is saved (the Wi-Fi setup screen).
     wifi->setFailedNetwork(ssid);
     restoreSavedWifi();
@@ -152,14 +157,32 @@ void handleImprov(const improv::Parser& parser) {
 
 // --- Configuration commands ------------------------------------------------------
 
+// "INKTAVLA LOG": the whole system log, line by line (it may be larger than
+// the free internal heap).
+void sendLog() {
+  send(std::string(kLogPrefix) + std::to_string(systemLog().size()) + "\n");
+  LogEntry e;
+  uint32_t seq = 0;
+  while (systemLog().next(seq, e)) {
+    send(formatLogLine(e) + "\n");
+    seq = e.seq;
+  }
+  send("INKTAVLA OK\n");
+}
+
 void handleCommand(const CommandParser::Event& event) {
   if (event.kind == CommandParser::Event::Kind::kNone) return;
+  if (event.kind == CommandParser::Event::Kind::kLog) {
+    sendLog();
+    return;
+  }
   LittleFsStore store;
   NvsSecretStore secrets;
   const CommandReply reply = core::handleCommand(event, store, options.validate,
                                                  options.info ? options.info() : "", &secrets);
   send(reply.text);
   if (reply.restart) {
+    logInfo("system", "restarting (settings over USB)");
     Serial.flush();
     vTaskDelay(pdMS_TO_TICKS(500));
     ESP.restart();

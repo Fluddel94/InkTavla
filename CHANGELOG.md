@@ -9,11 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Calendar: emoji in event titles and locations are shown as 29 small
+- System log: the display notes what it does and why something fails
+  (start with the reason of the last restart, Wi-Fi, clock, failed and
+  recovered updates of every data source with the reason, settings page,
+  firmware updates, buttons, and once an hour a summary of the updates, the
+  memory and the Wi-Fi signal). KEY2 shows it on the display (system page:
+  state of the device and the newest lines; KEY2 again or after two minutes
+  back), the new tab "System" of the settings page shows the state, the
+  whole log with a filter and a download as a text file, and
+  `tools/inktavla_config.py log` reads it over USB. It holds fixed texts and
+  numbers only, no addresses, Wi-Fi names or calendar titles. Warnings and
+  errors survive a restart or a crash, nothing is written to flash. See
+  `docs/system-log.md`.
+- Calendar: emoji in event titles and locations are shown as 30 small
   pictures (all hearts, laughing, smiling, loving, crying and winking faces,
   thumbs up, party, cake, gift, star, check mark, warning, exclamation mark,
   fire, calendar, clock, phone, briefcase, house, medical, tooth, shopping
-  cart, airplane, car, train, dining, coffee and soccer ball). The pictures
+  cart, airplane, car, train, dining, coffee, soccer ball and Christmas
+  tree). The pictures
   are original drawings in the size of the text; colours and skin tones make
   no difference.
 

@@ -7,6 +7,7 @@
 #include <NetworkClientSecure.h>
 
 #include "core/chunked.h"
+#include "core/syslog.h"
 
 namespace core {
 
@@ -101,6 +102,26 @@ void configure(NetworkClientSecure& client, HTTPClient& http) {
   http.useHTTP10(true);  // no chunks if the server honours it
 }
 
+// Why a request failed, for the system log (core/syslog.h): fixed texts of
+// the firmware and its libraries and numbers only, never the URL.
+void noteProblem(NetworkClientSecure& client, const HttpResult& r) {
+  if (r.status > 0 && r.status != 200) {
+    noteFetchProblem("HTTP %d", r.status);
+  } else if (r.timed_out) {
+    noteFetchProblem("timed out after %u bytes", static_cast<unsigned>(r.bytes));
+  } else if (!r.error.empty()) {
+    noteFetchProblem("%s", r.error.c_str());
+  } else if (r.status < 0) {
+    // E.g. a failed TLS handshake or certificate check (mbedTLS text).
+    char tls[48] = "";
+    client.lastError(tls, sizeof(tls));
+    noteFetchProblem("%s%s%s", HTTPClient::errorToString(r.status).c_str(), tls[0] ? ": " : "",
+                     tls);
+  } else {
+    noteFetchProblem("HTTP %d", r.status);
+  }
+}
+
 bool get(const std::string& url, bool follow_redirects,
          const std::function<bool(HttpBodyStream&, HttpResult&)>& read, HttpResult* result) {
   HttpResult r;
@@ -129,6 +150,7 @@ bool get(const std::string& url, bool follow_redirects,
     // No URL in the log: it may contain secrets (e.g. a private iCal address).
     Serial.printf("HTTP: request failed, status %d%s%s%s\n", r.status,
                   r.timed_out ? ", timed out" : "", r.error.empty() ? "" : ", ", r.error.c_str());
+    noteProblem(client, r);
   }
   if (result != nullptr) *result = r;
   return ok;

@@ -32,6 +32,9 @@
 //                             (core/firmware_writer.h), then restarts
 //   GET  /api/update/status   {"state": "idle"|"downloading"|"failed"|"done",
 //                             "bytes", "total", "error"}; not an action
+//   GET  /api/system          state of the device (core/system_report.h)
+//   GET  /api/log             the system log as text (core/syslog.h);
+//                             ?download=1 as a file
 //   GET  /api/<widget>/...    setup help of the widgets (SettingsRoute)
 //
 // After saving, the session is kept in memory that survives the restart,
@@ -48,6 +51,7 @@
 
 #include "core/access_notice.h"
 #include "core/config_command.h"
+#include "core/system_report.h"
 #include "core/wifi.h"
 
 namespace core {
@@ -70,6 +74,8 @@ struct SettingsServerOptions {
   // "widgets": [{"id", "sizes": ["wide"|"column"]}], "slots": [...]
   std::function<std::string()> layout_json;
   std::vector<SettingsRoute> routes;
+  // State of the device for the tab "System" (called in the server task).
+  std::function<SystemReport()> system_report;
 };
 
 class SettingsServer {

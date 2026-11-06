@@ -13,6 +13,7 @@ enum class KeyAction {
   kNone,
   kRefresh,   // fetch everything now and refresh the whole panel
   kSettings,  // open the settings page (or close it when open)
+  kSystem,    // show the system page (or the normal screen again)
 };
 
 // Number of buttons of the reference hardware (KEY1..KEY3 of the EE04).

@@ -105,6 +105,7 @@ only one program can use the port.
 python tools/inktavla_config.py put my-config.json --port COM5
 python tools/inktavla_config.py get backup.json --port COM5
 python tools/inktavla_config.py info --port COM5
+python tools/inktavla_config.py log inktavla-log.txt --port COM5
 ```
 
 Without a separate Python installation, the Python that comes with
@@ -475,11 +476,11 @@ weight; a long title wraps once onto a second line where there is room
 with long words hyphenated as in the disruption text of the departures,
 else it is shortened with "…". All-day events have a small calendar symbol.
 
-Emoji in titles and locations are shown as small pictures for a set of 29
+Emoji in titles and locations are shown as small pictures for a set of 30
 common ones (hearts of every colour, a few faces, thumbs up, party, cake,
 gift, star, check mark, warning, exclamation mark, fire, calendar, clock,
 phone, briefcase, house, medical, tooth, shopping cart, airplane, car, train,
-dining, coffee, soccer ball); related emoji share a picture (for example
+dining, coffee, soccer ball, Christmas tree); related emoji share a picture (for example
 all hearts). Skin tones are ignored. Every other emoji is left out, because
 the fonts have no colour emoji.
 

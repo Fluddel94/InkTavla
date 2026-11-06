@@ -104,6 +104,10 @@ CommandParser::Event CommandParser::line(const std::string& text) {
     e.kind = Event::Kind::kInfo;
     return e;
   }
+  if (command == "LOG") {
+    e.kind = Event::Kind::kLog;  // sent line by line by the serial link
+    return e;
+  }
   if (command.compare(0, 11, "CONFIG PUT ") == 0) {
     const std::string args = command.substr(11);
     const size_t space = args.find(' ');
@@ -163,6 +167,7 @@ CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store
   CommandReply reply;
   switch (event.kind) {
     case Kind::kNone:
+    case Kind::kLog:  // handled by the serial link (core/serial_link.cpp)
       return reply;
     case Kind::kError:
       reply.text = std::string(kPrefix) + "ERR " + event.error + "\n";

@@ -12,12 +12,15 @@
 // simulated clock, simulated network and a PNG display (see hal::PngDisplay).
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 #include "core/access_notice.h"
 #include "core/freshness.h"
 #include "core/refresh.h"
 #include "core/scheduler.h"
+#include "core/system_report.h"
 #include "hal/display.h"
 
 namespace core {
@@ -49,10 +52,15 @@ class Content {
   virtual bool isSetUp() const { return true; }
 
   // Fetches fresh data; true on success. A failure keeps the old data.
+  // A failure may note its reason with core::noteFetchProblem() for the
+  // system log.
   virtual bool fetch(int64_t wall_s) {
     (void)wall_s;
     return true;
   }
+
+  // Name in the system log, e.g. "mvg" (fixed text, at most 8 characters).
+  virtual const char* logName() const { return "data"; }
 };
 
 struct ContentStatus {
@@ -74,6 +82,9 @@ struct ScreenState {
   // The network as it is now, without the grace period (for the start
   // screen: "waiting for Wi-Fi").
   bool network_up = false;
+  // The system page is shown instead of everything else (KEY2, see
+  // DisplayController::showSystemPage()).
+  bool system_page = false;
 };
 
 // Composes the frame from the state (implemented above core).
@@ -99,6 +110,13 @@ class DisplayController {
   // the first connection if that comes later (kStartAfterConnectMs).
   static constexpr int64_t kStartMaxMs = 20000;
   static constexpr int64_t kStartAfterConnectMs = 15000;
+  // The system page closes by itself after this time.
+  static constexpr int64_t kSystemPageMs = 2 * 60 * 1000;
+  // Fetches of every source are summed up in the log once per period
+  // (single fetches are only logged when they fail or work again).
+  static constexpr int64_t kLogSummaryMs = 60 * 60 * 1000;
+  // A source still failing after this time is logged as an error once.
+  static constexpr int64_t kLongFailureMs = 30 * 60 * 1000;
 
   DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                     int full_refresh_minutes);
@@ -129,6 +147,19 @@ class DisplayController {
   // redraws at once when it changes. A Wi-Fi notice ends the start screen.
   void setAccessNotice(const AccessNotice& notice);
 
+  // Shows the system page instead of everything else, or the normal screen
+  // again (full refresh both ways). It closes by itself after
+  // kSystemPageMs; while shown it is redrawn every minute.
+  void showSystemPage(bool show);
+  bool systemPageShown() const { return system_page_; }
+
+  // Called once per kLogSummaryMs after the summary of the sources (e.g. to
+  // log the memory on the device).
+  void setSummaryHook(std::function<void()> hook) { summary_hook_ = std::move(hook); }
+
+  // Every source with its fetch statistics, in the order of addContent().
+  std::vector<SourceReport> sourceReports() const;
+
   // One pass of the main loop: runs due fetches, redraws and refreshes the
   // panel if anything changed. Returns the milliseconds until the next pass
   // is needed.
@@ -146,7 +177,19 @@ class DisplayController {
     Freshness freshness;
     Scheduler::TaskId task = -1;  // -1: nothing to fetch
     bool has_result = false;      // for the start screen
+    // For the system log and page.
+    SourceReport report;
+    int64_t failing_since_ms = 0;
+    bool long_failure_logged = false;
+    std::string logged_problem;  // problem of the last logged failure
+    uint32_t period_successes = 0;
+    uint32_t period_failures = 0;
+    uint64_t period_ms = 0;  // sum of the durations
+    uint32_t period_max_ms = 0;
   };
+
+  void fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s);
+  void logSummary();
 
   void buildState(int64_t now_ms, int64_t wall_s);
   // Whether the network is shown as connected at this time.
@@ -177,6 +220,10 @@ class DisplayController {
   bool starting_ = false;
   bool start_redraw_ = false;        // network changed while starting
   int64_t first_connected_ms_ = -1;  // -1: not connected yet
+  bool system_page_ = false;
+  int64_t system_page_ms_ = 0;  // when it was opened
+  int64_t next_summary_ms_ = kLogSummaryMs;
+  std::function<void()> summary_hook_;
 };
 
 }  // namespace core

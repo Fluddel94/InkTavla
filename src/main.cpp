@@ -5,6 +5,8 @@
 
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <WiFi.h>
+#include <esp_heap_caps.h>
 #include <esp_ota_ops.h>
 
 #include <algorithm>
@@ -19,6 +21,8 @@
 #include "core/secrets.h"
 #include "core/serial_link.h"
 #include "core/settings_server.h"
+#include "core/syslog.h"
+#include "core/system_report.h"
 #include "core/time.h"
 #include "core/version.h"
 #include "core/wifi.h"
@@ -58,6 +62,55 @@ void printIssues(const core::ConfigIssues& issues) {
     Serial.printf("Config: %s: %s\n", i.path.empty() ? "(file)" : i.path.c_str(),
                   i.message.c_str());
   }
+  // Only the number in the system log: a message may quote a setting.
+  if (!issues.empty()) {
+    core::logWarning("config", "%u problem%s in the settings (see the settings page)",
+                     static_cast<unsigned>(issues.size()), issues.size() == 1 ? "" : "s");
+  }
+}
+
+// What only the hardware knows, for the system page and the settings page.
+// Called in the main loop and in the task of the settings page.
+core::DeviceInfo deviceInfo() {
+  core::DeviceInfo d;
+  d.firmware = core::kFirmwareVersion;
+  d.uptime_s = core::monotonicMs() / 1000;
+  d.restart_reason = core::restartReason();
+  d.restart_unplanned = core::restartWasUnplanned();
+  d.boot = core::systemLog().boot();
+  d.wifi_connected = WiFi.status() == WL_CONNECTED;
+  d.rssi_dbm = d.wifi_connected ? WiFi.RSSI() : 0;
+  d.heap_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  d.heap_min_free = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  d.heap_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  d.psram_free = ESP.getFreePsram();
+  d.psram_size = ESP.getPsramSize();
+  d.time_valid = core::isValidUnixTime(clock_source.wallTime());
+  return d;
+}
+
+// Report for the settings page (its own task): the sources as last
+// published by the display controller.
+core::SystemReport settingsReport() {
+  core::SystemReport report;
+  report.device = deviceInfo();
+  report.sources = core::publishedSourceReports();
+  report.errors = core::systemLog().count(core::LogLevel::kError);
+  report.warnings = core::systemLog().count(core::LogLevel::kWarning) - report.errors;
+  return report;
+}
+
+// Once an hour after the summary of the sources: memory and Wi-Fi signal,
+// to see slow changes (fragmentation of the heap, a worse signal).
+void logHourly() {
+  const core::DeviceInfo d = deviceInfo();
+  core::logInfo(
+      "memory", "heap %u KB free (lowest %u KB, largest block %u KB), PSRAM %u KB free",
+      static_cast<unsigned>(d.heap_free / 1024), static_cast<unsigned>(d.heap_min_free / 1024),
+      static_cast<unsigned>(d.heap_largest / 1024), static_cast<unsigned>(d.psram_free / 1024));
+  if (d.wifi_connected) {
+    core::logInfo("wifi", "signal %d dBm (%s)", d.rssi_dbm, core::signalQuality(d.rssi_dbm));
+  }
 }
 
 std::string info() {
@@ -76,7 +129,7 @@ void handleButtons() {
     const core::KeyAction action =
         core::keyAction(i, button_logic[i].update(now, buttons.sample(i)));
     if (action == core::KeyAction::kNone) continue;
-    Serial.printf("Key %u: %s\n", static_cast<unsigned>(i + 1), core::keyActionName(action));
+    core::logInfo("keys", "KEY%u: %s", static_cast<unsigned>(i + 1), core::keyActionName(action));
     switch (action) {
       case core::KeyAction::kRefresh:
         app->controller().requestUpdate();
@@ -84,10 +137,15 @@ void handleButtons() {
         break;
       case core::KeyAction::kSettings:
         if (wifi.connected() || settings.isOpen()) {
+          // The code for the page must be visible.
+          app->controller().showSystemPage(false);
           settings.toggle();
         } else {
-          Serial.println("Settings page: needs Wi-Fi");
+          core::logWarning("settings", "the settings page needs Wi-Fi");
         }
+        break;
+      case core::KeyAction::kSystem:
+        app->controller().showSystemPage(!app->controller().systemPageShown());
         break;
       case core::KeyAction::kNone:
         break;
@@ -129,7 +187,7 @@ void confirmFirmware(bool connected) {
   if (!firmware_pending || !core::firmwareConfirmed(core::monotonicMs(), connected)) return;
   esp_ota_mark_app_valid_cancel_rollback();
   firmware_pending = false;
-  Serial.println("Firmware: new version confirmed");
+  core::logInfo("update", "new firmware confirmed");
 }
 
 }  // namespace
@@ -145,7 +203,8 @@ void setup() {
   Serial.begin(115200);
   Serial.setTxTimeoutMs(0);  // Do not block when no serial monitor is open.
 
-  Serial.printf("Firmware %s\n", core::kFirmwareVersion);
+  // First, so everything after it is in the log.
+  core::startSystemLog(core::kFirmwareVersion);
   Serial.printf("Flash: %lu bytes, PSRAM: %lu bytes\n",
                 static_cast<unsigned long>(ESP.getFlashChipSize()),
                 static_cast<unsigned long>(ESP.getPsramSize()));
@@ -154,7 +213,7 @@ void setup() {
   if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &ota_state) == ESP_OK &&
       ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
     firmware_pending = true;
-    Serial.println("Firmware: new version, confirmed once it runs");
+    core::logInfo("update", "new firmware runs, confirmed after 30 s with Wi-Fi");
   }
 
   services = widgets::deviceServices();
@@ -170,8 +229,11 @@ void setup() {
     open_settings_once = core::opensSettingsOnStart(exists, loaded, config.as<JsonVariantConst>());
   } else {
     issues.push_back({"", "file system not available, using defaults"});
+    core::logError("system", "file system not available, using defaults");
   }
   app->configure(config.as<JsonObjectConst>(), issues);
+  app->setDeviceInfo(deviceInfo);
+  app->controller().setSummaryHook(logHourly);
   printIssues(issues);
   {
     std::string password;
@@ -194,6 +256,7 @@ void setup() {
   page.validate = widgets::validateConfig;
   page.layout_json = widgets::settingsLayoutJson;
   page.routes = widgets::settingsRoutes();
+  page.system_report = settingsReport;
   settings.begin(wifi, std::move(page));
 
   for (size_t i = 0; i < core::kKeyCount; i++) {

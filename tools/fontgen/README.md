@@ -14,7 +14,7 @@ change to the script or to the font list in it (`FONTS`, `CHARSET`).
 
 ## Emoji icons
 
-`emoji_icons.py` holds own drawings of 29 emoji (1 bit, drawn at four times
+`emoji_icons.py` holds own drawings of 30 emoji (1 bit, drawn at four times
 the size and scaled down). `fontgen.py` renders them in the size of each text
 font (90 % of the font size) and adds them as glyphs in the Unicode private
 use area (U+E000 and up, in the order of `ICONS`). `lib/ui/src/ui/emoji.cpp`

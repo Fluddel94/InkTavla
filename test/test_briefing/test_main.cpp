@@ -25,6 +25,7 @@
 #include "widgets/briefing/band.h"
 #include "widgets/briefing/sentence.h"
 #include "widgets/briefing/start.h"
+#include "widgets/briefing/system_page.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/column_view.h"
 #include "widgets/calendar/parser.h"
@@ -1166,6 +1167,152 @@ void test_incident_variants() {
   check(bitmap, "briefing_departure_incidents_long");
 }
 
+// --- System page ------------------------------------------------------------------------
+
+namespace {
+
+constexpr int64_t kSystemNow = 1793947330;  // 2026-11-06 07:42:10 CET
+
+// A morning with a short Wi-Fi dropout and a calendar address that stopped
+// working, after a planned restart the evening before.
+std::vector<core::LogEntry> systemLogSample() {
+  std::vector<core::LogEntry> entries;
+  uint32_t seq = 0;
+  auto add = [&](uint16_t boot, int64_t wall, uint32_t up, core::LogLevel level, const char* area,
+                 const char* text) {
+    core::LogEntry e;
+    e.wall_s = wall;
+    e.uptime_s = up;
+    e.boot = boot;
+    e.seq = ++seq;
+    e.level = level;
+    std::snprintf(e.area, sizeof(e.area), "%s", area);
+    std::snprintf(e.text, sizeof(e.text), "%s", text);
+    entries.push_back(e);
+  };
+  using L = core::LogLevel;
+  const int64_t t = kSystemNow;
+  add(2, t - 50000, 30000, L::kInfo, "system", "restarting (settings saved)");
+  add(3, 0, 0, L::kInfo, "system", "start 0.3.0-dev, restart reason: software restart");
+  add(3, 0, 4, L::kInfo, "wifi", "connected after 0:00:04, signal -61 dBm, channel 6");
+  add(3, t - 49990, 5, L::kInfo, "time", "clock set (NTP)");
+  add(3, t - 3600, 2600, L::kInfo, "mvg", "last hour: 60 ok, 0 failed, avg 0.8 s, max 1.4 s");
+  add(3, t - 3600, 2600, L::kInfo, "memory",
+      "heap 183 KB free (lowest 141 KB, largest block 96 KB), PSRAM 7602 KB free");
+  add(3, t - 1490, 48500, L::kWarning, "wifi", "disconnected, reason 200 (BEACON_TIMEOUT)");
+  add(3, t - 1481, 48509, L::kInfo, "wifi", "connected after 0:00:09, signal -64 dBm, channel 6");
+  add(3, t - 1430, 48560, L::kWarning, "calendar", "fetch failed: HTTP 404 (1.2 s)");
+  add(3, t - 1200, 48790, L::kInfo, "keys", "KEY1: refresh");
+  add(3, t - 1190, 48800, L::kInfo, "calendar", "works again after 1 failed attempt (0:04:00)");
+  add(3, t - 730, 49260, L::kWarning, "calendar", "fetch failed: HTTP 404 (1.1 s)");
+  add(3, t - 600, 49390, L::kInfo, "mvg", "last hour: 59 ok, 1 failed, avg 0.9 s, max 3.1 s");
+  add(3, t - 600, 49390, L::kInfo, "weather", "last hour: 2 ok, 0 failed, avg 1.6 s, max 1.7 s");
+  add(3, t - 600, 49390, L::kInfo, "calendar", "last hour: 2 ok, 2 failed, avg 2.8 s, max 3.0 s");
+  add(3, t - 600, 49390, L::kInfo, "memory",
+      "heap 179 KB free (lowest 138 KB, largest block 92 KB), PSRAM 7598 KB free");
+  add(3, t - 600, 49390, L::kInfo, "wifi", "signal -63 dBm (good)");
+  add(3, t - 140, 49850, L::kError, "calendar", "failing for 30 min (3 attempts): HTTP 404");
+  add(3, t - 5, 49985, L::kInfo, "keys", "KEY2: system page");
+  std::reverse(entries.begin(), entries.end());  // newest first
+  return entries;
+}
+
+core::SystemReport systemReportSample() {
+  core::SystemReport r;
+  core::DeviceInfo& d = r.device;
+  d.firmware = "0.3.0-dev";
+  d.uptime_s = 49990;
+  d.restart_reason = "software restart";
+  d.boot = 3;
+  d.wifi_connected = true;
+  d.rssi_dbm = -63;
+  d.heap_free = 179 * 1024;
+  d.heap_min_free = 138 * 1024;
+  d.heap_largest = 92 * 1024;
+  d.psram_free = 7598 * 1024;
+  d.psram_size = 8 * 1024 * 1024;
+  d.time_valid = true;
+  core::SourceReport mvg;
+  mvg.name = "mvg";
+  mvg.state = core::DataState::kFresh;
+  mvg.last_success_wall_s = kSystemNow - 9;
+  mvg.last_duration_ms = 850;
+  mvg.successes = 830;
+  mvg.failures = 3;
+  mvg.last_failure_wall_s = kSystemNow - 2400;
+  mvg.problem = "timed out after 0 bytes";
+  core::SourceReport weather;
+  weather.name = "weather";
+  weather.state = core::DataState::kFresh;
+  weather.last_success_wall_s = kSystemNow - 700;
+  weather.last_duration_ms = 1620;
+  weather.successes = 28;
+  core::SourceReport calendar;
+  calendar.name = "calendar";
+  calendar.state = core::DataState::kStale;
+  calendar.last_success_wall_s = kSystemNow - 1190;
+  calendar.last_duration_ms = 1100;
+  calendar.successes = 54;
+  calendar.failures = 4;
+  calendar.failures_in_row = 3;
+  calendar.last_failure_wall_s = kSystemNow - 130;
+  calendar.problem = "HTTP 404";
+  r.sources = {mvg, weather, calendar};
+  r.warnings = 3;
+  r.errors = 1;
+  return r;
+}
+
+}  // namespace
+
+// The system page (KEY2) with a morning of a Wi-Fi dropout and a failing
+// calendar address (German), and right after a crash without a clock
+// (English).
+void test_preview_system_page() {
+  const std::vector<core::LogEntry> log = systemLogSample();
+  const core::SystemReport report = systemReportSample();
+  ui::Bitmap bitmap(800, 2 * 480 + 10);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas gap(bitmap, 0, 480, 800, 10);
+  gap.fillDotted(0, 0, 800, 10);
+  ui::BitmapCanvas morning(bitmap, 0, 0, 800, 480);
+  const size_t lines = widgets::briefing::systemPageLogLines();
+  TEST_ASSERT_EQUAL(23, lines);
+  widgets::briefing::drawSystemPage(
+      morning, ui::Language::kGerman, report,
+      std::vector<core::LogEntry>(log.begin(), log.begin() + std::min(log.size(), lines)),
+      kSystemNow);
+
+  // After a crash: the lines before it came back from the RTC memory, the
+  // clock is not set yet, no data yet.
+  core::SystemReport crash = report;
+  crash.device.uptime_s = 12;
+  crash.device.restart_reason = "crash (panic)";
+  crash.device.restart_unplanned = true;
+  crash.device.wifi_connected = false;
+  crash.device.time_valid = false;
+  crash.device.heap_min_free = crash.device.heap_free;
+  for (core::SourceReport& s : crash.sources) s = {s.name};
+  crash.warnings = 1;
+  crash.errors = 1;
+  std::vector<core::LogEntry> after;
+  core::LogEntry e;
+  e.boot = 4;
+  e.level = core::LogLevel::kError;
+  e.uptime_s = 0;
+  std::snprintf(e.area, sizeof(e.area), "system");
+  std::snprintf(e.text, sizeof(e.text), "start 0.3.0-dev, restart reason: crash (panic)");
+  after.push_back(e);
+  for (const core::LogEntry& old : log) {
+    if (old.level != core::LogLevel::kInfo || std::string(old.area) == "system") {
+      after.push_back(old);
+    }
+  }
+  ui::BitmapCanvas crashed(bitmap, 0, 490, 800, 480);
+  widgets::briefing::drawSystemPage(crashed, ui::Language::kEnglish, crash, after, 0);
+  check(bitmap, "system_page");
+}
+
 // --- Band ---------------------------------------------------------------------------
 
 // Start screen: loading the data (German), and waiting for a saved Wi-Fi
@@ -1523,6 +1670,7 @@ int main() {
   RUN_TEST(test_incidents_only_of_drawn_departures);
   RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
   RUN_TEST(test_preview_start_screen);
+  RUN_TEST(test_preview_system_page);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);
   return UNITY_END();

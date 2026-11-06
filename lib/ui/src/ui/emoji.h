@@ -42,6 +42,7 @@ enum class EmojiIcon : uint8_t {
   kDining,
   kCoffee,
   kSoccer,
+  kTree,  // 🎄 🌲 (not 🌳, a deciduous tree)
   kCount,
 };
 

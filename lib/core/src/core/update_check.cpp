@@ -75,6 +75,8 @@ const char* statusName(UpdateStatus status) {
 
 }  // namespace
 
+const char* updateStatusName(UpdateStatus status) { return statusName(status); }
+
 bool parseVersion(const std::string& text, Version& out) {
   std::string core_part = text.substr(0, text.find('+'));
   if (text.find('+') != std::string::npos && !validIdentifiers(text.substr(text.find('+') + 1))) {

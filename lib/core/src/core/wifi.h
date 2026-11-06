@@ -59,6 +59,11 @@ class Wifi {
   std::atomic<bool> attempt_started_{false};  // connect() may run in another task
   mutable std::mutex failed_mutex_;           // failed_network_ is set in the Improv task
   std::string failed_network_;
+  // System log (loop() only): when the connection was lost (or the start,
+  // before the first one), -1 while connected; the reason last logged.
+  int64_t lost_ms_ = 0;
+  int logged_reason_ = -1;
+  bool restart_logged_ = false;
 };
 
 }  // namespace core

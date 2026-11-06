@@ -7,12 +7,17 @@ close the serial monitor first (only one program can use the port).
     python tools/inktavla_config.py put config.json --port COM5
     python tools/inktavla_config.py get backup.json --port COM5
     python tools/inktavla_config.py info --port /dev/ttyACM0
+    python tools/inktavla_config.py log inktavla-log.txt --port COM5
     python tools/inktavla_config.py calendar-url --port COM5
     python tools/inktavla_config.py calendar-url --clear --port COM5
 
 "put" checks the file, sends it and shows the problems the device found in
 it (e.g. an invalid station ID). The device saves the file only if it is
 valid JSON and then restarts with it.
+
+"log" reads the system log of the device (oldest entry first) and writes it
+to the file, or shows it without a file. Like on the settings page it holds
+no addresses, Wi-Fi names or calendar titles.
 
 "calendar-url" asks for the private iCal address of the calendar (the
 input is not shown) and stores it in the device's protected storage, not in
@@ -25,6 +30,7 @@ described in lib/core/src/core/config_command.h.
 import argparse
 import getpass
 import json
+import re
 import sys
 import time
 import zlib
@@ -196,10 +202,60 @@ def command_info(link):
             return 1
 
 
+# A line of the log (core::formatLogLine()); other output of the device
+# that arrives meanwhile (new entries echoed without time) is skipped.
+LOG_LINE = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d|\+[0-9d :]+) +(INFO|WARN|ERROR) ")
+
+
+def command_log(link, path):
+    link.write(b"\n" + PREFIX + b"LOG\n")
+    link.flush()
+    deadline = time.monotonic() + TIMEOUT_S
+    line = read_reply_line(link, deadline)
+    while line is not None and not line.startswith("LOG ") and not line.startswith("ERR"):
+        line = read_reply_line(link, deadline)
+    if line is None:
+        print("No answer from the device (is the InkTavla firmware running?)")
+        return 1
+    if line.startswith("ERR"):
+        print("Error: " + line[3:].strip() + " (firmware before 0.3.0 has no log)")
+        return 1
+    lines = []
+    buffer = b""
+    deadline = time.monotonic() + TIMEOUT_S
+    while time.monotonic() < deadline:
+        chunk = link.read(256)
+        if not chunk:
+            continue
+        deadline = time.monotonic() + TIMEOUT_S  # still arriving
+        buffer += chunk
+        *complete, buffer = buffer.split(b"\n")
+        for raw in complete:
+            text = raw.rstrip(b"\r").decode("utf-8", errors="replace")
+            if text == "INKTAVLA OK":
+                return write_log(lines, path)
+            if LOG_LINE.match(text):
+                lines.append(text)
+    print("The log was not complete (no end mark), nothing saved.")
+    return 1
+
+
+def write_log(lines, path):
+    text = "".join(line + "\n" for line in lines)
+    if path:
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+        print(f"{len(lines)} entries written to {path}")
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("command", choices=["put", "get", "info", "calendar-url"])
-    parser.add_argument("file", nargs="?", help="configuration file (put: required)")
+    parser.add_argument("command", choices=["put", "get", "info", "log", "calendar-url"])
+    parser.add_argument("file", nargs="?",
+                        help="configuration file (put: required), or the file for the log")
     parser.add_argument("--clear", action="store_true",
                         help="calendar-url: remove the stored address")
     parser.add_argument("--port", required=True, help="serial port, e.g. COM5 or /dev/ttyACM0")
@@ -223,6 +279,8 @@ def main(argv):
             return command_put(link, args.file)
         if args.command == "get":
             return command_get(link, args.file)
+        if args.command == "log":
+            return command_log(link, args.file)
         return command_info(link)
     finally:
         link.close()

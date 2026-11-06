@@ -336,6 +336,10 @@ void test_commands_get_info_and_unknown() {
   TEST_ASSERT_EQUAL_size_t(0, events.size());
   events = feedAll(p, "INKTAVLA INFO\n");
   TEST_ASSERT_EQUAL_size_t(1, events.size());
+  // The log is sent by the serial link itself, line by line.
+  events = feedAll(p, "INKTAVLA LOG\n");
+  TEST_ASSERT_EQUAL_size_t(1, events.size());
+  TEST_ASSERT_TRUE(events[0].kind == CommandParser::Event::Kind::kLog);
 }
 
 void test_command_put_receives_exact_bytes() {

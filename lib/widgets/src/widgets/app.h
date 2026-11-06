@@ -8,12 +8,14 @@
 
 #include <ArduinoJson.h>
 
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "core/config.h"
 #include "core/display_controller.h"
+#include "core/system_report.h"
 #include "hal/display.h"
 #include "widgets/registry.h"
 #include "widgets/screen.h"
@@ -45,6 +47,14 @@ class App {
   // (after configure()).
   void setStartInfo(briefing::StartInfo info) { screen_->setStartInfo(std::move(info)); }
 
+  // What only the hardware knows, for the system page and the settings
+  // page (main.cpp; fixed values in the PC simulation).
+  void setDeviceInfo(std::function<core::DeviceInfo()> info) { device_info_ = std::move(info); }
+
+  // The state of the device for the system page (KEY2) and the settings
+  // page: device info, the sources of the controller, counts of the log.
+  core::SystemReport systemReport() const;
+
   // One pass of the main loop; returns the milliseconds to wait.
   int64_t step() { return controller_->step(); }
 
@@ -57,6 +67,7 @@ class App {
   std::vector<std::unique_ptr<View>> views_;
   std::unique_ptr<Screen> screen_;
   std::unique_ptr<core::DisplayController> controller_;
+  std::function<core::DeviceInfo()> device_info_;
 };
 
 }  // namespace widgets

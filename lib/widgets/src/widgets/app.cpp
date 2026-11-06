@@ -158,6 +158,17 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   }
   screen_->setSources(order);
   screen_->setViews(views);
+  screen_->setSystemReport([this] { return systemReport(); });
+}
+
+core::SystemReport App::systemReport() const {
+  core::SystemReport report;
+  if (device_info_) report.device = device_info_();
+  if (controller_ != nullptr) report.sources = controller_->sourceReports();
+  const core::SystemLog& log = core::systemLog();
+  report.errors = log.count(core::LogLevel::kError);
+  report.warnings = log.count(core::LogLevel::kWarning) - report.errors;
+  return report;
 }
 
 }  // namespace widgets

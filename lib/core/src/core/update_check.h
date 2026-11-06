@@ -82,4 +82,7 @@ UpdateInfo evaluateLatestRelease(int http_status, const std::string& location,
 // "notes_url", "http_status"}.
 std::string updateInfoJson(const UpdateInfo& info);
 
+// "available", "up_to_date", ... (as in updateInfoJson()).
+const char* updateStatusName(UpdateStatus status);
+
 }  // namespace core

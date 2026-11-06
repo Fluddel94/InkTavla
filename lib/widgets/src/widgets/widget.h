@@ -47,6 +47,8 @@ class DataSource : public core::Content {
  public:
   // Stable identifier used in the configuration, e.g. "mvg".
   virtual const char* id() const = 0;
+  // The identifier also names the source in the system log.
+  const char* logName() const override { return id(); }
   // Message when isSetUp() is false.
   virtual SetupMessage setupMessage(ui::Language language) const;
   // Problem of the last failed update, while the source has no data.

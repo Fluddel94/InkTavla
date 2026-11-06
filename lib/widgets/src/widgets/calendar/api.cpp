@@ -8,6 +8,7 @@
 
 #include "core/http.h"
 #include "core/secrets.h"
+#include "core/syslog.h"
 
 namespace widgets::calendar {
 
@@ -36,6 +37,8 @@ bool ApiSource::fetchCalendar(Parser& parser) {
                                                      : error_ == FetchError::kAddress
                                                          ? "address rejected"
                                                          : "network");
+    // For the system log; the HTTP status is noted by core::fetchStream().
+    if (parser.notCalendar()) core::noteFetchProblem("no iCal file (address wrong?)");
   }
   // Only sizes and counts in the log, never the address or titles.
   if (ok) {

@@ -9,11 +9,11 @@ struct KeyFunctions {
   KeyAction long_press;
 };
 
-// KEY1: refresh. KEY2: free (planned: system log). KEY3: settings page.
+// KEY1: refresh. KEY2: system page. KEY3: settings page.
 // No key has a function on a long press yet.
 constexpr KeyFunctions kKeys[kKeyCount] = {
     {KeyAction::kRefresh, KeyAction::kNone},
-    {KeyAction::kNone, KeyAction::kNone},
+    {KeyAction::kSystem, KeyAction::kNone},
     {KeyAction::kSettings, KeyAction::kNone},
 };
 
@@ -44,6 +44,8 @@ const char* keyActionName(KeyAction action) {
       return "refresh";
     case KeyAction::kSettings:
       return "settings page";
+    case KeyAction::kSystem:
+      return "system page";
   }
   return "";
 }

@@ -8,6 +8,7 @@
 
 #include <atomic>
 
+#include "core/syslog.h"
 #include "core/time.h"
 
 namespace core {
@@ -26,13 +27,17 @@ constexpr int kReasonAssocLeave = 8;
 // Written in the Wi-Fi task, read in loop().
 std::atomic<bool> disconnect_event{false};
 std::atomic<bool> connected_event{false};
+std::atomic<int> disconnect_reason{0};
 
 void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     const int reason = info.wifi_sta_disconnected.reason;
     Serial.printf("Wi-Fi: disconnected, reason %d (%s)\n", reason,
                   WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)));
-    if (reason != kReasonAssocLeave) disconnect_event = true;
+    if (reason != kReasonAssocLeave) {
+      disconnect_reason = reason;
+      disconnect_event = true;
+    }
   } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
     connected_event = true;
     Serial.printf("Wi-Fi: connected, channel %d, signal %d dBm\n", static_cast<int>(WiFi.channel()),
@@ -60,7 +65,7 @@ void Wifi::begin() {
     has_credentials_ = true;
     connect(ssid, password);
   } else {
-    Serial.println("Wi-Fi: no credentials yet, waiting for Improv");
+    logWarning("wifi", "no network saved yet, waiting for the setup over USB");
   }
 }
 
@@ -74,8 +79,33 @@ void Wifi::connect(const std::string& ssid, const std::string& password) {
 void Wifi::loop() {
   const int64_t now = monotonicMs();
   if (attempt_started_.exchange(false)) policy_.attemptStarted(now);
-  if (connected_event.exchange(false)) policy_.connected();
-  if (disconnect_event.exchange(false)) policy_.disconnected(now);
+  if (connected_event.exchange(false)) {
+    policy_.connected();
+    // Never the network name or the address in the log. A new address
+    // while connected (DHCP) is no new connection.
+    if (lost_ms_ >= 0) {
+      logInfo("wifi", "connected after %s, signal %d dBm, channel %d",
+              formatUptime((now - lost_ms_) / 1000).c_str(), static_cast<int>(WiFi.RSSI()),
+              static_cast<int>(WiFi.channel()));
+    }
+    lost_ms_ = -1;
+    logged_reason_ = -1;
+    restart_logged_ = false;
+  }
+  if (disconnect_event.exchange(false)) {
+    policy_.disconnected(now);
+    const int reason = disconnect_reason;
+    const char* name = WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason));
+    // Attempts are repeated every few seconds: log a lost connection and a
+    // change of the reason, not every attempt.
+    if (lost_ms_ < 0) {
+      lost_ms_ = now;
+      logWarning("wifi", "disconnected, reason %d (%s)", reason, name);
+    } else if (reason != logged_reason_) {
+      logWarning("wifi", "connection attempt failed, reason %d (%s)", reason, name);
+    }
+    logged_reason_ = reason;
+  }
   if (busy_) return;
 
   switch (policy_.poll(now, connected(), has_credentials_)) {
@@ -83,6 +113,10 @@ void Wifi::loop() {
       return;
     case WifiPolicy::Action::kRestartAndConnect:
       Serial.println("Wi-Fi: restarting the Wi-Fi module");
+      if (!restart_logged_) {
+        logInfo("wifi", "restarting the Wi-Fi module after %d failed attempts", policy_.failures());
+        restart_logged_ = true;
+      }
       WiFi.mode(WIFI_OFF);
       delay(200);
       WiFi.mode(WIFI_STA);

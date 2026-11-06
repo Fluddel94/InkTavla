@@ -9,6 +9,7 @@
 #include <esp_system.h>
 
 #include <cstring>
+#include <ctime>
 #include <mutex>
 
 #include "core/firmware_check.h"
@@ -18,6 +19,7 @@
 #include "core/secrets.h"
 #include "core/settings_api.h"
 #include "core/settings_session.h"
+#include "core/syslog.h"
 #include "core/time.h"
 #include "core/update_check.h"
 
@@ -46,6 +48,8 @@ enum class WifiTest { kIdle, kTesting, kFailed } wifi_test = WifiTest::kIdle;
 std::string wifi_ssid;  // network to test (task only)
 std::string wifi_password;
 bool restart_requested = false;
+const char* restart_reason = "";  // for the system log, under mutex
+bool close_logged = false;        // the closing of the page is logged already
 
 // --- Helpers ---------------------------------------------------------------------
 
@@ -92,9 +96,11 @@ int64_t closesInS() {
 }
 
 // Restart after the reply: the session is kept for the restarted device.
-void restartSoon() {
+// reason: fixed text for the system log.
+void restartSoon(const char* reason) {
   std::lock_guard<std::mutex> lock(mutex);
   restart_requested = true;
+  restart_reason = reason;
 }
 
 // --- Routes ------------------------------------------------------------------------
@@ -122,13 +128,13 @@ void handleLogin() {
     server.sendHeader(
         "Set-Cookie",
         ("inktavla_session=" + token + "; Path=/; HttpOnly; SameSite=Strict").c_str());
-    Serial.println("Settings page: logged in");
+    logInfo("settings", "logged in");
     sendJson(200, "{\"ok\":true}");
   } else if (result == SettingsSession::Login::kWrongCode) {
-    Serial.println("Settings page: wrong code");
+    logWarning("settings", "wrong code entered");
     sendError(403, "wrong code");
   } else {
-    Serial.println("Settings page: closed (too many wrong codes or time up)");
+    logWarning("settings", "login refused, page closed (too many wrong codes or time up)");
     sendError(401, "closed");
   }
 }
@@ -176,8 +182,9 @@ void handleClose() {
   {
     std::lock_guard<std::mutex> lock(mutex);
     session.close();
+    close_logged = true;
   }
-  Serial.println("Settings page: closed on the page");
+  logInfo("settings", "closed on the page");
   sendJson(200, "{\"ok\":true}");
 }
 
@@ -187,9 +194,14 @@ void handleSave() {
   NvsSecretStore secrets;
   const SettingsSaveResult r =
       saveSettings(server.arg("plain").c_str(), store, options.validate, &secrets);
-  Serial.printf("Settings page: save -> %d\n", r.status);  // never the content
+  // Never the content.
+  if (r.status == 200) {
+    logInfo("settings", "settings saved");
+  } else {
+    logWarning("settings", "settings not saved (HTTP %d)", r.status);
+  }
   sendJson(r.status, r.json);
-  if (r.restart) restartSoon();
+  if (r.restart) restartSoon("settings saved");
 }
 
 void handleReset() {
@@ -197,15 +209,15 @@ void handleReset() {
   LittleFsStore store;
   NvsSecretStore secrets;
   const SettingsSaveResult r = resetSettings(store, secrets);
-  Serial.println("Settings page: settings reset");
+  logWarning("settings", "all settings reset");
   sendJson(r.status, r.json);
-  if (r.restart) restartSoon();
+  if (r.restart) restartSoon("settings reset");
 }
 
 void handleRestart() {
   if (!authorized()) return;
   sendJson(200, "{\"ok\":true}");
-  restartSoon();
+  restartSoon("restart on the settings page");
 }
 
 void handleDownload() {
@@ -215,6 +227,52 @@ void handleDownload() {
   server.sendHeader("Content-Disposition", "attachment; filename=\"config.json\"");
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, kJson, config.c_str());
+}
+
+// --- System (core/system_report.h, core/syslog.h) ----------------------------------------
+
+SystemReport currentReport() {
+  return options.system_report ? options.system_report() : SystemReport{};
+}
+
+void handleSystem() {
+  if (!authorized(true)) return;  // looking is no action
+  sendJson(200, systemReportJson(currentReport()));
+}
+
+// The whole log as text, oldest first, sent in parts (it may be larger than
+// the free internal heap).
+void handleLog() {
+  if (!authorized(true)) return;
+  const int64_t now_s = static_cast<int64_t>(time(nullptr));
+  if (server.arg("download") == "1") {
+    LogEntry stamp;
+    stamp.wall_s = isValidUnixTime(now_s) ? now_s : 0;
+    std::string name = "inktavla-log";
+    if (stamp.wall_s != 0) {
+      std::string t = formatLogTime(stamp);  // "2026-11-06 07:00:03"
+      for (char& c : t) c = c == ' ' ? '_' : c == ':' ? '-' : c;
+      name += "-" + t;
+    }
+    server.sendHeader("Content-Disposition", ("attachment; filename=\"" + name + ".txt\"").c_str());
+  }
+  server.sendHeader("Cache-Control", "no-store");
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "text/plain; charset=utf-8", "");
+  std::string part = logExportHeader(currentReport(), now_s);
+  LogEntry e;
+  uint32_t seq = 0;
+  while (systemLog().next(seq, e)) {
+    seq = e.seq;
+    part += formatLogLine(e);
+    part += '\n';
+    if (part.size() > 1400) {
+      server.sendContent(part.c_str(), part.size());
+      part.clear();
+    }
+  }
+  if (!part.empty()) server.sendContent(part.c_str(), part.size());
+  server.sendContent("");
 }
 
 void handleScan() {
@@ -325,7 +383,7 @@ void handleFirmwarePart() {
       return;
     }
     upload->claimed = true;
-    Serial.println("Firmware update: receiving");
+    logInfo("update", "receiving a firmware file on the settings page");
     upload->writer.begin();
   } else if (part.status == UPLOAD_FILE_WRITE) {
     if (!uploadOk()) return;
@@ -357,11 +415,13 @@ void handleFirmwareDone() {
   delete upload;
   upload = nullptr;
   if (!ok) {
+    // The error texts are fixed texts of the firmware writer.
+    logError("update", "firmware file rejected: %s", error.c_str());
     sendError(422, error.c_str());
     return;
   }
   sendJson(200, "{\"ok\":true}");
-  restartSoon();
+  restartSoon("new firmware from a file");
 }
 
 // --- Update button (core/update_check.h) ----------------------------------------------
@@ -404,6 +464,8 @@ void handleUpdateCheck() {
   }
   const std::string json = updateInfoJson(info);
   Serial.printf("Update check: %s\n", json.c_str());  // versions and status only
+  logInfo("update", "check: %s (installed %s, newest %s)", updateStatusName(info.status),
+          info.installed.c_str(), info.latest.empty() ? "-" : info.latest.c_str());
   sendJson(200, json);
 }
 
@@ -413,7 +475,7 @@ void downloadTask(void*) {
     std::lock_guard<std::mutex> lock(mutex);
     tag = online.tag;
   }
-  Serial.printf("Firmware update: downloading %s\n", tag.c_str());
+  logInfo("update", "downloading %s", tag.c_str());  // a version tag, e.g. "v0.3.0"
   FirmwareWriter writer;
   bool started = false;
   HttpResult r;
@@ -455,10 +517,13 @@ void downloadTask(void*) {
     std::lock_guard<std::mutex> lock(mutex);
     online.state = ok ? Download::kDone : Download::kFailed;
     online.error = error;
-    if (ok) restart_requested = true;  // the server task restarts the device
+    if (ok) {
+      restart_requested = true;  // the server task restarts the device
+      restart_reason = "update installed";
+    }
     firmware_busy = false;
   }
-  if (ok) Serial.println("Firmware update: restarting");
+  if (!ok) logError("update", "installing %s failed: %s", tag.c_str(), error.c_str());
   vTaskDelete(nullptr);
 }
 
@@ -546,6 +611,8 @@ void registerRoutes() {
   server.on("/api/update/check", HTTP_GET, handleUpdateCheck);
   server.on("/api/update/install", HTTP_POST, handleUpdateInstall);
   server.on("/api/update/status", HTTP_GET, handleUpdateStatus);
+  server.on("/api/system", HTTP_GET, handleSystem);
+  server.on("/api/log", HTTP_GET, handleLog);
   for (const SettingsRoute& r : options.routes) {
     server.on(("/api/" + r.path).c_str(), HTTP_GET, [&r] { handleRoute(r); });
   }
@@ -567,7 +634,8 @@ void restoreSavedWifi() {
 // goes back to the saved network otherwise (as with Improv).
 void testWifi() {
   Serial.printf("Settings page: testing Wi-Fi \"%s\"\n", wifi_ssid.c_str());
-  vTaskDelay(pdMS_TO_TICKS(500));  // let the reply go out
+  logInfo("wifi", "testing a new network from the settings page");  // never its name
+  vTaskDelay(pdMS_TO_TICKS(500));                                   // let the reply go out
   wifi->setBusy(true);
   WiFi.disconnect();
   vTaskDelay(pdMS_TO_TICKS(100));
@@ -577,13 +645,13 @@ void testWifi() {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
   if (WiFi.status() == WL_CONNECTED && Wifi::saveCredentials(wifi_ssid, wifi_password)) {
-    Serial.println("Settings page: new Wi-Fi works, saved, restarting");
+    logInfo("wifi", "new network works, saved");
     wifi_password.clear();
     wifi->setBusy(false);
-    restartSoon();
+    restartSoon("new Wi-Fi network");
     return;
   }
-  Serial.println("Settings page: new Wi-Fi failed, back to the saved one");
+  logWarning("wifi", "new network not reached, back to the saved one");
   wifi_password.clear();
   restoreSavedWifi();
   wifi->setBusy(false);
@@ -596,10 +664,12 @@ void task(void*) {
   for (;;) {
     bool open;
     bool restart;
+    const char* reason;
     {
       std::lock_guard<std::mutex> lock(mutex);
       open = session.isOpen(monotonicMs());
       restart = restart_requested;
+      reason = restart_reason;
     }
     if (restart) {
       vTaskDelay(pdMS_TO_TICKS(300));  // the reply is on its way
@@ -608,7 +678,7 @@ void task(void*) {
         const SettingsSession::Snapshot snapshot = session.snapshot(monotonicMs());
         memcpy(kept, &snapshot, sizeof(snapshot));
       }
-      Serial.println("Settings page: restarting");
+      logInfo("system", "restarting (%s)", reason);
       Serial.flush();
       ESP.restart();
     }
@@ -621,6 +691,13 @@ void task(void*) {
       server.stop();
       listening = false;
       Serial.println("Settings page: closed");
+      bool logged;
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        logged = close_logged || open;  // open: only Wi-Fi lost
+        close_logged = false;
+      }
+      if (!logged) logInfo("settings", "closed (time up)");
     }
     if (wifi_test == WifiTest::kTesting) {
       testWifi();
@@ -643,7 +720,7 @@ void SettingsServer::begin(Wifi& w, SettingsServerOptions o) {
     memcpy(&snapshot, kept, sizeof(snapshot));
     std::lock_guard<std::mutex> lock(mutex);
     session.restore(snapshot, monotonicMs());
-    if (session.isOpen(monotonicMs())) Serial.println("Settings page: open again after restart");
+    if (session.isOpen(monotonicMs())) logInfo("settings", "open again after the restart");
   }
   memset(kept, 0, sizeof(kept));
   registerRoutes();
@@ -667,10 +744,11 @@ void SettingsServer::toggle() {
   const int64_t now = monotonicMs();
   if (session.isOpen(now)) {
     session.close();
-    Serial.println("Settings page: closed by the button");
+    close_logged = true;
+    logInfo("settings", "closed by the button");
   } else {
     openLocked(now);
-    Serial.println("Settings page: opened by the button");
+    logInfo("settings", "opened by the button");
   }
 }
 
@@ -679,7 +757,7 @@ void SettingsServer::openIfClosed() {
   const int64_t now = monotonicMs();
   if (session.isOpen(now)) return;
   openLocked(now);
-  Serial.println("Settings page: opened automatically (no settings yet)");
+  logInfo("settings", "opened automatically (no settings yet)");
 }
 
 bool SettingsServer::isOpen() {

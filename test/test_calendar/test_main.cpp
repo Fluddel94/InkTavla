@@ -629,7 +629,7 @@ void test_emoji_in_titles() {
   const std::vector<cal::AgendaDay> agenda = weekAgenda(kNow, ui::Language::kGerman, "emoji.ics");
   TEST_ASSERT_FALSE(agenda.empty());
   const std::vector<cal::Entry>& e = agenda[0].entries;
-  TEST_ASSERT_EQUAL(6, e.size());
+  TEST_ASSERT_EQUAL(7, e.size());
   TEST_ASSERT_EQUAL_STRING(("Date night " + icon(ui::EmojiIcon::kHeart)).c_str(),
                            e[0].title.c_str());
   TEST_ASSERT_EQUAL_STRING(
@@ -651,6 +651,10 @@ void test_emoji_in_titles() {
        " mit Freunden " + icon(ui::EmojiIcon::kLaughingFace))
           .c_str(),
       e[5].title.c_str());
+  // Christmas tree and evergreen tree; the deciduous tree is unknown.
+  TEST_ASSERT_EQUAL_STRING(
+      ("Weihnachtsmarkt " + icon(ui::EmojiIcon::kTree) + " " + icon(ui::EmojiIcon::kTree)).c_str(),
+      e[6].title.c_str());
 }
 
 void test_agenda_settings() {

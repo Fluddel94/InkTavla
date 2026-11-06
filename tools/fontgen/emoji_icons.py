@@ -82,7 +82,8 @@ def face(d, u):
 
 
 def draw_heart(d, u):
-    mini_heart(d, u, 9, 7.4, 5.2)
+    # As tall as the other icons, the tip on the baseline (2026-11-06).
+    mini_heart(d, u, 9, 8.1, 7.3)
 
 
 def draw_laughing_face(d, u):
@@ -354,6 +355,13 @@ def draw_soccer(d, u):
 
 # (name, painter, rotation in degrees). The order is the glyph order:
 # U+E000 + index; keep it in sync with ui::EmojiIcon in emoji.h.
+def draw_tree(d, u):
+    poly(d, u, [(9, 1.2), (13, 6.2), (5, 6.2)])
+    poly(d, u, [(9, 4.4), (14.6, 10.6), (3.4, 10.6)])
+    poly(d, u, [(9, 8), (16.4, 15), (1.6, 15)])
+    rect(d, u, 7.6, 14.5, 10.4, 17.2)
+
+
 ICONS = [
     ("heart", draw_heart, 0),
     ("laughing_face", draw_laughing_face, 0),
@@ -384,4 +392,5 @@ ICONS = [
     ("dining", draw_dining, 0),
     ("coffee", draw_coffee, 0),
     ("soccer", draw_soccer, 0),
+    ("tree", draw_tree, 0),
 ]

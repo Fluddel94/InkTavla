@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <Update.h>
 
+#include "core/syslog.h"
+
 namespace core {
 
 bool FirmwareWriter::fail(const char* error) {
@@ -44,7 +46,7 @@ bool FirmwareWriter::finish() {
   running_ = false;
   if (!Update.end(true)) return fail("the image is not valid");
   finished_ = true;
-  Serial.printf("Firmware update: %u bytes written\n", static_cast<unsigned>(bytes_));
+  logInfo("update", "firmware written (%u KB), checked", static_cast<unsigned>(bytes_ / 1024));
   return true;
 }
 

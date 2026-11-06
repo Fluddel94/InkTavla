@@ -1,11 +1,29 @@
 #include "core/display_controller.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <ctime>
 
+#include "core/syslog.h"
 #include "core/time.h"
 
 namespace core {
+
+namespace {
+
+// "0.9 s", "12.3 s"
+std::string seconds(uint64_t ms) {
+  char buffer[24];
+  std::snprintf(buffer, sizeof(buffer), "%u.%u s", static_cast<unsigned>(ms / 1000),
+                static_cast<unsigned>(ms % 1000 / 100));
+  return buffer;
+}
+
+uint32_t clampMs(int64_t ms) {
+  return static_cast<uint32_t>(std::min<int64_t>(std::max<int64_t>(ms, 0), UINT32_MAX));
+}
+
+}  // namespace
 
 int64_t SystemClock::monotonicMs() const { return core::monotonicMs(); }
 
@@ -22,6 +40,7 @@ DisplayController::DisplayController(Clock& clock, hal::Display& display, Screen
 
 void DisplayController::addContent(Content& content) {
   Entry e{&content, Freshness{}, -1, true};
+  e.report.name = content.logName();
   if (!content.isSetUp()) {
     e.freshness.setNotSetUp(true);
   } else if (content.fetches()) {
@@ -72,6 +91,99 @@ void DisplayController::setAccessNotice(const AccessNotice& notice) {
   force_redraw_ = true;
 }
 
+void DisplayController::showSystemPage(bool show) {
+  if (show == system_page_) return;
+  system_page_ = show;
+  system_page_ms_ = clock_.monotonicMs();
+  planner_.requestFull();  // the whole screen changes
+  force_redraw_ = true;
+}
+
+std::vector<SourceReport> DisplayController::sourceReports() const {
+  const int64_t now_ms = clock_.monotonicMs();
+  std::vector<SourceReport> result;
+  for (const Entry& e : entries_) {
+    SourceReport r = e.report;
+    r.state = e.freshness.state(now_ms);
+    result.push_back(r);
+  }
+  return result;
+}
+
+void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
+  const int64_t before_ms = clock_.monotonicMs();
+  takeFetchProblem();  // left over from a request outside the loop
+  const bool ok = e.content->fetch(wall_s);
+  const int64_t after_ms = clock_.monotonicMs();
+  wall_s = clock_.wallTime();
+  const char* name = e.content->logName();
+  SourceReport& r = e.report;
+  r.last_duration_ms = clampMs(after_ms - before_ms);
+  // Without a network a failure is no result yet (start screen).
+  if (ok || network_connected_) e.has_result = true;
+  if (ok) {
+    takeFetchProblem();
+    r.successes++;
+    e.period_successes++;
+    e.period_ms += r.last_duration_ms;
+    e.period_max_ms = std::max(e.period_max_ms, r.last_duration_ms);
+    if (r.failures_in_row > 0) {
+      logInfo(name, "works again after %u failed attempt%s (%s)",
+              static_cast<unsigned>(r.failures_in_row), r.failures_in_row == 1 ? "" : "s",
+              formatUptime((after_ms - e.failing_since_ms) / 1000).c_str());
+    }
+    r.failures_in_row = 0;
+    r.last_success_wall_s = isValidUnixTime(wall_s) ? wall_s : 0;
+    e.long_failure_logged = false;
+    e.logged_problem.clear();
+    e.freshness.success(after_ms, wall_s);
+    scheduler_.markSuccess(id, after_ms, wall_s);
+    return;
+  }
+  std::string problem = takeFetchProblem();
+  if (!network_connected_) {
+    problem = "no network";
+  } else if (problem.empty()) {
+    problem = "failed";
+  }
+  r.failures++;
+  e.period_failures++;
+  if (r.failures_in_row == 0) e.failing_since_ms = before_ms;
+  r.failures_in_row++;
+  r.problem = problem;
+  r.last_failure_wall_s = isValidUnixTime(wall_s) ? wall_s : 0;
+  // A failing source is retried every few seconds: log the first failure
+  // and a change of the reason, count the rest.
+  if (r.failures_in_row == 1 || problem != e.logged_problem) {
+    logWarning(name, "fetch failed: %s (%s)", problem.c_str(), seconds(r.last_duration_ms).c_str());
+    e.logged_problem = problem;
+  }
+  if (!e.long_failure_logged && after_ms - e.failing_since_ms >= kLongFailureMs) {
+    logError(name, "failing for %d min (%u attempts): %s",
+             static_cast<int>((after_ms - e.failing_since_ms) / 60000),
+             static_cast<unsigned>(r.failures_in_row), problem.c_str());
+    e.long_failure_logged = true;
+  }
+  e.freshness.failure(after_ms);
+  scheduler_.markFailure(id, after_ms, wall_s);
+}
+
+void DisplayController::logSummary() {
+  for (Entry& e : entries_) {
+    const uint32_t total = e.period_successes + e.period_failures;
+    if (total == 0) continue;
+    logInfo(e.content->logName(), "last hour: %u ok, %u failed, avg %s, max %s",
+            static_cast<unsigned>(e.period_successes), static_cast<unsigned>(e.period_failures),
+            seconds(e.period_successes == 0 ? 0 : e.period_ms / e.period_successes).c_str(),
+            seconds(e.period_max_ms).c_str());
+    e.period_successes = 0;
+    e.period_failures = 0;
+    e.period_ms = 0;
+    e.period_max_ms = 0;
+  }
+  if (summary_hook_) summary_hook_();
+}
+
 int64_t DisplayController::step() {
   const int64_t now_ms = clock_.monotonicMs();
   int64_t wall_s = clock_.wallTime();
@@ -87,7 +199,17 @@ int64_t DisplayController::step() {
   // The first valid time (NTP) shows the date and realigns the schedule.
   if (isValidUnixTime(wall_s) != wall_valid_) {
     wall_valid_ = isValidUnixTime(wall_s);
+    if (wall_valid_) logInfo("time", "clock set (NTP)");
     redraw_needed = true;
+  }
+
+  if (system_page_ && now_ms - system_page_ms_ >= kSystemPageMs) {
+    showSystemPage(false);
+    redraw_needed = true;
+  }
+  if (now_ms >= next_summary_ms_) {
+    logSummary();
+    while (next_summary_ms_ <= now_ms) next_summary_ms_ += kLogSummaryMs;
   }
 
   for (Scheduler::TaskId id : scheduler_.due(now_ms)) {
@@ -98,19 +220,8 @@ int64_t DisplayController::step() {
     }
     for (Entry& e : entries_) {
       if (e.task != id) continue;
-      // A fetch may take seconds (network); use the time after it.
-      const bool ok = e.content->fetch(wall_s);
-      const int64_t after_ms = clock_.monotonicMs();
-      wall_s = clock_.wallTime();
-      // Without a network a failure is no result yet (start screen).
-      if (ok || network_connected_) e.has_result = true;
-      if (ok) {
-        e.freshness.success(after_ms, wall_s);
-        scheduler_.markSuccess(id, after_ms, wall_s);
-      } else {
-        e.freshness.failure(after_ms);
-        scheduler_.markFailure(id, after_ms, wall_s);
-      }
+      // A fetch may take seconds (network); fetch() uses the time after it.
+      fetch(e, id, wall_s);
       redraw_needed = true;
     }
   }
@@ -135,6 +246,11 @@ int64_t DisplayController::step() {
     const int64_t until = network_changed_ms_ + kOfflineGraceMs - clock_.monotonicMs();
     wait = wait < 0 ? until : std::min(wait, std::max<int64_t>(until, 0));
   }
+  const int64_t now_after = clock_.monotonicMs();
+  int64_t until = next_summary_ms_ - now_after;
+  if (system_page_) until = std::min(until, system_page_ms_ + kSystemPageMs - now_after);
+  wait = wait < 0 ? std::max<int64_t>(until, 0) : std::min(wait, std::max<int64_t>(until, 0));
+  publishSourceReports(sourceReports());
   return wait;
 }
 
@@ -164,6 +280,7 @@ void DisplayController::buildState(int64_t now_ms, int64_t wall_s) {
   state_.notice = notice_;
   state_.starting = starting_;
   state_.network_up = network_connected_;
+  state_.system_page = system_page_;
   state_.contents.clear();
   for (const Entry& e : entries_) {
     state_.contents.push_back({e.freshness.state(now_ms), e.freshness.lastSuccessWall()});

@@ -147,3 +147,19 @@ details summary { cursor: pointer; color: var(--accent); font-size: 14px; margin
 .code { font: 600 28px var(--mono); letter-spacing: .3em; text-align: center; }
 .center { text-align: center; }
 [hidden] { display: none !important; }
+
+/* System log (tab "System") */
+.log { margin-top: 10px; max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; font: 12px/1.5 var(--mono); }
+.log div { display: grid; grid-template-columns: 15ch 5ch 8ch 1fr; gap: 0 8px; padding: 1px 8px; border-top: 1px solid var(--line); }
+.log div:first-child { border-top: 0; }
+.log .warn { color: var(--warn); }
+.log .error { color: var(--bad); font-weight: 600; }
+.log .boot { border-bottom: 2px dashed var(--muted); }
+.log span:last-child { overflow-wrap: anywhere; }
+.log p { margin: 8px; color: var(--muted); }
+@media (max-width: 520px) {
+  .log div { grid-template-columns: 15ch 5ch 1fr; }
+  .log span:last-child { grid-column: 1 / -1; padding-left: 2ch; }
+}
+.kv dd.warn { color: var(--warn); }
+.kv dd.error { color: var(--bad); }

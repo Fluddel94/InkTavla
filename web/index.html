@@ -49,6 +49,7 @@
     <button type="button" role="tab" data-tab="weather" data-t="tabWeather"></button>
     <button type="button" role="tab" data-tab="calendar" data-t="tabCalendar"></button>
     <button type="button" role="tab" data-tab="device" data-t="tabDevice"></button>
+    <button type="button" role="tab" data-tab="system" data-t="tabSystem"></button>
   </nav>
 
   <!-- Departures (MVG) -->
@@ -202,6 +203,27 @@
       <p data-t="resetConfirm"></p>
       <div class="actions"><button type="button" class="danger" id="resetYes" data-t="resetYes"></button><button type="button" id="resetNo" data-t="cancel"></button></div>
     </div>
+  </section>
+
+  <!-- System: state of the device and its log (KEY2 shows the same on the display) -->
+  <section id="secSystem" data-tab="system">
+    <h2 data-t="system"></h2>
+    <dl class="kv" id="sysInfo"></dl>
+    <h3 data-t="sysSources"></h3>
+    <dl class="kv" id="sysSources"></dl>
+    <h3 data-t="sysLog"></h3>
+    <p class="hint" data-t="sysLogHint"></p>
+    <div class="seg" id="sysFilter">
+      <button type="button" data-v="all" data-t="sysAll"></button>
+      <button type="button" data-v="warn" data-t="sysWarn"></button>
+      <button type="button" data-v="error" data-t="sysErrors"></button>
+    </div>
+    <div class="actions">
+      <button type="button" id="sysRefresh" data-t="sysRefresh"></button>
+      <a class="button" href="api/log?download=1" data-t="sysDownload"></a>
+    </div>
+    <p id="sysProblem" class="err" hidden></p>
+    <div id="sysLog" class="log"></div>
   </section>
 </main>
 </div>
