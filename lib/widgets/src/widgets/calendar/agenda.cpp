@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "core/time.h"
+#include "ui/emoji.h"
 #include "widgets/calendar/timezone.h"
 
 namespace widgets::calendar {
@@ -171,8 +172,9 @@ std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s
       const std::string_view summary(o.summary.data(), o.summary.size());
       if (excluded(display, summary)) continue;
       Entry entry;
-      entry.title.assign(summary);
-      entry.location.assign(o.location.data(), o.location.size());
+      // Emoji become icons (or disappear): the fonts have no emoji.
+      entry.title = ui::mapEmoji(summary);
+      entry.location = ui::mapEmoji(std::string_view(o.location.data(), o.location.size()));
       // Over (events without length count for one minute); shown until
       // midnight unless switched off.
       entry.past = d == today && !o.all_day && std::max(o.end, o.start + 60) <= now_s;

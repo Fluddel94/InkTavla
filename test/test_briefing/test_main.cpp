@@ -18,7 +18,10 @@
 #include "hal/png.h"
 #include "ui/bitmap.h"
 #include "ui/elements.h"
+#include "ui/emoji.h"
+#include "ui/fonts.h"
 #include "ui/layout.h"
+#include "ui/text.h"
 #include "widgets/briefing/band.h"
 #include "widgets/briefing/sentence.h"
 #include "widgets/briefing/start.h"
@@ -693,6 +696,32 @@ void test_preview_calendar_columns() {
   drawCalendar(bitmap, 468, "busy.ics", kMorning);              // today fills the column
   drawCalendar(bitmap, 702, "week.ics", kMorning + 3 * kDay, "Stand 07:41", true);  // Friday
   check(bitmap, "briefing_calendar_columns");
+}
+
+// Emoji in titles: icons, and the unknown ones left out.
+void test_preview_calendar_emoji() {
+  ui::Bitmap bitmap(214, 260);
+  bitmap.clear(ui::Color::kWhite);
+  drawCalendar(bitmap, 0, "emoji.ics", kMorning);
+  check(bitmap, "briefing_calendar_emoji");
+}
+
+// All emoji icons in three font sizes (event titles, later events, locations).
+void test_preview_emoji_icons() {
+  std::string all;
+  for (size_t i = 0; i < ui::kEmojiIconCount; i++) {
+    const uint32_t cp = ui::kEmojiFirstCodepoint + static_cast<uint32_t>(i);
+    all += static_cast<char>(0xE0 | (cp >> 12));
+    all += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+    all += static_cast<char>(0x80 | (cp & 0x3F));
+  }
+  ui::Bitmap bitmap(660, 3 * 40);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas canvas(bitmap, 0, 0, 660, 3 * 40);
+  ui::drawText(canvas, ui::fonts::kFraunces20, 10, 28, all);
+  ui::drawText(canvas, ui::fonts::kFraunces18, 10, 68, all);
+  ui::drawText(canvas, ui::fonts::kRobotoCondensedMedium15, 10, 108, all);
+  check(bitmap, "emoji_icons");
 }
 
 // An agenda of today with the given timed events (from 08:00, hourly).
@@ -1482,6 +1511,8 @@ int main() {
   RUN_TEST(test_rain_bars_between_the_hour_marks);
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
+  RUN_TEST(test_preview_calendar_emoji);
+  RUN_TEST(test_preview_emoji_icons);
   RUN_TEST(test_preview_calendar_settings);
   RUN_TEST(test_calendar_more_hint);
   RUN_TEST(test_preview_departure_columns);

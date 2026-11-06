@@ -8,6 +8,7 @@
 
 #include "ui/bitmap.h"
 #include "ui/elements.h"
+#include "ui/emoji.h"
 #include "ui/fonts.h"
 #include "ui/hyphen.h"
 #include "ui/i18n.h"
@@ -651,6 +652,74 @@ void test_wrap_with_hyphenation_respects_max_lines() {
   for (const std::string& line : lines) TEST_ASSERT_TRUE(ui::textWidth(f, line) <= 200);
 }
 
+// Codepoint of an emoji icon as UTF-8 (private use area, three bytes).
+std::string emojiUtf8(ui::EmojiIcon icon) {
+  const uint32_t cp = ui::emojiCodepoint(icon);
+  std::string out;
+  out += static_cast<char>(0xE0 | (cp >> 12));
+  out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+  out += static_cast<char>(0x80 | (cp & 0x3F));
+  return out;
+}
+
+void test_emoji_mapping() {
+  using ui::EmojiIcon;
+  // Text without emoji stays as it is, also with umlauts and double spaces.
+  TEST_ASSERT_EQUAL_STRING(
+      "Gr\xC3\xBC\xC3\x9F"
+      "e  aus M\xC3\xBCnchen",
+      ui::mapEmoji("Gr\xC3\xBC\xC3\x9F"
+                   "e  aus M\xC3\xBCnchen")
+          .c_str());
+  // All hearts, with and without the colour selector, are one icon.
+  const std::string heart = emojiUtf8(EmojiIcon::kHeart);
+  TEST_ASSERT_EQUAL_STRING(heart.c_str(), ui::mapEmoji("\xE2\x9D\xA4").c_str());
+  TEST_ASSERT_EQUAL_STRING(heart.c_str(), ui::mapEmoji("\xE2\x9D\xA4\xEF\xB8\x8F").c_str());
+  TEST_ASSERT_EQUAL_STRING(heart.c_str(), ui::mapEmoji("\xF0\x9F\x92\x99").c_str());  // blue
+  // Skin tone, zero width joiner, flags and unknown emoji disappear; the
+  // spaces around them are merged and trimmed.
+  TEST_ASSERT_EQUAL_STRING((emojiUtf8(EmojiIcon::kThumbsUp)).c_str(),
+                           ui::mapEmoji("\xF0\x9F\x91\x8D\xF0\x9F\x8F\xBD").c_str());
+  TEST_ASSERT_EQUAL_STRING("a b", ui::mapEmoji("a \xF0\x9F\xA6\x84 b").c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Rom", ui::mapEmoji("\xF0\x9F\xA6\x84 Rom \xF0\x9F\x87\xAE\xF0\x9F\x87\xB9").c_str());
+  TEST_ASSERT_EQUAL_STRING("", ui::mapEmoji("\xF0\x9F\xA6\x84").c_str());
+  // Clock faces share the clock icon.
+  TEST_ASSERT_EQUAL_STRING(emojiUtf8(EmojiIcon::kClock).c_str(),
+                           ui::mapEmoji("\xF0\x9F\x95\x93").c_str());
+}
+
+// Every text font has a glyph for each icon (not the "?" replacement).
+void test_emoji_icons_are_in_all_fonts() {
+  const ui::Font* fonts[] = {&ui::fonts::kRobotoCondensedBold15,
+                             &ui::fonts::kRobotoCondensedBold16,
+                             &ui::fonts::kRobotoCondensedBold17,
+                             &ui::fonts::kRobotoCondensedBold20,
+                             &ui::fonts::kRobotoCondensedBold21,
+                             &ui::fonts::kRobotoCondensedMedium13,
+                             &ui::fonts::kRobotoCondensedMedium15,
+                             &ui::fonts::kRobotoCondensedMedium16,
+                             &ui::fonts::kRobotoCondensedMedium17,
+                             &ui::fonts::kRobotoCondensedMedium20,
+                             &ui::fonts::kFraunces38,
+                             &ui::fonts::kFraunces34,
+                             &ui::fonts::kFraunces24Medium,
+                             &ui::fonts::kFraunces20,
+                             &ui::fonts::kFraunces20Bold,
+                             &ui::fonts::kFraunces18};
+  for (const ui::Font* f : fonts) {
+    for (size_t i = 0; i < ui::kEmojiIconCount; i++) {
+      const uint32_t cp = ui::kEmojiFirstCodepoint + static_cast<uint32_t>(i);
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(cp, ui::findGlyph(*f, cp).codepoint, f->name);
+      TEST_ASSERT_TRUE_MESSAGE(ui::findGlyph(*f, cp).width > 0, f->name);
+    }
+  }
+  // An icon is about as wide as it is high and takes part in the width.
+  const std::string text = "A" + emojiUtf8(ui::EmojiIcon::kHeart);
+  TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kFraunces20, text) >
+                   ui::textWidth(ui::fonts::kFraunces20, "A") + 15);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_hyphenation_of_railway_words);
@@ -687,5 +756,7 @@ int main() {
   RUN_TEST(test_dotted_fill_every_second_pixel);
   RUN_TEST(test_column_title_note_and_badge);
   RUN_TEST(test_briefing_icons);
+  RUN_TEST(test_emoji_mapping);
+  RUN_TEST(test_emoji_icons_are_in_all_fonts);
   return UNITY_END();
 }

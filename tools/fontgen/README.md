@@ -12,6 +12,15 @@ python tools/fontgen/fontgen.py
 The output is deterministic. Commit the generated files together with any
 change to the script or to the font list in it (`FONTS`, `CHARSET`).
 
+## Emoji icons
+
+`emoji_icons.py` holds own drawings of 29 emoji (1 bit, drawn at four times
+the size and scaled down). `fontgen.py` renders them in the size of each text
+font (90 % of the font size) and adds them as glyphs in the Unicode private
+use area (U+E000 and up, in the order of `ICONS`). `lib/ui/src/ui/emoji.cpp`
+maps Unicode emoji to these glyphs; keep `ui::EmojiIcon` in `emoji.h` in the
+same order as `ICONS`. The drawings are original, no third-party artwork.
+
 ## Fonts
 
 | File | Font | Source | License |

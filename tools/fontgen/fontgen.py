@@ -20,6 +20,8 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
+import emoji_icons
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 FONT_DIR = pathlib.Path(__file__).resolve().parent / "fonts"
 OUT_DIR = ROOT / "lib" / "ui" / "src" / "ui" / "fonts"
@@ -42,6 +44,9 @@ SOURCES = {
         "license_file": "OFL-Fraunces.txt",
     },
 }
+
+# Size of the emoji icons relative to the font size (see emoji_icons.py).
+ICON_SCALE = 0.9
 
 # Oversampled rasterisation: (factor, coverage threshold); see render_oversampled().
 OVERSAMPLED = (8, 0.45)
@@ -182,6 +187,17 @@ def generate(name, filename, weight, size, charset=None, source="roboto", oversa
         w, h, left, top, adv, rows = glyph
         glyphs.append((cp, len(bitmap), w, h, left, top, adv))
         bitmap += pack(rows)
+    if not charset:
+        # Emoji icons (own drawings, see emoji_icons.py) as glyphs in the
+        # private use area, a little smaller than the font size; the bottom
+        # sits slightly below the baseline, like colour emoji.
+        icon = max(12, round(size * ICON_SCALE))
+        for index, (_, painter, rotation) in enumerate(emoji_icons.ICONS):
+            rows = emoji_icons.render(painter, icon, rotation)
+            top = -(icon - round(icon * 0.1))
+            glyphs.append((emoji_icons.FIRST_CODEPOINT + index, len(bitmap), icon, icon, 0, top,
+                           (icon + 2) * 8))
+            bitmap += pack(rows)
     for g in glyphs:
         assert 0 <= g[2] <= 255 and 0 <= g[3] <= 255, g
         assert -128 <= g[4] <= 127 and -128 <= g[5] <= 127, g

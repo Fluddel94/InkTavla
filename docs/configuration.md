@@ -475,6 +475,14 @@ weight; a long title wraps once onto a second line where there is room
 with long words hyphenated as in the disruption text of the departures,
 else it is shortened with "…". All-day events have a small calendar symbol.
 
+Emoji in titles and locations are shown as small pictures for a set of 29
+common ones (hearts of every colour, a few faces, thumbs up, party, cake,
+gift, star, check mark, warning, exclamation mark, fire, calendar, clock,
+phone, briefcase, house, medical, tooth, shopping cart, airplane, car, train,
+dining, coffee, soccer ball); related emoji share a picture (for example
+all hearts). Skin tones are ignored. Every other emoji is left out, because
+the fonts have no colour emoji.
+
 The widget only needs the address; the settings below are optional. Without
 them the column looks as described above.
 

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Calendar: emoji in event titles and locations are shown as 29 small
+  pictures (all hearts, laughing, smiling, loving, crying and winking faces,
+  thumbs up, party, cake, gift, star, check mark, warning, exclamation mark,
+  fire, calendar, clock, phone, briefcase, house, medical, tooth, shopping
+  cart, airplane, car, train, dining, coffee and soccer ball). The pictures
+  are original drawings in the size of the text; colours and skin tones make
+  no difference.
+
+### Fixed
+
+- Calendar: emoji and other characters the fonts do not contain no longer
+  appear as several "?" ("Datenight???"). Emoji without a picture, skin
+  tones, flags and the invisible characters that belong to emoji are left
+  out, and the spaces around them are merged.
+
 ## [0.2.0] - 2026-11-05
 
 The display can now be installed without building it yourself (web

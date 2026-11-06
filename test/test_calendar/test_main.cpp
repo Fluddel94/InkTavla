@@ -15,6 +15,7 @@
 
 #include "core/time.h"
 #include "ui/bitmap.h"
+#include "ui/emoji.h"
 #include "widgets/app.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/column_view.h"
@@ -612,6 +613,46 @@ void test_config_settings() {
   TEST_ASSERT_TRUE(c.display.exclude.empty());
 }
 
+// UTF-8 of the codepoint of an emoji icon (private use area, three bytes).
+std::string icon(ui::EmojiIcon icon) {
+  const uint32_t cp = ui::emojiCodepoint(icon);
+  std::string out;
+  out += static_cast<char>(0xE0 | (cp >> 12));
+  out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+  out += static_cast<char>(0x80 | (cp & 0x3F));
+  return out;
+}
+
+// Emoji in titles and locations: icons for the known ones, nothing for the
+// others (no "?" from the fonts), no double spaces.
+void test_emoji_in_titles() {
+  const std::vector<cal::AgendaDay> agenda = weekAgenda(kNow, ui::Language::kGerman, "emoji.ics");
+  TEST_ASSERT_FALSE(agenda.empty());
+  const std::vector<cal::Entry>& e = agenda[0].entries;
+  TEST_ASSERT_EQUAL(6, e.size());
+  TEST_ASSERT_EQUAL_STRING(("Date night " + icon(ui::EmojiIcon::kHeart)).c_str(),
+                           e[0].title.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Geburtstag Oma " + icon(ui::EmojiIcon::kCake) + icon(ui::EmojiIcon::kParty)).c_str(),
+      e[1].title.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Caf\xC3\xA9 " + icon(ui::EmojiIcon::kCoffee) + " am Markt " + icon(ui::EmojiIcon::kHouse))
+          .c_str(),
+      e[1].location.c_str());
+  TEST_ASSERT_EQUAL_STRING(("Flug nach Rom " + icon(ui::EmojiIcon::kAirplane)).c_str(),
+                           e[2].title.c_str());
+  // The skin tone is dropped, the thumb stays.
+  TEST_ASSERT_EQUAL_STRING(
+      ("Zahnarzt " + icon(ui::EmojiIcon::kTooth) + " " + icon(ui::EmojiIcon::kThumbsUp)).c_str(),
+      e[3].title.c_str());
+  TEST_ASSERT_EQUAL_STRING("Unbekannt", e[4].title.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Lecker essen " + icon(ui::EmojiIcon::kDining) + icon(ui::EmojiIcon::kDining) +
+       " mit Freunden " + icon(ui::EmojiIcon::kLaughingFace))
+          .c_str(),
+      e[5].title.c_str());
+}
+
 void test_agenda_settings() {
   cal::DisplayConfig d;
   // Two days: today and tomorrow only.
@@ -807,6 +848,7 @@ int main(int, char**) {
   RUN_TEST(test_expand_exceptions);
   RUN_TEST(test_expand_zones_and_lengths);
   RUN_TEST(test_agenda_morning);
+  RUN_TEST(test_emoji_in_titles);
   RUN_TEST(test_agenda_during_the_day);
   RUN_TEST(test_agenda_multi_day);
   RUN_TEST(test_config);
