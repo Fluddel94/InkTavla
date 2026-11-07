@@ -44,9 +44,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings page: it no longer hangs for about 5 seconds now and then while
   loading. Browsers open a connection in advance that stays empty; the web
   server of the device waited for it and served nothing else meanwhile.
-- Settings page: the tabs wrap into a second row instead of scrolling
-  sideways without a hint, so the last tabs ("Gerät", "System") are visible
-  on narrow windows and phones.
+- Settings page: the tabs look like tabs (index cards with a frame, the
+  selected one white with a coloured strip on top) instead of plain grey
+  text, and they wrap into a second row instead of scrolling sideways
+  without a hint, so the last tabs ("Gerät", "System") are visible on narrow
+  windows and phones.
+- Settings page: buttons show that they were pressed (they turn darker for
+  a moment, also on phones), and buttons that ask the display ("Refresh",
+  search, "Netze suchen", "Nach Updates suchen") show a spinner until the
+  answer is there. Before, a press on "Refresh" gave no sign that anything
+  happened.
 - Calendar: emoji and other characters the fonts do not contain no longer
   appear as several "?" ("Datenight???"). Emoji without a picture, skin
   tones, flags and the invisible characters that belong to emoji are left

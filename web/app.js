@@ -488,6 +488,27 @@ async function api(path, options) {
   return body;
 }
 
+// Feedback for buttons. Every button gets the class "pressed" for at least
+// 150 ms after a press (a tap is often shorter than :active, and Safari
+// shows :active on touch only with a touch listener); the style is in
+// style.css. busy() shows a spinner in a button while it waits for the
+// display; a busy button cannot be pressed again.
+document.addEventListener("pointerdown", (e) => {
+  const b = e.target.closest("button");
+  if (!b || b.disabled) return;
+  b.classList.add("pressed");
+  const release = () => setTimeout(() => b.classList.remove("pressed"), 150);
+  document.addEventListener("pointerup", release, { once: true });
+  document.addEventListener("pointercancel", release, { once: true });
+});
+document.addEventListener("touchstart", () => {}, { passive: true });
+function busy(button, on) {
+  if (!button) return;
+  button.classList.toggle("busy", on);
+  if (on) button.setAttribute("aria-busy", "true");
+  else button.removeAttribute("aria-busy");
+}
+
 // --- State ----------------------------------------------------------------------
 
 let S = null;          // state from the display
@@ -731,9 +752,9 @@ function renderStation(box, get, set) {
     idStatus);
   const idLink = el("button", { type: "button", class: "quiet small",
     onclick: () => { idForm.hidden = false; idLink.hidden = true; idInput.focus(); } }, t("globalIdSet"));
+  const searchButton = el("button", { type: "button", style: "flex:0 0 auto", onclick: () => run() }, t("search"));
   const form = el("div", { hidden: !!current },
-    el("div", { class: "row" }, input,
-      el("button", { type: "button", style: "flex:0 0 auto", onclick: () => run() }, t("search"))),
+    el("div", { class: "row" }, input, searchButton),
     results, idLink, idForm);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
   idInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); applyId(); } });
@@ -741,6 +762,7 @@ function renderStation(box, get, set) {
     const q = input.value.trim();
     if (q.length < 2) return;
     results.replaceChildren(el("p", { class: "hint" }, el("span", { class: "spin" }), t("searching")));
+    busy(searchButton, true);
     try {
       const hits = await api("api/mvg/stations?q=" + encodeURIComponent(q));
       if (!hits.length) { results.replaceChildren(el("p", { class: "hint" }, t("noHits"))); return; }
@@ -749,6 +771,8 @@ function renderStation(box, get, set) {
           el("b", {}, h.name), " ", el("small", {}, [h.place, typesText(h.types)].filter(Boolean).join(" · "))))));
     } catch (e) {
       if (e.status !== 401) results.replaceChildren(el("p", { class: "err" }, t("searchFailed")));
+    } finally {
+      busy(searchButton, false);
     }
   }
   async function applyId() {
@@ -1106,14 +1130,16 @@ function renderPlace() {
   box.replaceChildren();
   const results = el("div");
   const input = el("input", { type: "text", placeholder: t("placePlaceholder"), "aria-label": t("place") });
+  const searchButton = el("button", { type: "button", style: "flex:0 0 auto", onclick: () => run() }, t("search"));
   const form = el("div", { hidden: !!place },
-    el("div", { class: "row" }, input, el("button", { type: "button", style: "flex:0 0 auto", onclick: () => run() }, t("search"))),
+    el("div", { class: "row" }, input, searchButton),
     results);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
   async function run() {
     const q = input.value.trim();
     if (q.length < 2) return;
     results.replaceChildren(el("p", { class: "hint" }, el("span", { class: "spin" }), t("searching")));
+    busy(searchButton, true);
     try {
       const hits = await api("api/weather/places?q=" + encodeURIComponent(q) + "&lang=" + lang);
       if (!hits.length) { results.replaceChildren(el("p", { class: "hint" }, t("noHits"))); return; }
@@ -1128,6 +1154,8 @@ function renderPlace() {
         } }, el("b", {}, h.name), " ", el("small", {}, [h.region, h.country].filter(Boolean).join(", "))))));
     } catch (e) {
       if (e.status !== 401) results.replaceChildren(el("p", { class: "err" }, t("searchFailed")));
+    } finally {
+      busy(searchButton, false);
     }
   }
   if (place) {
@@ -1255,6 +1283,7 @@ $("wifiScan").addEventListener("click", async () => {
   const box = $("wifiNets");
   box.hidden = false;
   box.replaceChildren(el("p", { class: "hint", style: "padding:8px 10px;margin:0" }, el("span", { class: "spin" }), t("wifiScanning")));
+  busy($("wifiScan"), true);
   try {
     const nets = await api("api/wifi/scan");
     box.replaceChildren(...nets.map((n) => {
@@ -1268,6 +1297,8 @@ $("wifiScan").addEventListener("click", async () => {
     if (!nets.length) box.replaceChildren(el("p", { class: "hint", style: "padding:8px 10px;margin:0" }, t("noHits")));
   } catch (e) {
     if (e.status !== 401) box.replaceChildren(el("p", { class: "err", style: "padding:8px 10px;margin:0" }, t("searchFailed")));
+  } finally {
+    busy($("wifiScan"), false);
   }
 });
 $("wifiTest").addEventListener("click", async () => {
@@ -1396,6 +1427,7 @@ $("updateCheck").addEventListener("click", async () => {
   $("updateOffer").hidden = true;
   offeredVersion = null;
   firmwareButtons(false);
+  busy($("updateCheck"), true);
   try {
     const r = await api("api/update/check");
     const vars = { i: r.installed || "–", v: r.latest || "–", s: r.http_status || "?" };
@@ -1418,6 +1450,7 @@ $("updateCheck").addEventListener("click", async () => {
     let error = e.body && e.body.error;
     out.textContent = error ? t("firmwareFailed", { e: firmwareError(error) }) : t("connectionLost");
   } finally {
+    busy($("updateCheck"), false);
     firmwareButtons(true);
   }
 });
@@ -1723,6 +1756,7 @@ function renderLog() {
 async function loadSystem() {
   if (sysLoading) return;
   sysLoading = true;
+  busy($("sysRefresh"), true);
   $("sysProblem").hidden = true;
   try {
     renderSystem(await api("api/system", { passive: true }));
@@ -1736,6 +1770,7 @@ async function loadSystem() {
     }
   } finally {
     sysLoading = false;
+    busy($("sysRefresh"), false);
   }
 }
 segSet($("sysFilter"), sysFilter);
