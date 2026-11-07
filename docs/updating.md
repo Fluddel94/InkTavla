@@ -31,9 +31,17 @@ button looks for `firmware.bin`; the web installer workflow takes
 ## Web installer
 
 A page with [ESP Web Tools](https://github.com/esphome/esp-web-tools) that
-flashes the display from Chrome or Edge on a computer over the USB cable
-(Web Serial) and then sets up Wi-Fi over Improv. It is published on GitHub
-Pages for every release by `.github/workflows/pages.yml`.
+flashes the display over the USB cable (Web Serial) and then sets up Wi-Fi
+over Improv. It is published on GitHub Pages for every release by
+`.github/workflows/pages.yml`.
+
+- **Browsers:** Chrome, Edge or Firefox from version 151 (May 2026), on a
+  computer (Windows, macOS, Linux). Firefox first asks to add a *site
+  permission add-on* for the page; allow it, then choose the port. Safari,
+  phones and tablets cannot flash (Chrome for Android has Web Serial since
+  version 148, but it lists no USB ports on ordinary phones). Uploading
+  `firmware.bin` on the settings page (below) works in every browser, as it
+  goes over Wi-Fi.
 
 - **Writing `firmware-full.bin` at offset 0 clears the NVS partition**
   (the gaps between the parts are filled), so Wi-Fi access and the calendar
@@ -57,8 +65,8 @@ HTTPS):
 & "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\build_installer.py --firmware .pio\build\xiao_esp32s3_plus\firmware-full.bin --version 0.2.0-dev --serve
 ```
 
-Then open <http://localhost:8000/> in Chrome or Edge. The site is written
-to `.pio/installer/`.
+Then open <http://localhost:8000/> in Chrome, Edge or Firefox 151+. The site
+is written to `.pio/installer/`.
 
 ## Update button on the settings page
 
@@ -84,7 +92,8 @@ to `.pio/installer/`.
 ## File upload on the settings page
 
 **Gerät / Device → Firmware-Datei wählen / Choose firmware file**, then
-`firmware.bin` (from a release or from a build).
+`firmware.bin` (from a release or from a build). This works in every
+browser, also on a phone: the file goes over Wi-Fi, not over USB.
 
 For both the button and the upload: the display checks while receiving that
 it is an InkTavla firmware for the ESP32-S3 and refuses anything else; the

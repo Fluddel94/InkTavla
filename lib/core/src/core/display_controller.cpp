@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <ctime>
 
+#include "core/fault_counts.h"
 #include "core/fetch_cancel.h"
 #include "core/log_texts.h"
 #include "core/syslog.h"
@@ -56,6 +57,8 @@ void DisplayController::setNetworkConnected(bool connected) {
   if (connected == network_connected_) return;
   network_connected_ = connected;
   network_changed_ms_ = clock_.monotonicMs();
+  // A lost connection counts as a Wi-Fi drop (core/fault_counts.h).
+  if (!connected) faultCounts().add(kWifiFaults, clock_.wallTime());
   if (connected && first_connected_ms_ < 0) first_connected_ms_ = network_changed_ms_;
   // The start screen tells whether it waits for Wi-Fi or for the data.
   if (starting_) start_redraw_ = true;
@@ -156,7 +159,12 @@ bool DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
   }
   r.failures++;
   e.period_failures++;
-  if (r.failures_in_row == 0) e.failing_since_ms = before_ms;
+  if (r.failures_in_row == 0) {
+    // A fail is a series of failed attempts until the source works again;
+    // it counts once, however often it is retried (core/fault_counts.h).
+    e.failing_since_ms = before_ms;
+    faultCounts().add(name, wall_s);
+  }
   r.failures_in_row++;
   r.problem = problem;
   r.last_failure_wall_s = isValidUnixTime(wall_s) ? wall_s : 0;
@@ -232,6 +240,7 @@ int64_t DisplayController::step() {
   urgent_redraw_ = false;
 
   bool stopped = false;  // a button press waits (core/fetch_cancel.h)
+  bool before_network = false;
   for (Scheduler::TaskId id : scheduler_.due(now_ms)) {
     if (id == redraw_task_) {
       scheduler_.markSuccess(id, now_ms, wall_s);
@@ -240,6 +249,15 @@ int64_t DisplayController::step() {
     }
     for (Entry& e : entries_) {
       if (e.task != id || stopped) continue;
+      if (first_connected_ms_ < 0) {
+        // Before the first connection since the start nothing is fetched:
+        // no failed attempt, no log line, no fault. The data counts as
+        // failing for the screen (as before), and everything is fetched at
+        // once when the network is up (setNetworkConnected()).
+        e.freshness.failure(now_ms);
+        before_network = true;
+        continue;
+      }
       if (fetchStopPending()) {
         stopped = true;  // the rest stays due for the next pass
         continue;
@@ -263,6 +281,8 @@ int64_t DisplayController::step() {
   if (checkStartEnd(end_ms)) redraw_needed = true;
   if (redraw_needed) redraw(end_ms);
   int64_t wait = scheduler_.msUntilNextDue(clock_.monotonicMs());
+  // The sources waiting for the network stay due: do not spin.
+  if (before_network && wait == 0) wait = kNoNetworkPollMs;
   const int64_t deadline = startDeadlineMs();
   if (starting_ && deadline >= 0) {
     const int64_t until = std::max<int64_t>(deadline - clock_.monotonicMs(), 0);

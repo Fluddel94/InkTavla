@@ -234,7 +234,8 @@ def command_log(link, path):
             text = raw.rstrip(b"\r").decode("utf-8", errors="replace")
             if text == "INKTAVLA OK":
                 return write_log(lines, path)
-            if LOG_LINE.match(text):
+            # The header ("# ...", firmware 0.3.0 and later) and the entries.
+            if text.startswith("# ") or LOG_LINE.match(text):
                 lines.append(text)
     print("The log was not complete (no end mark), nothing saved.")
     return 1
@@ -242,10 +243,11 @@ def command_log(link, path):
 
 def write_log(lines, path):
     text = "".join(line + "\n" for line in lines)
+    entries = sum(1 for line in lines if not line.startswith("# "))
     if path:
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
-        print(f"{len(lines)} entries written to {path}")
+        print(f"{entries} entries written to {path}")
     else:
         sys.stdout.write(text)
     return 0

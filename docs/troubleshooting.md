@@ -30,8 +30,9 @@ allowed before.
 - If the wrong port is still used, remove the permission in the browser:
   in Chrome or Edge, the site settings of the setup page (icon left of the
   address) → *Serial ports*, or `chrome://settings/content/serialPorts`
-  (Edge: `edge://settings/content/serialPorts`). The next attempt asks for
-  the port again.
+  (Edge: `edge://settings/content/serialPorts`). In Firefox (151 or later)
+  the permission is a site permission add-on: remove it under
+  `about:addons`. The next attempt asks for the port again.
 
 ## Wi-Fi setup fails
 

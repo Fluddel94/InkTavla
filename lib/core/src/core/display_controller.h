@@ -120,6 +120,9 @@ class DisplayController {
   // A successful fetch taking at least this long is logged with its
   // duration (it holds up the buttons; core/fetch_cancel.h).
   static constexpr int64_t kSlowFetchMs = 5000;
+  // Pass interval while the sources wait for the first connection since
+  // the start (nothing is fetched before it).
+  static constexpr int64_t kNoNetworkPollMs = 1000;
 
   DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                     int full_refresh_minutes);

@@ -157,10 +157,12 @@ void handleImprov(const improv::Parser& parser) {
 
 // --- Configuration commands ------------------------------------------------------
 
-// "INKTAVLA LOG": the whole system log, line by line (it may be larger than
-// the free internal heap).
+// "INKTAVLA LOG": the header ("# ..." lines: device, Wi-Fi drops, sources)
+// and the whole system log, line by line (it may be larger than the free
+// internal heap).
 void sendLog() {
   send(std::string(kLogPrefix) + std::to_string(systemLog().size()) + "\n");
+  if (options.log_header) send(options.log_header());
   LogEntry e;
   uint32_t seq = 0;
   while (systemLog().next(seq, e)) {

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "core/display_controller.h"
+#include "core/fault_counts.h"
 #include "core/fetch_cancel.h"
 #include "core/freshness.h"
 #include "core/refresh.h"
@@ -213,6 +214,7 @@ void test_controller_first_step_fetches_and_shows_full() {
   c.addContent(a);
   c.addContent(header);
 
+  c.setNetworkConnected(true);
   c.step();
   TEST_ASSERT_EQUAL_size_t(1, a.calls.size());
   TEST_ASSERT_EQUAL_size_t(1, display.updates().size());
@@ -252,6 +254,7 @@ void test_controller_bridges_failures_then_shows_age() {
   core::DisplayController c(clock, display, renderer, 60);
   FakeContent a;
   c.addContent(a);
+  c.setNetworkConnected(true);
   c.step();  // success at 20:00:00
   a.succeed = false;
 
@@ -283,6 +286,7 @@ void test_controller_not_set_up_is_never_fetched() {
   core::DisplayController c(clock, display, renderer, 60);
   FakeContent a(true, false);
   c.addContent(a);
+  c.setNetworkConnected(true);
   for (int i = 0; i < 5; i++) clock.advance(c.step());
   TEST_ASSERT_EQUAL_size_t(0, a.calls.size());
   TEST_ASSERT_TRUE(c.state().contents[0].state == DataState::kNotSetUp);
@@ -297,6 +301,7 @@ void test_controller_one_failing_content_does_not_stop_others() {
   bad.succeed = false;
   c.addContent(bad);
   c.addContent(good);
+  c.setNetworkConnected(true);
   for (int i = 0; i < 30; i++) clock.advance(std::max<int64_t>(c.step(), 1));
   TEST_ASSERT_TRUE(c.state().contents[0].state == DataState::kNoData);
   TEST_ASSERT_TRUE(c.state().contents[1].state == DataState::kFresh);
@@ -400,7 +405,7 @@ void test_controller_start_screen_waits_for_the_network_and_first_results() {
   a.succeed = false;
   b.succeed = false;
 
-  // Failures without a network are no result: the start screen stays, also
+  // Without a network nothing is fetched: the start screen stays, also
   // after the time limit.
   c.step();
   TEST_ASSERT_TRUE(c.state().starting);
@@ -457,6 +462,7 @@ void test_controller_without_wall_clock_uses_plain_intervals() {
   core::DisplayController c(clock, display, renderer, 60);
   FakeContent a;
   c.addContent(a);
+  c.setNetworkConnected(true);
   c.step();
   TEST_ASSERT_EQUAL_INT64(60000, c.step());
   // NTP arrives: redraw at once.
@@ -546,6 +552,7 @@ void test_controller_system_page_closes_after_two_minutes() {
   core::DisplayController c(clock, display, renderer, 60);
   FakeContent a;
   c.addContent(a);
+  c.setNetworkConnected(true);
   clock.advance(c.step());
   const int64_t opened = clock.ms;
   c.showSystemPage(true);
@@ -574,6 +581,7 @@ void test_controller_stops_a_slow_fetch_for_a_button() {
   SlowContent slow(clock, renderer.states);
   c.addContent(slow);
   int64_t press_ms = -1;  // no press
+  c.setNetworkConnected(true);
   core::setFetchCancelCheck([&] { return press_ms >= 0 && clock.ms >= press_ms; });
 
   clock.advance(c.step());  // first fetch: 5 s, not stopped
@@ -627,6 +635,7 @@ void test_controller_starts_no_fetch_while_a_press_waits() {
   c.addContent(a);
   c.addContent(b);
   bool waiting = true;
+  c.setNetworkConnected(true);
   core::setFetchCancelCheck([&] { return waiting; });
   TEST_ASSERT_EQUAL_INT64(0, c.step());
   TEST_ASSERT_EQUAL(0, a.calls.size());
@@ -648,10 +657,91 @@ void test_controller_logs_a_slow_fetch() {
   slow.duration_ms = core::DisplayController::kSlowFetchMs + 200;
   c.addContent(slow);
   const uint32_t seq = lastSeq();
+  c.setNetworkConnected(true);
   c.step();
   const std::vector<std::string> info = logged(seq);
   TEST_ASSERT_EQUAL(1, info.size());
   TEST_ASSERT_EQUAL_STRING("slow fetch: 5.2 s", info[0].c_str());
+}
+
+// Before the first connection since the start nothing is fetched: no
+// failed attempt, no warning, no fault (Befund 2026-11-07: after every
+// restart "fetch failed: no network (0.0 s)" for every source). The data
+// counts as failing for the screen as before, and the passes do not spin.
+// With the connection everything is fetched at once.
+void test_controller_fetches_nothing_before_the_first_connection() {
+  FakeClock clock;
+  core::setLogClock([&] { return clock.ms; }, [&] { return clock.wallTime(); });
+  core::faultCounts().reset();
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a, b;
+  c.addContent(a);
+  c.addContent(b);
+  const uint32_t seq = lastSeq();
+  for (int i = 0; i < 100; i++) {
+    const int64_t wait = c.step();
+    TEST_ASSERT_TRUE(wait > 0);
+    clock.advance(wait);
+  }
+  TEST_ASSERT_TRUE(clock.ms >= 60000);
+  TEST_ASSERT_EQUAL(0, a.calls.size());
+  TEST_ASSERT_EQUAL(0, b.calls.size());
+  TEST_ASSERT_EQUAL(0, logged(seq, core::LogLevel::kWarning).size());
+  TEST_ASSERT_EQUAL_UINT32(0, c.sourceReports()[0].failures);
+  TEST_ASSERT_EQUAL_UINT32(0, core::faultCounts().sinceStart("test"));
+  TEST_ASSERT_EQUAL_UINT32(0, core::faultCounts().sinceStart(core::kWifiFaults));
+  TEST_ASSERT_TRUE(c.state().contents[0].state == DataState::kNoData);  // as before
+
+  c.setNetworkConnected(true);
+  c.step();
+  TEST_ASSERT_EQUAL(1, a.calls.size());
+  TEST_ASSERT_EQUAL(1, b.calls.size());
+  TEST_ASSERT_TRUE(c.state().contents[0].state == DataState::kFresh);
+}
+
+// A connection lost later is handled as before: "fetch failed: no network"
+// once, a Wi-Fi drop, and one fail per source however often it is retried
+// (a fail is a series of failed attempts), "works again" after it.
+void test_controller_counts_drops_and_failures_after_the_first_connection() {
+  FakeClock clock;
+  core::setLogClock([&] { return clock.ms; }, [&] { return clock.wallTime(); });
+  core::faultCounts().reset();
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a;
+  c.addContent(a);
+  c.setNetworkConnected(true);
+  c.step();
+  const uint32_t seq = lastSeq();
+  a.succeed = false;
+  c.setNetworkConnected(false);
+  while (clock.ms < 120000) clock.advance(std::max<int64_t>(c.step(), 1));
+  const std::vector<std::string> w = logged(seq, core::LogLevel::kWarning);
+  TEST_ASSERT_EQUAL_size_t(1, w.size());
+  TEST_ASSERT_EQUAL_STRING("fetch failed: no network (0.0 s)", w[0].c_str());
+  TEST_ASSERT_FALSE(c.state().network_connected);         // after the grace period
+  TEST_ASSERT_TRUE(c.sourceReports()[0].failures >= 10);  // attempts
+  TEST_ASSERT_EQUAL_UINT32(1, core::faultCounts().sinceStart(core::kWifiFaults));
+  TEST_ASSERT_EQUAL_UINT32(1, core::faultCounts().sinceStart("test"));
+
+  // Works again, then fails once more: a second fail.
+  a.succeed = true;
+  c.setNetworkConnected(true);
+  c.step();
+  TEST_ASSERT_EQUAL_UINT32(0, c.sourceReports()[0].failures_in_row);
+  TEST_ASSERT_EQUAL_STRING_LEN("works again after", logged(seq).back().c_str(), 17);
+  a.succeed = false;
+  while (clock.ms < 200000) clock.advance(std::max<int64_t>(c.step(), 1));
+  core::SystemReport report;
+  report.sources = c.sourceReports();
+  core::addFaultCounts(report, clock.wallTime());
+  TEST_ASSERT_EQUAL_UINT32(1, report.wifi_drops);
+  TEST_ASSERT_EQUAL_UINT32(1, report.wifi_drops_24h);
+  TEST_ASSERT_EQUAL_UINT32(2, report.sources[0].fails);
+  TEST_ASSERT_EQUAL_UINT32(2, report.sources[0].fails_24h);
 }
 
 int main() {
@@ -677,5 +767,7 @@ int main() {
   RUN_TEST(test_controller_stops_a_slow_fetch_for_a_button);
   RUN_TEST(test_controller_starts_no_fetch_while_a_press_waits);
   RUN_TEST(test_controller_logs_a_slow_fetch);
+  RUN_TEST(test_controller_fetches_nothing_before_the_first_connection);
+  RUN_TEST(test_controller_counts_drops_and_failures_after_the_first_connection);
   return UNITY_END();
 }

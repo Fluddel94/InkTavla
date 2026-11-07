@@ -213,7 +213,8 @@ Nothing user-specific is compiled in.
 
 - **Wi-Fi:** connect the device by USB and enter the credentials with
   [Improv](https://www.improv-wifi.com/) ("Connect device to Wi-Fi" in a
-  browser with Web Serial, e.g. Chrome or Edge). They are stored only on the
+  browser with Web Serial: Chrome, Edge or Firefox 151 or later on a
+  computer). They are stored only on the
   device (NVS) and never printed.
 - **Settings page:** press KEY3; the display shows an address, a one-time
   code and a QR code. The page in the browser sets everything else

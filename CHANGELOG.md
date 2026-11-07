@@ -22,7 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so they can be shared to get help. It holds fixed texts and numbers only,
   no addresses, Wi-Fi names or calendar titles. Warnings and errors survive
   a restart or a crash, nothing is written to flash. Slow updates (5 s or
-  more) and buttons that had to wait are noted with their duration. See
+  more) and buttons that had to wait are noted with their duration.
+  Counters show how often the Wi-Fi connection was lost ("drops") and how
+  often every data source stopped working ("fails", a series of failed
+  attempts counts once), since the start and in the last 24 hours (these
+  survive a restart). Before the first Wi-Fi connection after a start
+  nothing is updated, so a restart leaves no failures. See
   `docs/system-log.md`.
 - Calendar: emoji in event titles and locations are shown as 30 small
   pictures (all hearts, laughing, smiling, loving, crying and winking faces,
@@ -32,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tree). The pictures
   are original drawings in the size of the text; colours and skin tones make
   no difference.
+
+### Changed
+
+- Settings page: the tab "Gerät" holds what is set up and done on the
+  device: Wi-Fi (moved from "Allgemein", with "WLAN wechseln"), backup,
+  firmware update with the installed version, time zone, restart and reset.
+  Uptime and memory are only in the tab "System", which shows the state.
+- Web installer: also works with Firefox 151 or later on a computer (Firefox
+  first asks to add a site permission add-on for the page). The page and
+  `docs/updating.md` say so; uploading `firmware.bin` on the settings page
+  works in every browser.
 
 ### Fixed
 

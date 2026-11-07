@@ -23,6 +23,9 @@ struct SerialLinkOptions {
   ConfigValidator validate;
   // Text for "INKTAVLA INFO".
   std::function<std::string()> info;
+  // First lines of "INKTAVLA LOG" ("# ...", like the downloaded log:
+  // core::logExportHeader()).
+  std::function<std::string()> log_header;
 };
 
 // Starts the task (once in setup(), after Serial.begin()).

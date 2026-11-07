@@ -8,12 +8,14 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "core/fault_counts.h"
 #include "core/log_texts.h"
 #include "core/time.h"
 #include "hal/png.h"
@@ -1240,6 +1242,8 @@ core::SystemReport systemReportSample() {
   mvg.last_duration_ms = 850;
   mvg.successes = 830;
   mvg.failures = 3;
+  mvg.fails = 2;
+  mvg.fails_24h = 1;
   mvg.last_failure_wall_s = kSystemNow - 2400;
   mvg.problem = "timed out after 0 bytes";
   core::SourceReport weather;
@@ -1255,10 +1259,14 @@ core::SystemReport systemReportSample() {
   calendar.last_duration_ms = 1100;
   calendar.successes = 54;
   calendar.failures = 4;
+  calendar.fails = 1;
+  calendar.fails_24h = 1;
   calendar.failures_in_row = 3;
   calendar.last_failure_wall_s = kSystemNow - 130;
   calendar.problem = "HTTP 404";
   r.sources = {mvg, weather, calendar};
+  r.wifi_drops = 1;
+  r.wifi_drops_24h = 1;
   r.warnings = 3;
   r.errors = 1;
   return r;
@@ -1293,7 +1301,13 @@ void test_preview_system_page() {
   crash.device.wifi_connected = false;
   crash.device.time_valid = false;
   crash.device.heap_min_free = crash.device.heap_free;
-  for (core::SourceReport& s : crash.sources) s = {s.name};
+  // The fails of the last 24 hours came back from the RTC memory too.
+  for (core::SourceReport& s : crash.sources) {
+    const uint32_t day = s.fails_24h;
+    s = {s.name};
+    s.fails_24h = day;
+  }
+  crash.wifi_drops = 0;
   crash.warnings = 1;
   crash.errors = 1;
   std::vector<core::LogEntry> after;
@@ -1349,6 +1363,15 @@ void test_system_page_longest_texts_fit() {
     TEST_ASSERT_LESS_OR_EQUAL_MESSAGE(value_width, ui::textWidth(value_font, value) + extra,
                                       value.c_str());
   }
+  // The fail and drop counters fit (a fail a minute for a day: 1440).
+  for (const char* label : {"Fails", "Drops"}) {
+    const std::string line = core::faultCountText(label, 99999, 9999);
+    TEST_ASSERT_LESS_OR_EQUAL_MESSAGE(
+        value_width, ui::textWidth(ui::fonts::kRobotoCondensedMedium15, line), line.c_str());
+  }
+  // Three sources, all with a failure line, end above "KEY2: back".
+  const int key2_top = 480 - ui::kMarginBottom - ui::fonts::kRobotoCondensedMedium16.cap_height;
+  TEST_ASSERT_LESS_OR_EQUAL(key2_top - 8, widgets::briefing::systemPageSourcesBottom(3) + 4);
 }
 
 // --- Band ---------------------------------------------------------------------------

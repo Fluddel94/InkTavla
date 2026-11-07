@@ -140,8 +140,8 @@
     </details>
   </section>
 
-  <!-- Wi-Fi -->
-  <section id="secWifi" data-tab="general">
+  <!-- Device: Wi-Fi first, then the rest of the device (set up and act; the state is in "System") -->
+  <section id="secWifi" data-tab="device">
     <h2 data-t="wifi"></h2>
     <dl class="kv" id="wifiInfo"></dl>
     <details id="wifiChange">
@@ -161,7 +161,6 @@
   <!-- Device -->
   <section id="secDevice" data-tab="device">
     <h2 data-t="device"></h2>
-    <dl class="kv" id="deviceInfo"></dl>
     <h3 data-t="backup"></h3>
     <p class="hint" data-t="backupHint"></p>
     <div class="actions">
@@ -171,6 +170,7 @@
     </div>
     <p id="uploadResult" class="hint" hidden></p>
     <h3 data-t="firmwareUpdate"></h3>
+    <p id="firmwareVersion"></p>
     <p class="hint" data-t="updateHint"></p>
     <div class="actions">
       <button type="button" id="updateCheck" data-t="updateCheck"></button>

@@ -25,8 +25,12 @@ struct SourceReport {
   std::string problem;           // of the last failure, e.g. "HTTP 404"
   uint32_t failures_in_row = 0;  // 0 while it works
   uint32_t last_duration_ms = 0;
-  uint32_t successes = 0;  // since the start
+  uint32_t successes = 0;  // since the start (attempts)
   uint32_t failures = 0;
+  // Fails (series of failed attempts, core/fault_counts.h) since the start
+  // and in the last 24 hours.
+  uint32_t fails = 0;
+  uint32_t fails_24h = 0;
 };
 
 // What only the hardware knows (filled by main.cpp, fixed in the PC
@@ -50,6 +54,8 @@ struct DeviceInfo {
 struct SystemReport {
   DeviceInfo device;
   std::vector<SourceReport> sources;
+  uint32_t wifi_drops = 0;  // lost connections since the start
+  uint32_t wifi_drops_24h = 0;
   size_t warnings = 0;  // in the log
   size_t errors = 0;
 };
@@ -62,6 +68,10 @@ const char* signalQuality(int rssi_dbm);
 // main loop; the settings page reads them in its own task).
 void publishSourceReports(const std::vector<SourceReport>& reports);
 std::vector<SourceReport> publishedSourceReports();
+
+// Fills the Wi-Fi drops and the fails of the sources from
+// core/fault_counts.h (the sources must be filled already).
+void addFaultCounts(SystemReport& report, int64_t wall_s);
 
 // The report as JSON for the settings page (GET /api/system).
 std::string systemReportJson(const SystemReport& report);

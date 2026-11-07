@@ -4,6 +4,7 @@
 
 #include <cstdio>
 
+#include "core/fault_counts.h"
 #include "core/time.h"
 
 namespace core {
@@ -30,6 +31,16 @@ void publishSourceReports(const std::vector<SourceReport>& r) {
 std::vector<SourceReport> publishedSourceReports() {
   std::lock_guard<std::mutex> lock(reports_mutex);
   return reports;
+}
+
+void addFaultCounts(SystemReport& report, int64_t wall_s) {
+  FaultCounts& counts = faultCounts();
+  report.wifi_drops = counts.sinceStart(kWifiFaults);
+  report.wifi_drops_24h = counts.last24h(kWifiFaults, wall_s);
+  for (SourceReport& s : report.sources) {
+    s.fails = counts.sinceStart(s.name.c_str());
+    s.fails_24h = counts.last24h(s.name.c_str(), wall_s);
+  }
 }
 
 const char* dataStateName(DataState state) {
@@ -64,10 +75,14 @@ std::string logExportHeader(const SystemReport& report, int64_t now_s) {
                 static_cast<unsigned>(d.boot));
   out += line;
   if (d.wifi_connected) {
-    std::snprintf(line, sizeof(line), "# wifi: connected, signal %d dBm (%s)\n", d.rssi_dbm,
-                  signalQuality(d.rssi_dbm));
+    std::snprintf(line, sizeof(line),
+                  "# wifi: connected, signal %d dBm (%s), drops %u (last 24h %u)\n", d.rssi_dbm,
+                  signalQuality(d.rssi_dbm), static_cast<unsigned>(report.wifi_drops),
+                  static_cast<unsigned>(report.wifi_drops_24h));
   } else {
-    std::snprintf(line, sizeof(line), "# wifi: not connected\n");
+    std::snprintf(line, sizeof(line), "# wifi: not connected, drops %u (last 24h %u)\n",
+                  static_cast<unsigned>(report.wifi_drops),
+                  static_cast<unsigned>(report.wifi_drops_24h));
   }
   out += line;
   std::snprintf(
@@ -77,9 +92,10 @@ std::string logExportHeader(const SystemReport& report, int64_t now_s) {
       static_cast<unsigned>(d.heap_largest / 1024), static_cast<unsigned>(d.psram_free / 1024));
   out += line;
   for (const SourceReport& s : report.sources) {
-    std::snprintf(line, sizeof(line), "# %s: %s, %u ok, %u failed%s%s\n", s.name.c_str(),
-                  dataStateName(s.state), static_cast<unsigned>(s.successes),
-                  static_cast<unsigned>(s.failures),
+    std::snprintf(line, sizeof(line), "# %s: %s, %u ok, %u failed, fails %u (last 24h %u)%s%s\n",
+                  s.name.c_str(), dataStateName(s.state), static_cast<unsigned>(s.successes),
+                  static_cast<unsigned>(s.failures), static_cast<unsigned>(s.fails),
+                  static_cast<unsigned>(s.fails_24h),
                   s.problem.empty() ? "" : ", last problem: ", s.problem.c_str());
     out += line;
   }
@@ -116,7 +132,11 @@ std::string systemReportJson(const SystemReport& report) {
     o["duration_ms"] = s.last_duration_ms;
     o["successes"] = s.successes;
     o["failures"] = s.failures;
+    o["fails"] = s.fails;
+    o["fails_24h"] = s.fails_24h;
   }
+  doc["wifi"]["drops"] = report.wifi_drops;
+  doc["wifi"]["drops_24h"] = report.wifi_drops_24h;
   doc["log"]["warnings"] = report.warnings;
   doc["log"]["errors"] = report.errors;
   std::string out;

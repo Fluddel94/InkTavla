@@ -16,6 +16,7 @@
 #include "core/config.h"
 #include "core/config_command.h"
 #include "core/display_controller.h"
+#include "core/fault_counts.h"
 #include "core/fetch_cancel.h"
 #include "core/firmware_check.h"
 #include "core/keys.h"
@@ -97,6 +98,7 @@ core::SystemReport settingsReport() {
   core::SystemReport report;
   report.device = deviceInfo();
   report.sources = core::publishedSourceReports();
+  core::addFaultCounts(report, clock_source.wallTime());
   report.errors = core::systemLog().count(core::LogLevel::kError);
   report.warnings = core::systemLog().count(core::LogLevel::kWarning) - report.errors;
   return report;
@@ -213,6 +215,7 @@ void setup() {
 
   // First, so everything after it is in the log.
   core::startSystemLog(core::kFirmwareVersion);
+  core::startFaultCounts();
   Serial.printf("Flash: %lu bytes, PSRAM: %lu bytes\n",
                 static_cast<unsigned long>(ESP.getFlashChipSize()),
                 static_cast<unsigned long>(ESP.getPsramSize()));
@@ -253,6 +256,7 @@ void setup() {
   link.firmware_version = core::kFirmwareVersion;
   link.validate = widgets::validateConfig;
   link.info = info;
+  link.log_header = [] { return core::logExportHeader(settingsReport(), clock_source.wallTime()); };
   core::startSerialLink(wifi, link);
   wifi.begin();
 

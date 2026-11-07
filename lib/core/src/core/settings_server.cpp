@@ -181,9 +181,6 @@ void handleState() {
   state["wifi"]["rssi"] = WiFi.RSSI();
   state["wifi"]["ip"] = WiFi.localIP().toString().c_str();
   state["device"]["firmware"] = options.firmware_version;
-  state["device"]["uptime_s"] = monotonicMs() / 1000;
-  state["device"]["heap"] = ESP.getFreeHeap();
-  state["device"]["psram"] = ESP.getFreePsram();
   if (options.layout_json) {
     JsonDocument layout;
     deserializeJson(layout, "{" + options.layout_json() + "}");

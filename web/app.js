@@ -131,9 +131,6 @@ const TEXTS = {
     wifiNameMissing: "Bitte den Namen des WLANs angeben.",
     good: "gut", fair: "mittel", weak: "schwach",
     device: "Gerät",
-    firmware: "Firmware",
-    uptime: "Läuft seit",
-    memory: "Freier Speicher",
     backup: "Sicherung",
     backupHint: "Die Einstellungen als Datei config.json. Kalender-Adresse und WLAN-Passwort sind nie darin.",
     download: "Herunterladen",
@@ -141,6 +138,7 @@ const TEXTS = {
     uploadLoaded: "Datei geladen. Bitte prüfen und dann speichern.",
     uploadBad: "Die Datei ist keine gültige config.json.",
     firmwareUpdate: "Firmware aktualisieren",
+    installedVersion: "Installiert: Version {v}",
     updateHint: "Fragt bei GitHub nach der neuesten veröffentlichten Version – nur, wenn du den Knopf drückst. GitHub sieht dabei die Adresse (IP) deines Internetanschlusses, sonst nichts.",
     updateCheck: "Nach Updates suchen",
     updateChecking: "Wird gesucht …",
@@ -321,9 +319,6 @@ const TEXTS = {
     wifiNameMissing: "Please enter the name of the Wi-Fi.",
     good: "good", fair: "fair", weak: "weak",
     device: "Device",
-    firmware: "Firmware",
-    uptime: "Running for",
-    memory: "Free memory",
     backup: "Backup",
     backupHint: "The settings as the file config.json. The calendar address and the Wi-Fi password are never in it.",
     download: "Download",
@@ -331,6 +326,7 @@ const TEXTS = {
     uploadLoaded: "File loaded. Please check it, then save.",
     uploadBad: "The file is not a valid config.json.",
     firmwareUpdate: "Update firmware",
+    installedVersion: "Installed: version {v}",
     updateHint: "Asks GitHub for the newest published version – only when you press the button. GitHub sees the address (IP) of your internet connection, nothing else.",
     updateCheck: "Check for updates",
     updateChecking: "Checking …",
@@ -391,13 +387,14 @@ const TEXTS = {
     sysDownload: "Download (.txt)", sysFirmware: "Firmware", sysUptime: "Uptime",
     sysRestart: "Last restart", sysUnplanned: "unplanned", sysStart: "start {n} since power on",
     sysWifi: "Wi-Fi", sysConnected: "connected, {rssi} dBm ({q})", sysNotConnected: "not connected",
+    sysDrops: "Wi-Fi drops", sysDropsText: "{n} · last 24 h {day}",
     sysClock: "Clock", sysClockSet: "set (NTP)", sysClockNotSet: "not set yet",
     sysMemory: "Memory", sysMemoryText: "{free} KB free, lowest {min} KB, largest block {block} KB",
     sysPsram: "PSRAM", sysPsramText: "{free} of {size} MB free", sysCounts: "Log",
     qExcellent: "excellent", qGood: "good", qFair: "fair", qWeak: "weak",
     stateOk: "up to date", stateStale: "outdated", stateWaiting: "waiting", stateNoData: "no data", stateNotSetUp: "not set up",
     sysLastOk: "last {time} ({s} s)", sysFailing: "failing since {time}: {problem} ({n}×)", sysLastFailure: "last failure {time}: {problem}",
-    sysTotals: "{ok} ok, {failed} failed since the start", sysNoEntries: "No entries.", sysLoadFailed: "Could not be loaded.",
+    sysTotals: "{ok} ok, {failed} failed attempts", sysFails: "Fails {n} · last 24 h {day}", sysNoEntries: "No entries.", sysLoadFailed: "Could not be loaded.",
   },
 };
 
@@ -1345,12 +1342,9 @@ function duration(s, tr = t) {
   return m + " " + tr("minutesShort");
 }
 function fillDevice() {
-  const d = S.device || {};
-  $("deviceInfo").replaceChildren(
-    el("dt", {}, t("firmware")), el("dd", {}, d.firmware || "–"),
-    el("dt", {}, t("uptime")), el("dd", {}, duration(d.uptime_s || 0)),
-    el("dt", {}, t("memory")), el("dd", {}, Math.round((d.heap || 0) / 1024) + " KB intern, " +
-      ((d.psram || 0) / 1048576).toLocaleString(lang === "en" ? "en-GB" : "de-DE", { maximumFractionDigits: 1 }) + " MB PSRAM"));
+  // Uptime, memory and the like are in the tab "System" (state); here only
+  // what is needed to act: the installed version next to the update.
+  $("firmwareVersion").textContent = t("installedVersion", { v: (S.device || {}).firmware || "–" });
   const tz = config.time_zone || DEFAULT_TZ;
   const known = TIME_ZONES.some(([v]) => v === tz);
   $("timeZone").replaceChildren(
@@ -1710,6 +1704,7 @@ function renderSystem(r) {
     // A warning only without a connection; a weak signal is said in words.
     ...kv(te("sysWifi"), d.wifi_connected ? te("sysConnected", { rssi: d.rssi, q: quality(d.rssi) }) : te("sysNotConnected"),
       d.wifi_connected ? "" : "warn"),
+    ...kv(te("sysDrops"), te("sysDropsText", { n: (r.wifi || {}).drops || 0, day: (r.wifi || {}).drops_24h || 0 })),
     ...kv(te("sysClock"), te(d.time_valid ? "sysClockSet" : "sysClockNotSet"), d.time_valid ? "" : "warn"),
     ...kv(te("sysMemory"), te("sysMemoryText", { free: Math.round(d.heap_free / 1024), min: Math.round(d.heap_min_free / 1024), block: Math.round(d.heap_largest / 1024) })),
     ...kv(te("sysPsram"), te("sysPsramText", { free: num(d.psram_free / 1048576, 1), size: num(d.psram_size / 1048576, 1) })),
@@ -1719,9 +1714,12 @@ function renderSystem(r) {
     if (s.last_success) parts.push(te("sysLastOk", { time: sysTime(s.last_success), s: num(s.duration_ms / 1000, 1) }));
     if (s.failures_in_row) parts.push(te("sysFailing", { time: sysTime(s.last_failure), problem: s.problem, n: s.failures_in_row }));
     else if (s.failures) parts.push(te("sysLastFailure", { time: sysTime(s.last_failure), problem: s.problem }));
-    parts.push(te("sysTotals", { ok: s.successes, failed: s.failures }));
     const bad = s.state === "stale" || s.state === "no data" || s.failures_in_row > 0;
-    return kv(SOURCE_NAMES[s.name] ? te(SOURCE_NAMES[s.name]) : s.name, parts.join(" · "), bad ? "warn" : "");
+    // Second line, like on the display: the fails (a fail is a series of
+    // failed attempts until the source works again) and the attempts.
+    const counts = te("sysFails", { n: s.fails || 0, day: s.fails_24h || 0 }) + " · " +
+      te("sysTotals", { ok: s.successes, failed: s.failures });
+    return kv(SOURCE_NAMES[s.name] ? te(SOURCE_NAMES[s.name]) : s.name, [parts.join(" · "), el("br"), counts], bad ? "warn" : "");
   }));
 }
 

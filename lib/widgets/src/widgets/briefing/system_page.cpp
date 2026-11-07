@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 
+#include "core/fault_counts.h"
 #include "core/time.h"
 #include "ui/elements.h"
 #include "ui/fonts.h"
@@ -106,7 +107,7 @@ void row(ui::Canvas& canvas, int x, int x1, int baseline, int label_width, const
 }
 
 struct Overview {
-  std::string version, uptime, restart, wifi, signal, clock, psram, log;
+  std::string version, uptime, restart, wifi, signal, drops, clock, psram, log;
   bool restart_warning = false, wifi_warning = false, log_warning = false;
 };
 
@@ -126,6 +127,7 @@ Overview overviewOf(const core::SystemReport& report) {
   } else {
     o.signal = "–";
   }
+  o.drops = core::faultCountText("Drops", report.wifi_drops, report.wifi_drops_24h);
   o.clock = d.time_valid ? "set (NTP)" : "not set yet";
   o.psram = megabytes(d.psram_free) + " of " + megabytes(d.psram_size) + " free";
   o.log = std::to_string(report.warnings) + (report.warnings == 1 ? " warning" : " warnings") +
@@ -211,6 +213,14 @@ constexpr int kLeftWidth = 270;  // width of the left column
 constexpr int kColumnGap = 26;
 constexpr int kLogTop = kTitleBaseline + 26;  // baseline of the newest line
 constexpr int kLabel = 78;                    // width of the labels on the left
+const ui::Font& kFaultFont = fonts::kRobotoCondensedMedium15;
+constexpr int kOverviewTop = kTitleBaseline + 28;  // baseline of the first row
+constexpr int kOverviewRows = 10;
+constexpr int kOverviewRow = 20;
+constexpr int kSectionGap = 28;  // last row to the title "Data sources"
+constexpr int kSourcesTop = 22;  // title to the first source
+constexpr int kSourceLine = 18;  // line of a source to the next
+constexpr int kSourceGap = 19;   // last line of a source to the next source
 
 int logLeft() { return ui::kMargin + kLeftWidth + kColumnGap; }
 
@@ -223,8 +233,8 @@ void drawPage(ui::Canvas& canvas, const core::SystemReport& report,
   ui::drawColumnTitle(canvas, x0, left_end, kTitleBaseline, "System",
                       "InkTavla " + report.device.firmware);
   const Overview o = overviewOf(report);
-  constexpr int kRow = 21;
-  int y = kTitleBaseline + 28;
+  constexpr int kRow = kOverviewRow;
+  int y = kOverviewTop;
   row(canvas, x0, left_end, y, kLabel, "Uptime", o.uptime);
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "Restart", o.restart, o.restart_warning);
@@ -232,6 +242,8 @@ void drawPage(ui::Canvas& canvas, const core::SystemReport& report,
   row(canvas, x0, left_end, y, kLabel, "Wi-Fi", o.wifi, o.wifi_warning);
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "Signal", o.signal);
+  y += kRow;
+  ui::drawText(canvas, kFaultFont, x0 + kLabel, y, o.drops);
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "Clock", o.clock, !report.device.time_valid);
   y += kRow;
@@ -245,9 +257,9 @@ void drawPage(ui::Canvas& canvas, const core::SystemReport& report,
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "Log", o.log, o.log_warning);
 
-  y += 34;
+  y += kSectionGap;
   ui::drawColumnTitle(canvas, x0, left_end, y, "Data sources");
-  y += 24;
+  y += kSourcesTop;
   for (const core::SourceReport& s : report.sources) {
     ui::drawText(canvas, kValueFont, x0, y, sourceTitle(s.name));
     int sx = x0 + kLabel;
@@ -256,12 +268,14 @@ void drawPage(ui::Canvas& canvas, const core::SystemReport& report,
                  ui::fitTextEllipsis(kLabelFont, sourceState(s, now_s), left_end - sx));
     const std::string failure = sourceFailure(s, now_s);
     if (!failure.empty()) {
-      y += 19;
-      ui::drawText(
-          canvas, fonts::kRobotoCondensedMedium15, x0 + kLabel, y,
-          ui::fitTextEllipsis(fonts::kRobotoCondensedMedium15, failure, left_end - x0 - kLabel));
+      y += kSourceLine;
+      ui::drawText(canvas, kFaultFont, x0 + kLabel, y,
+                   ui::fitTextEllipsis(kFaultFont, failure, left_end - x0 - kLabel));
     }
-    y += 25;
+    y += kSourceLine;
+    ui::drawText(canvas, kFaultFont, x0 + kLabel, y,
+                 core::faultCountText("Fails", s.fails, s.fails_24h));
+    y += kSourceGap;
   }
   ui::drawText(canvas, kLabelFont, x0, ui::kScreenHeight - ui::kMarginBottom, "KEY2: back");
 
@@ -284,6 +298,14 @@ int systemPageLogTextWidth() {
 }
 
 int systemPageValueWidth() { return kLeftWidth - kLabel; }
+
+int systemPageSourcesBottom(size_t sources) {
+  const int last_row = kOverviewTop + (kOverviewRows - 1) * kOverviewRow;
+  const int first = last_row + kSectionGap + kSourcesTop;
+  if (sources == 0) return first - kSourcesTop;
+  // Every source with its failure line: three lines.
+  return first + static_cast<int>(sources) * (2 * kSourceLine + kSourceGap) - kSourceGap;
+}
 
 void drawSystemPage(ui::Canvas& canvas, const core::SystemReport& report,
                     const std::vector<core::LogEntry>& log, int64_t now_s) {

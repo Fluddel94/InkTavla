@@ -3,6 +3,7 @@
 #include <cstring>
 #include <string>
 
+#include "core/system_report.h"
 #include "core/time.h"
 #include "ui/i18n.h"
 #include "ui/layout.h"
@@ -165,6 +166,7 @@ core::SystemReport App::systemReport() const {
   core::SystemReport report;
   if (device_info_) report.device = device_info_();
   if (controller_ != nullptr) report.sources = controller_->sourceReports();
+  core::addFaultCounts(report, clock_.wallTime());
   const core::SystemLog& log = core::systemLog();
   report.errors = log.count(core::LogLevel::kError);
   report.warnings = log.count(core::LogLevel::kWarning) - report.errors;

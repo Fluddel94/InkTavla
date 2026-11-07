@@ -7,8 +7,9 @@ can be found without a USB cable and a serial monitor.
 
 - **On the display: KEY2.** The system page shows the state of the device on
   the left (version, uptime, reason of the last restart, Wi-Fi connection
-  and signal, clock, memory, number of warnings and errors, and for every
-  data source its state, its last update and its last failure) and the
+  and signal with its drops, clock, memory, number of warnings and errors,
+  and for every data source its state, its last update, its last failure
+  and its fails) and the
   newest log lines on the right, newest first. KEY2 again, KEY3 (settings
   page) or two minutes without a press bring back the normal screen.
 - **On the settings page: tab "System".** The same state, the whole log with
@@ -21,7 +22,8 @@ language of the display, so a photo, a screenshot or the downloaded file
 can be shared to get help. Times of another day are shown as month-day
 (`11-06 07:41`), like the date in the file.
 - **Over USB:** `python tools/inktavla_config.py log inktavla-log.txt --port COM5`
-  writes the log to a file (without a file name it is shown). The serial
+  writes the log to a file, with the same first lines as the download
+  (without a file name it is shown). The serial
   monitor also shows every new entry as it is made.
 
 ## What it contains
@@ -66,6 +68,32 @@ A data source that keeps failing is retried every few seconds; it is logged
 when it starts failing, when the reason changes and when it works again, not
 at every attempt. In normal operation the log grows by about 100 lines a
 day.
+
+## Counters: drops and fails
+
+Below the Wi-Fi signal and below every data source the page shows two
+numbers: since the start, and in the last 24 hours.
+
+```
+Drops 1 · Last 24h 1       (Wi-Fi)
+Fails 2 · Last 24h 1       (a data source)
+```
+
+- **Drops:** how often the Wi-Fi connection was lost.
+- **Fails:** how often a data source stopped working. A fail is a series of
+  failed attempts until the source works again; it counts once, however
+  often it is retried every few seconds (the attempts are in the tab
+  "System" and in the download: `830 ok, 3 failed`). A Wi-Fi drop makes
+  every source fail once too.
+- Nothing is counted before the first Wi-Fi connection after a start: the
+  display does not try to update without it, so a restart leaves no
+  `fetch failed: no network` lines and no fails.
+- The last 24 hours are counted in hourly steps and kept in the same memory
+  as the warnings: they survive a restart or a crash, not a power cut. The
+  numbers since the start begin at 0 after every restart.
+
+The tab "System", the download (first lines) and `INKTAVLA LOG` show the
+same numbers.
 
 ## Buttons during an update
 

@@ -34,13 +34,11 @@ the same Wi-Fi as the display:
 
 The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes. It
-has five tabs:
+has six tabs:
 
 - **Allgemein / General:** widgets of the columns, language, full refresh,
   the dotted lines between the columns (on by default; three columns of the
-  same width can be tried out below); the current Wi-Fi network and **WLAN
-  wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
-  if the display can connect (otherwise it goes back to the old one).
+  same width can be tried out below).
 - **Abfahrten - MVG / Departures - MVG:** station search; the display name
   follows the chosen station (and can still be edited); one list, two
   directions or two stations; under every station buttons for the means of
@@ -64,12 +62,19 @@ has five tabs:
 - **Kalender - Google / Calendar - Google:** replace or remove the private iCal address (the
   page only shows whether one is set), and the settings of the column under
   **Anzeige** / **Display**, **Filter** and **Abruf** / **Updates**.
-- **Gerät / Device:** download and load `config.json` (a backup; secrets are
-  never in it), **Firmware aktualisieren** / **Update firmware** (see below),
-  time zone and time server, restart, and **Einstellungen zurücksetzen** /
-  **Reset settings** (all settings to their defaults and the calendar
-  address deleted; Wi-Fi stays, so the display can still be reached; the
-  page then opens again by itself after the restart).
+- **Gerät / Device** (set up and act, in the language of the page): the
+  current Wi-Fi network (name, signal, address) and **WLAN wechseln** /
+  **Change Wi-Fi**, which tests a new network and saves it only if the
+  display can connect (otherwise it goes back to the old one); download and
+  load `config.json` (a backup; secrets are never in it), **Firmware
+  aktualisieren** / **Update firmware** with the installed version (see
+  below), time zone and time server, restart, and **Einstellungen
+  zurücksetzen** / **Reset settings** (all settings to their defaults and
+  the calendar address deleted; Wi-Fi stays, so the display can still be
+  reached; the page then opens again by itself after the restart).
+- **System** (state and diagnosis, always English): uptime, restart, Wi-Fi
+  and its drops, memory, the data sources with their fails, and the system
+  log (see [system-log.md](system-log.md)).
 
 ### Updating the firmware on the settings page
 

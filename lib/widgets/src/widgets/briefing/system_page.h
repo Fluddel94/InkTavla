@@ -4,6 +4,7 @@
 // newest lines of the system log, on the whole screen. Closed with KEY2 or
 // after two minutes (core::DisplayController::kSystemPageMs).
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -14,8 +15,10 @@
 namespace widgets::briefing {
 
 // Left: version, uptime, reason of the last restart, Wi-Fi connection and
-// signal, clock, memory, number of warnings and errors, and per data source
-// its state, last success and last failure. Right: the newest log lines,
+// signal with its drops ("Drops 1 · Last 24h 0"), clock, memory, number of
+// warnings and errors, and per data source its state, last success, last
+// failure and its fails ("Fails 3 · Last 24h 1"; a fail is a series of
+// failed attempts, core/fault_counts.h). Right: the newest log lines,
 // newest first (fixed English texts of the log); entries of an earlier
 // start below a dotted line. Chosen 2026-11-06 from two drafts; always
 // English since 2026-11-07, whatever the language of the display.
@@ -27,6 +30,10 @@ size_t systemPageLogLines();
 // for a value in the overview on the left (for tests).
 int systemPageLogTextWidth();
 int systemPageValueWidth();
+
+// Baseline of the last line on the left with this many sources, each with
+// a failure line (the most the page shows; for tests).
+int systemPageSourcesBottom(size_t sources);
 
 // log: the newest entries, newest first. now_s: current Unix time (invalid
 // before NTP).
