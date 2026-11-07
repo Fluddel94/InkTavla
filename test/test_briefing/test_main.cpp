@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "core/log_texts.h"
 #include "core/time.h"
 #include "hal/png.h"
 #include "ui/bitmap.h"
@@ -1193,26 +1194,26 @@ std::vector<core::LogEntry> systemLogSample() {
   using L = core::LogLevel;
   const int64_t t = kSystemNow;
   add(2, t - 50000, 30000, L::kInfo, "system", "restarting (settings saved)");
-  add(3, 0, 0, L::kInfo, "system", "start 0.3.0-dev, restart reason: software restart");
-  add(3, 0, 4, L::kInfo, "wifi", "connected after 0:00:04, signal -61 dBm, channel 6");
+  add(3, 0, 0, L::kInfo, "system", "start 0.3.0-dev, reason: software restart");
+  add(3, 0, 4, L::kInfo, "wifi", core::wifiConnectedText(4, -61, 6).c_str());
   add(3, t - 49990, 5, L::kInfo, "time", "clock set (NTP)");
-  add(3, t - 3600, 2600, L::kInfo, "mvg", "last hour: 60 ok, 0 failed, avg 0.8 s, max 1.4 s");
+  add(3, t - 3600, 2600, L::kInfo, "mvg", core::fetchSummaryText(60, 0, 800, 1400).c_str());
   add(3, t - 3600, 2600, L::kInfo, "memory",
-      "heap 183 KB free (lowest 141 KB, largest block 96 KB), PSRAM 7602 KB free");
+      core::memoryText(183 * 1024, 141 * 1024, 96 * 1024, 7602 * 1024).c_str());
   add(3, t - 1490, 48500, L::kWarning, "wifi", "disconnected, reason 200 (BEACON_TIMEOUT)");
-  add(3, t - 1481, 48509, L::kInfo, "wifi", "connected after 0:00:09, signal -64 dBm, channel 6");
+  add(3, t - 1481, 48509, L::kInfo, "wifi", core::wifiConnectedText(9, -64, 6).c_str());
   add(3, t - 1430, 48560, L::kWarning, "calendar", "fetch failed: HTTP 404 (1.2 s)");
   add(3, t - 1200, 48790, L::kInfo, "keys", "KEY1: refresh");
   add(3, t - 1190, 48800, L::kInfo, "calendar", "works again after 1 failed attempt (0:04:00)");
   add(3, t - 730, 49260, L::kWarning, "calendar", "fetch failed: HTTP 404 (1.1 s)");
-  add(3, t - 600, 49390, L::kInfo, "mvg", "last hour: 59 ok, 1 failed, avg 0.9 s, max 3.1 s");
-  add(3, t - 600, 49390, L::kInfo, "weather", "last hour: 2 ok, 0 failed, avg 1.6 s, max 1.7 s");
-  add(3, t - 600, 49390, L::kInfo, "calendar", "last hour: 2 ok, 2 failed, avg 2.8 s, max 3.0 s");
+  add(3, t - 600, 49390, L::kInfo, "mvg", core::fetchSummaryText(59, 1, 900, 3100).c_str());
+  add(3, t - 600, 49390, L::kInfo, "weather", core::fetchSummaryText(2, 0, 1600, 1700).c_str());
+  add(3, t - 600, 49390, L::kInfo, "calendar", core::fetchSummaryText(2, 2, 2800, 3000).c_str());
   add(3, t - 600, 49390, L::kInfo, "memory",
-      "heap 179 KB free (lowest 138 KB, largest block 92 KB), PSRAM 7598 KB free");
-  add(3, t - 600, 49390, L::kInfo, "wifi", "signal -63 dBm (good)");
+      core::memoryText(179 * 1024, 138 * 1024, 92 * 1024, 7598 * 1024).c_str());
+  add(3, t - 600, 49390, L::kInfo, "wifi", core::wifiSignalText(-78).c_str());
   add(3, t - 140, 49850, L::kError, "calendar", "failing for 30 min (3 attempts): HTTP 404");
-  add(3, t - 5, 49985, L::kInfo, "keys", "KEY2: system page");
+  add(3, t - 5, 49985, L::kInfo, "keys", "KEY2: system page (waited 2.4 s)");
   std::reverse(entries.begin(), entries.end());  // newest first
   return entries;
 }
@@ -1225,7 +1226,7 @@ core::SystemReport systemReportSample() {
   d.restart_reason = "software restart";
   d.boot = 3;
   d.wifi_connected = true;
-  d.rssi_dbm = -63;
+  d.rssi_dbm = -78;  // weak: no warning sign while connected
   d.heap_free = 179 * 1024;
   d.heap_min_free = 138 * 1024;
   d.heap_largest = 92 * 1024;
@@ -1265,9 +1266,9 @@ core::SystemReport systemReportSample() {
 
 }  // namespace
 
-// The system page (KEY2) with a morning of a Wi-Fi dropout and a failing
-// calendar address (German), and right after a crash without a clock
-// (English).
+// The system page (KEY2, always English) with a morning of a Wi-Fi dropout,
+// a weak signal and a failing calendar address, and right after a crash
+// without a clock.
 void test_preview_system_page() {
   const std::vector<core::LogEntry> log = systemLogSample();
   const core::SystemReport report = systemReportSample();
@@ -1279,7 +1280,7 @@ void test_preview_system_page() {
   const size_t lines = widgets::briefing::systemPageLogLines();
   TEST_ASSERT_EQUAL(23, lines);
   widgets::briefing::drawSystemPage(
-      morning, ui::Language::kGerman, report,
+      morning, report,
       std::vector<core::LogEntry>(log.begin(), log.begin() + std::min(log.size(), lines)),
       kSystemNow);
 
@@ -1301,7 +1302,7 @@ void test_preview_system_page() {
   e.level = core::LogLevel::kError;
   e.uptime_s = 0;
   std::snprintf(e.area, sizeof(e.area), "system");
-  std::snprintf(e.text, sizeof(e.text), "start 0.3.0-dev, restart reason: crash (panic)");
+  std::snprintf(e.text, sizeof(e.text), "start 0.3.0-dev, reason: crash (panic)");
   after.push_back(e);
   for (const core::LogEntry& old : log) {
     if (old.level != core::LogLevel::kInfo || std::string(old.area) == "system") {
@@ -1309,8 +1310,45 @@ void test_preview_system_page() {
     }
   }
   ui::BitmapCanvas crashed(bitmap, 0, 490, 800, 480);
-  widgets::briefing::drawSystemPage(crashed, ui::Language::kEnglish, crash, after, 0);
+  widgets::briefing::drawSystemPage(crashed, crash, after, 0);
   check(bitmap, "system_page");
+}
+
+// The longest form of every log text with numbers fits a line of the log on
+// the system page, and the Wi-Fi rows fit the overview (Befund 2026-11-06:
+// "verbunden · -78 dBm (schwach)" with a warning sign was cut off).
+void test_system_page_longest_texts_fit() {
+  const int log_width = widgets::briefing::systemPageLogTextWidth();
+  const int value_width = widgets::briefing::systemPageValueWidth();
+  TEST_ASSERT_GREATER_THAN(250, log_width);
+  const ui::Font& log_font = ui::fonts::kRobotoCondensedMedium15;
+  const ui::Font& value_font = ui::fonts::kRobotoCondensedBold16;
+  const std::vector<std::string> log_lines = {
+      core::startText("0.10.0-rc.1", "USB (flashing or reset)"),
+      core::startText("0.10.0-rc.1", "voltage drop (brownout)"),
+      core::wifiConnectedText(86400 + 86399, -100, 13),
+      core::wifiSignalText(-100),
+      core::wifiSignalText(-30),
+      core::wifiRestartText(99),
+      // Internal heap and PSRAM of the ESP32-S3 (512 KB, 8 MB) at most.
+      core::memoryText(512 * 1024, 512 * 1024, 512 * 1024, 8192 * 1024),
+      // At most one success a minute and one failure every 10 s.
+      core::fetchSummaryText(360, 360, 99900, 99900),
+      "fetch stopped for a button after " + core::secondsText(99900),
+      "slow fetch: " + core::secondsText(99900),
+      "KEY2: system page (waited 99.9 s)",
+  };
+  for (const std::string& line : log_lines) {
+    TEST_ASSERT_LESS_OR_EQUAL_MESSAGE(log_width, ui::textWidth(log_font, line), line.c_str());
+  }
+  const std::vector<std::string> values = {"connected", "not connected", "-100 dBm (excellent)",
+                                           "-100 dBm (weak)", "voltage drop (brownout)"};
+  for (const std::string& value : values) {
+    // Without a warning sign; "not connected" has one (about 20 px).
+    const int extra = value == "not connected" ? 20 : 0;
+    TEST_ASSERT_LESS_OR_EQUAL_MESSAGE(value_width, ui::textWidth(value_font, value) + extra,
+                                      value.c_str());
+  }
 }
 
 // --- Band ---------------------------------------------------------------------------
@@ -1671,6 +1709,7 @@ int main() {
   RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
   RUN_TEST(test_preview_start_screen);
   RUN_TEST(test_preview_system_page);
+  RUN_TEST(test_system_page_longest_texts_fit);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);
   return UNITY_END();

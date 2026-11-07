@@ -8,6 +8,7 @@
 
 #include <atomic>
 
+#include "core/log_texts.h"
 #include "core/syslog.h"
 #include "core/time.h"
 
@@ -84,9 +85,10 @@ void Wifi::loop() {
     // Never the network name or the address in the log. A new address
     // while connected (DHCP) is no new connection.
     if (lost_ms_ >= 0) {
-      logInfo("wifi", "connected after %s, signal %d dBm, channel %d",
-              formatUptime((now - lost_ms_) / 1000).c_str(), static_cast<int>(WiFi.RSSI()),
-              static_cast<int>(WiFi.channel()));
+      logInfo("wifi", "%s",
+              wifiConnectedText((now - lost_ms_) / 1000, static_cast<int>(WiFi.RSSI()),
+                                static_cast<int>(WiFi.channel()))
+                  .c_str());
     }
     lost_ms_ = -1;
     logged_reason_ = -1;
@@ -114,7 +116,7 @@ void Wifi::loop() {
     case WifiPolicy::Action::kRestartAndConnect:
       Serial.println("Wi-Fi: restarting the Wi-Fi module");
       if (!restart_logged_) {
-        logInfo("wifi", "restarting the Wi-Fi module after %d failed attempts", policy_.failures());
+        logInfo("wifi", "%s", wifiRestartText(policy_.failures()).c_str());
         restart_logged_ = true;
       }
       WiFi.mode(WIFI_OFF);

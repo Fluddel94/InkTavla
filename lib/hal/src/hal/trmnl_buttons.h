@@ -25,6 +25,11 @@ class TrmnlButtons {
   // What happened at button i since the last call (takes the latched
   // press).
   ButtonSample sample(size_t i);
+
+  // Whether a press is latched at any button, without taking it (safe in
+  // any task; the main loop stops a running fetch for it,
+  // core/fetch_cancel.h).
+  bool pressWaiting() const;
 };
 
 }  // namespace hal

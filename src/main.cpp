@@ -16,8 +16,10 @@
 #include "core/config.h"
 #include "core/config_command.h"
 #include "core/display_controller.h"
+#include "core/fetch_cancel.h"
 #include "core/firmware_check.h"
 #include "core/keys.h"
+#include "core/log_texts.h"
 #include "core/secrets.h"
 #include "core/serial_link.h"
 #include "core/settings_server.h"
@@ -105,12 +107,9 @@ core::SystemReport settingsReport() {
 void logHourly() {
   const core::DeviceInfo d = deviceInfo();
   core::logInfo(
-      "memory", "heap %u KB free (lowest %u KB, largest block %u KB), PSRAM %u KB free",
-      static_cast<unsigned>(d.heap_free / 1024), static_cast<unsigned>(d.heap_min_free / 1024),
-      static_cast<unsigned>(d.heap_largest / 1024), static_cast<unsigned>(d.psram_free / 1024));
-  if (d.wifi_connected) {
-    core::logInfo("wifi", "signal %d dBm (%s)", d.rssi_dbm, core::signalQuality(d.rssi_dbm));
-  }
+      "memory", "%s",
+      core::memoryText(d.heap_free, d.heap_min_free, d.heap_largest, d.psram_free).c_str());
+  if (d.wifi_connected) core::logInfo("wifi", "%s", core::wifiSignalText(d.rssi_dbm).c_str());
 }
 
 std::string info() {
@@ -126,10 +125,19 @@ std::string info() {
 void handleButtons() {
   const int64_t now = core::monotonicMs();
   for (size_t i = 0; i < core::kKeyCount; i++) {
-    const core::KeyAction action =
-        core::keyAction(i, button_logic[i].update(now, buttons.sample(i)));
+    const hal::ButtonSample sample = buttons.sample(i);
+    const core::KeyAction action = core::keyAction(i, button_logic[i].update(now, sample));
     if (action == core::KeyAction::kNone) continue;
-    core::logInfo("keys", "KEY%u: %s", static_cast<unsigned>(i + 1), core::keyActionName(action));
+    // How long the press waited for the main loop (a fetch or a refresh of
+    // the panel); only worth noting from a second on.
+    const int64_t waited_ms = sample.press_latched ? now - sample.press_at_ms : 0;
+    if (waited_ms >= 1000) {
+      core::logInfo("keys", "KEY%u: %s (waited %d.%d s)", static_cast<unsigned>(i + 1),
+                    core::keyActionName(action), static_cast<int>(waited_ms / 1000),
+                    static_cast<int>(waited_ms % 1000 / 100));
+    } else {
+      core::logInfo("keys", "KEY%u: %s", static_cast<unsigned>(i + 1), core::keyActionName(action));
+    }
     switch (action) {
       case core::KeyAction::kRefresh:
         app->controller().requestUpdate();
@@ -263,6 +271,12 @@ void setup() {
     button_logic[i].setLongPress(core::keyHasLongPress(i));
   }
   buttons.begin();
+  // A press stops a running fetch of the main loop, so the button is
+  // answered at once (core/fetch_cancel.h). Only in this task: the requests
+  // of the settings page (own task) are never stopped by a button.
+  static const TaskHandle_t loop_task = xTaskGetCurrentTaskHandle();
+  core::setFetchCancelCheck(
+      [] { return xTaskGetCurrentTaskHandle() == loop_task && buttons.pressWaiting(); });
 }
 
 void loop() {

@@ -60,6 +60,13 @@ ButtonSample TrmnlButtons::sample(size_t i) {
   return s;
 }
 
+bool TrmnlButtons::pressWaiting() const {
+  for (const Latch& l : latches) {
+    if (l.latched) return true;  // a single bool: no lock needed
+  }
+  return false;
+}
+
 }  // namespace hal
 
 #endif

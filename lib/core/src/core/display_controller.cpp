@@ -4,20 +4,14 @@
 #include <cstdio>
 #include <ctime>
 
+#include "core/fetch_cancel.h"
+#include "core/log_texts.h"
 #include "core/syslog.h"
 #include "core/time.h"
 
 namespace core {
 
 namespace {
-
-// "0.9 s", "12.3 s"
-std::string seconds(uint64_t ms) {
-  char buffer[24];
-  std::snprintf(buffer, sizeof(buffer), "%u.%u s", static_cast<unsigned>(ms / 1000),
-                static_cast<unsigned>(ms % 1000 / 100));
-  return buffer;
-}
 
 uint32_t clampMs(int64_t ms) {
   return static_cast<uint32_t>(std::min<int64_t>(std::max<int64_t>(ms, 0), UINT32_MAX));
@@ -89,6 +83,7 @@ void DisplayController::setAccessNotice(const AccessNotice& notice) {
   if (notice == notice_) return;
   notice_ = notice;
   force_redraw_ = true;
+  urgent_redraw_ = true;
 }
 
 void DisplayController::showSystemPage(bool show) {
@@ -97,6 +92,7 @@ void DisplayController::showSystemPage(bool show) {
   system_page_ms_ = clock_.monotonicMs();
   planner_.requestFull();  // the whole screen changes
   force_redraw_ = true;
+  urgent_redraw_ = true;
 }
 
 std::vector<SourceReport> DisplayController::sourceReports() const {
@@ -110,13 +106,22 @@ std::vector<SourceReport> DisplayController::sourceReports() const {
   return result;
 }
 
-void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
+bool DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
   const int64_t before_ms = clock_.monotonicMs();
-  takeFetchProblem();  // left over from a request outside the loop
+  takeFetchProblem();    // left over from a request outside the loop
+  takeFetchCancelled();  // likewise
   const bool ok = e.content->fetch(wall_s);
   const int64_t after_ms = clock_.monotonicMs();
   wall_s = clock_.wallTime();
   const char* name = e.content->logName();
+  if (takeFetchCancelled()) {
+    // Stopped for a button press: no result, nothing counted; again as
+    // soon as the press has been handled.
+    takeFetchProblem();
+    logInfo(name, "fetch stopped for a button after %s", secondsText(after_ms - before_ms).c_str());
+    scheduler_.requestNow(id);
+    return false;
+  }
   SourceReport& r = e.report;
   r.last_duration_ms = clampMs(after_ms - before_ms);
   // Without a network a failure is no result yet (start screen).
@@ -127,6 +132,9 @@ void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
     e.period_successes++;
     e.period_ms += r.last_duration_ms;
     e.period_max_ms = std::max(e.period_max_ms, r.last_duration_ms);
+    if (r.last_duration_ms >= kSlowFetchMs) {
+      logInfo(name, "slow fetch: %s", secondsText(r.last_duration_ms).c_str());
+    }
     if (r.failures_in_row > 0) {
       logInfo(name, "works again after %u failed attempt%s (%s)",
               static_cast<unsigned>(r.failures_in_row), r.failures_in_row == 1 ? "" : "s",
@@ -138,7 +146,7 @@ void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
     e.logged_problem.clear();
     e.freshness.success(after_ms, wall_s);
     scheduler_.markSuccess(id, after_ms, wall_s);
-    return;
+    return true;
   }
   std::string problem = takeFetchProblem();
   if (!network_connected_) {
@@ -155,7 +163,8 @@ void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
   // A failing source is retried every few seconds: log the first failure
   // and a change of the reason, count the rest.
   if (r.failures_in_row == 1 || problem != e.logged_problem) {
-    logWarning(name, "fetch failed: %s (%s)", problem.c_str(), seconds(r.last_duration_ms).c_str());
+    logWarning(name, "fetch failed: %s (%s)", problem.c_str(),
+               secondsText(r.last_duration_ms).c_str());
     e.logged_problem = problem;
   }
   if (!e.long_failure_logged && after_ms - e.failing_since_ms >= kLongFailureMs) {
@@ -166,16 +175,18 @@ void DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
   }
   e.freshness.failure(after_ms);
   scheduler_.markFailure(id, after_ms, wall_s);
+  return true;
 }
 
 void DisplayController::logSummary() {
   for (Entry& e : entries_) {
     const uint32_t total = e.period_successes + e.period_failures;
     if (total == 0) continue;
-    logInfo(e.content->logName(), "last hour: %u ok, %u failed, avg %s, max %s",
-            static_cast<unsigned>(e.period_successes), static_cast<unsigned>(e.period_failures),
-            seconds(e.period_successes == 0 ? 0 : e.period_ms / e.period_successes).c_str(),
-            seconds(e.period_max_ms).c_str());
+    logInfo(e.content->logName(), "%s",
+            fetchSummaryText(e.period_successes, e.period_failures,
+                             e.period_successes == 0 ? 0 : e.period_ms / e.period_successes,
+                             e.period_max_ms)
+                .c_str());
     e.period_successes = 0;
     e.period_failures = 0;
     e.period_ms = 0;
@@ -212,6 +223,15 @@ int64_t DisplayController::step() {
     while (next_summary_ms_ <= now_ms) next_summary_ms_ += kLogSummaryMs;
   }
 
+  // A page or notice opened or closed by a button is shown before the
+  // fetches, which may take seconds.
+  if (urgent_redraw_ && !shown_.empty()) {
+    redraw(now_ms);
+    redraw_needed = false;
+  }
+  urgent_redraw_ = false;
+
+  bool stopped = false;  // a button press waits (core/fetch_cancel.h)
   for (Scheduler::TaskId id : scheduler_.due(now_ms)) {
     if (id == redraw_task_) {
       scheduler_.markSuccess(id, now_ms, wall_s);
@@ -219,10 +239,17 @@ int64_t DisplayController::step() {
       continue;
     }
     for (Entry& e : entries_) {
-      if (e.task != id) continue;
+      if (e.task != id || stopped) continue;
+      if (fetchStopPending()) {
+        stopped = true;  // the rest stays due for the next pass
+        continue;
+      }
       // A fetch may take seconds (network); fetch() uses the time after it.
-      fetch(e, id, wall_s);
-      redraw_needed = true;
+      if (fetch(e, id, wall_s)) {
+        redraw_needed = true;
+      } else {
+        stopped = true;
+      }
     }
   }
 
@@ -251,7 +278,7 @@ int64_t DisplayController::step() {
   if (system_page_) until = std::min(until, system_page_ms_ + kSystemPageMs - now_after);
   wait = wait < 0 ? std::max<int64_t>(until, 0) : std::min(wait, std::max<int64_t>(until, 0));
   publishSourceReports(sourceReports());
-  return wait;
+  return stopped ? 0 : wait;
 }
 
 int64_t DisplayController::startDeadlineMs() const {

@@ -46,7 +46,7 @@ core::FrameView Screen::render(const core::ScreenState& state) {
     ui::BitmapCanvas canvas(bitmap_, 0, 0, ui::kScreenWidth, ui::kScreenHeight);
     const core::SystemReport report = system_report_ ? system_report_() : core::SystemReport{};
     const auto log = core::systemLog().newest(briefing::systemPageLogLines());
-    briefing::drawSystemPage(canvas, language_, report, log, state.wall_s);
+    briefing::drawSystemPage(canvas, report, log, state.wall_s);
     return {bitmap_.data(), bitmap_.width(), bitmap_.height(), bitmap_.stride()};
   }
   if (state.starting) {

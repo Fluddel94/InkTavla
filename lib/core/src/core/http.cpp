@@ -7,6 +7,7 @@
 #include <NetworkClientSecure.h>
 
 #include "core/chunked.h"
+#include "core/fetch_cancel.h"
 #include "core/syslog.h"
 
 namespace core {
@@ -39,12 +40,20 @@ class HttpBodyStream : public Stream {
 
   size_t bytes() const { return bytes_; }
   bool timedOut() const { return timed_out_; }
+  // Reading stopped for a button press (core/fetch_cancel.h).
+  bool cancelled() const { return cancelled_; }
   int64_t length() const { return length_; }  // negative if unknown
 
  private:
-  // Next byte from the network, -1 at the end or after the timeout.
+  // Next byte from the network, -1 at the end, after the timeout or when
+  // a button press waits (asked every kCancelCheckBytes and while waiting).
   int rawByte() {
+    if (++since_check_ >= kCancelCheckBytes) {
+      since_check_ = 0;
+      if (stop()) return -1;
+    }
     const uint32_t start = millis();
+    uint32_t waited = 0;
     while (true) {
       const int c = in_.read();
       if (c >= 0) return c;
@@ -54,8 +63,16 @@ class HttpBodyStream : public Stream {
         return -1;
       }
       delay(1);
+      if (++waited % 50 == 0 && stop()) return -1;
     }
   }
+
+  bool stop() {
+    if (!cancelled_ && fetchShouldStop()) cancelled_ = true;
+    return cancelled_;
+  }
+
+  static constexpr uint32_t kCancelCheckBytes = 512;
 
   int nextBodyByte() {
     while (true) {
@@ -87,6 +104,8 @@ class HttpBodyStream : public Stream {
   ChunkedDecoder decoder_;
   bool finished_ = false;
   bool timed_out_ = false;
+  bool cancelled_ = false;
+  uint32_t since_check_ = 0;
   int peeked_ = -1;
   size_t bytes_ = 0;
 };
@@ -133,6 +152,12 @@ bool get(const std::string& url, bool follow_redirects,
   http.collectHeaders(header_keys, 1);
 
   bool ok = false;
+  if (fetchShouldStop()) {
+    // A button press waits: do not start (the caller repeats it later).
+    r.error = "cancelled";
+    if (result != nullptr) *result = r;
+    return false;
+  }
   if (!http.begin(client, url.c_str())) {
     r.status = -1;
   } else {
@@ -143,10 +168,17 @@ bool get(const std::string& url, bool follow_redirects,
       ok = read(body, r);
       r.bytes = body.bytes();
       r.timed_out = body.timedOut();
+      if (body.cancelled()) {
+        ok = false;
+        r.error = "cancelled";
+      }
     }
     http.end();
   }
-  if (!ok) {
+  if (!ok && r.error == "cancelled") {
+    Serial.printf("HTTP: stopped for a button press after %u bytes\n",
+                  static_cast<unsigned>(r.bytes));
+  } else if (!ok) {
     // No URL in the log: it may contain secrets (e.g. a private iCal address).
     Serial.printf("HTTP: request failed, status %d%s%s%s\n", r.status,
                   r.timed_out ? ", timed out" : "", r.error.empty() ? "" : ", ", r.error.c_str());

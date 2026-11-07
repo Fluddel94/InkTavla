@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "core/display_controller.h"
+#include "core/fetch_cancel.h"
 #include "core/freshness.h"
 #include "core/refresh.h"
 #include "core/syslog.h"
@@ -54,6 +55,35 @@ class FakeContent : public core::Content {
  private:
   bool fetches_;
   bool set_up_;
+};
+
+// A source that takes `duration_ms` like a slow download (the calendar):
+// it advances the clock in steps of 100 ms and asks core::fetchShouldStop()
+// in between, like the body reader of core/http.cpp.
+class SlowContent : public core::Content {
+ public:
+  SlowContent(FakeClock& clock, const std::vector<core::ScreenState>& frames)
+      : clock_(clock), frames_(frames) {}
+  bool fetches() const override { return true; }
+  core::Schedule schedule() const override { return {60, 1, 10}; }
+  bool fetch(int64_t) override {
+    started_ms.push_back(clock_.ms);
+    frames_before.push_back(frames_.size());
+    for (int64_t t = 0; t < duration_ms; t += 100) {
+      if (core::fetchShouldStop()) return false;
+      clock_.advance(100);
+    }
+    return true;
+  }
+  const char* logName() const override { return "test"; }
+
+  int64_t duration_ms = 5000;
+  std::vector<int64_t> started_ms;
+  std::vector<size_t> frames_before;  // frames drawn before each fetch
+
+ private:
+  FakeClock& clock_;
+  const std::vector<core::ScreenState>& frames_;
 };
 
 // Renders a 16 x 8 frame: one 8 x 8 area per content, black if its state is
@@ -504,7 +534,7 @@ void test_controller_logs_a_summary_every_hour() {
   }
   const std::vector<std::string> i = logged(seq);
   TEST_ASSERT_EQUAL_size_t(1, i.size());
-  TEST_ASSERT_EQUAL_STRING("last hour: 61 ok, 0 failed, avg 0.0 s, max 0.0 s", i[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("last hour: 61 ok, 0 failed, avg 0.0, max 0.0 s", i[0].c_str());
   TEST_ASSERT_EQUAL(1, hooks);
   core::setLogClock(nullptr, nullptr);
 }
@@ -533,6 +563,97 @@ void test_controller_system_page_closes_after_two_minutes() {
   TEST_ASSERT_TRUE(display.updates().back().mode == hal::Refresh::kFull);
 }
 
+// A button pressed during a slow fetch stops it within a few hundred
+// milliseconds; the fetch counts neither as success nor as failure, the
+// page asked for by the button is drawn first, then the fetch is repeated.
+void test_controller_stops_a_slow_fetch_for_a_button() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  SlowContent slow(clock, renderer.states);
+  c.addContent(slow);
+  int64_t press_ms = -1;  // no press
+  core::setFetchCancelCheck([&] { return press_ms >= 0 && clock.ms >= press_ms; });
+
+  clock.advance(c.step());  // first fetch: 5 s, not stopped
+  TEST_ASSERT_EQUAL(1, slow.started_ms.size());
+  TEST_ASSERT_EQUAL_INT64(5000, slow.started_ms.size() == 1 ? clock.ms - slow.started_ms[0] : 0);
+
+  // The next fetch: a press 300 ms after its start (latched by the
+  // interrupt; this simulated fetch started after the step's own clock).
+  slow.started_ms.clear();
+  slow.frames_before.clear();
+  const uint32_t seq = lastSeq();
+  while (slow.started_ms.empty()) {
+    press_ms = clock.ms + 300;
+    const int64_t wait = c.step();
+    if (!slow.started_ms.empty()) {
+      TEST_ASSERT_EQUAL_INT64(0, wait);  // the press is handled at once
+      break;
+    }
+    clock.advance(std::max<int64_t>(wait, 1));
+  }
+  const int64_t answered_ms = clock.ms - press_ms;
+  TEST_ASSERT_TRUE(answered_ms >= 0 && answered_ms < 1000);
+  const core::SourceReport report = c.sourceReports()[0];
+  TEST_ASSERT_EQUAL_UINT32(1, report.successes);
+  TEST_ASSERT_EQUAL_UINT32(0, report.failures);
+  TEST_ASSERT_EQUAL(0, logged(seq, core::LogLevel::kWarning).size());
+  const std::vector<std::string> info = logged(seq);
+  TEST_ASSERT_EQUAL(1, info.size());
+  TEST_ASSERT_EQUAL_STRING("fetch stopped for a button after 0.3 s", info[0].c_str());
+
+  // Handled (main loop: KEY2): the system page comes before the repeated fetch.
+  press_ms = -1;
+  c.showSystemPage(true);
+  const size_t frames = renderer.states.size();
+  c.step();
+  TEST_ASSERT_EQUAL(2, slow.started_ms.size());
+  TEST_ASSERT_EQUAL(frames + 1, slow.frames_before[1]);
+  TEST_ASSERT_TRUE(renderer.states[frames].system_page);
+  TEST_ASSERT_EQUAL_UINT32(2, c.sourceReports()[0].successes);
+  TEST_ASSERT_EQUAL_UINT32(0, c.sourceReports()[0].failures);
+  core::setFetchCancelCheck(nullptr);
+}
+
+// While a press waits, no fetch starts (the next one waits for the next pass).
+void test_controller_starts_no_fetch_while_a_press_waits() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  FakeContent a, b;
+  c.addContent(a);
+  c.addContent(b);
+  bool waiting = true;
+  core::setFetchCancelCheck([&] { return waiting; });
+  TEST_ASSERT_EQUAL_INT64(0, c.step());
+  TEST_ASSERT_EQUAL(0, a.calls.size());
+  TEST_ASSERT_EQUAL(0, b.calls.size());
+  waiting = false;
+  c.step();
+  TEST_ASSERT_EQUAL(1, a.calls.size());
+  TEST_ASSERT_EQUAL(1, b.calls.size());
+  core::setFetchCancelCheck(nullptr);
+}
+
+// A successful but slow fetch is logged with its duration.
+void test_controller_logs_a_slow_fetch() {
+  FakeClock clock;
+  hal::PngDisplay display(16, 8);
+  FakeRenderer renderer;
+  core::DisplayController c(clock, display, renderer, 60);
+  SlowContent slow(clock, renderer.states);
+  slow.duration_ms = core::DisplayController::kSlowFetchMs + 200;
+  c.addContent(slow);
+  const uint32_t seq = lastSeq();
+  c.step();
+  const std::vector<std::string> info = logged(seq);
+  TEST_ASSERT_EQUAL(1, info.size());
+  TEST_ASSERT_EQUAL_STRING("slow fetch: 5.2 s", info[0].c_str());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_freshness_bridges_short_failures);
@@ -553,5 +674,8 @@ int main() {
   RUN_TEST(test_controller_logs_failures_once_and_the_recovery);
   RUN_TEST(test_controller_logs_a_summary_every_hour);
   RUN_TEST(test_controller_system_page_closes_after_two_minutes);
+  RUN_TEST(test_controller_stops_a_slow_fetch_for_a_button);
+  RUN_TEST(test_controller_starts_no_fetch_while_a_press_waits);
+  RUN_TEST(test_controller_logs_a_slow_fetch);
   return UNITY_END();
 }

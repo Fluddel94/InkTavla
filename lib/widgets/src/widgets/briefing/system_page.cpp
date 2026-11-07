@@ -8,6 +8,7 @@
 #include "core/time.h"
 #include "ui/elements.h"
 #include "ui/fonts.h"
+#include "ui/i18n.h"
 #include "ui/layout.h"
 #include "ui/text.h"
 
@@ -16,72 +17,43 @@ namespace widgets::briefing {
 namespace {
 
 using ui::Color;
-using ui::Language;
 namespace fonts = ui::fonts;
 
-const char* tr(Language language, const char* de, const char* en) {
-  return language == Language::kGerman ? de : en;
-}
+// The page is always English, whatever the language of the display: the log
+// is English (fixed texts of the firmware), and so is everything around it,
+// so a photo or a download can be shared to get help (Tobias 2026-11-07).
 
-// "0,9" / "0.9": one decimal with the separator of the language.
-std::string decimal(Language language, uint64_t tenths) {
-  return std::to_string(tenths / 10) + (language == Language::kGerman ? "," : ".") +
-         std::to_string(tenths % 10);
+std::string decimal(uint64_t tenths) {
+  return std::to_string(tenths / 10) + "." + std::to_string(tenths % 10);
 }
 
 std::string kilobytes(uint32_t bytes) { return std::to_string((bytes + 512) / 1024) + " KB"; }
 
-std::string megabytes(Language language, uint32_t bytes) {
-  return decimal(language, (static_cast<uint64_t>(bytes) * 10 + 524288) / 1048576) + " MB";
+std::string megabytes(uint32_t bytes) {
+  return decimal((static_cast<uint64_t>(bytes) * 10 + 524288) / 1048576) + " MB";
 }
 
-std::string seconds(Language language, uint32_t ms) {
-  return decimal(language, (ms + 50) / 100) + " s";
-}
+std::string seconds(uint32_t ms) { return decimal((ms + 50) / 100) + " s"; }
 
-// The reasons of core::restartReason() in German.
-std::string reasonText(Language language, const std::string& reason) {
-  if (language != Language::kGerman) return reason;
-  static const struct {
-    const char* en;
-    const char* de;
-  } kReasons[] = {
-      {"power on", "Strom eingeschaltet"},
-      {"reset pin", "Reset-Taste"},
-      {"software restart", "Neustart durch die Firmware"},
-      {"crash (panic)", "Absturz (Panic)"},
-      {"watchdog (interrupt)", "Watchdog (Interrupt)"},
-      {"watchdog (task)", "Watchdog (Task)"},
-      {"watchdog", "Watchdog"},
-      {"voltage drop (brownout)", "Spannungseinbruch"},
-      {"USB (flashing or reset)", "USB (Aufspielen/Reset)"},
-      {"power glitch", "Stromstörung"},
-  };
-  for (const auto& r : kReasons) {
-    if (reason == r.en) return r.de;
-  }
-  return reason;
-}
-
-std::string sourceTitle(Language language, const std::string& name) {
-  if (name == "mvg") return ui::text(language, ui::Text::kTitleDepartures);
-  if (name == "weather") return ui::text(language, ui::Text::kTitleWeather);
-  if (name == "calendar") return ui::text(language, ui::Text::kTitleCalendar);
+std::string sourceTitle(const std::string& name) {
+  if (name == "mvg") return ui::text(ui::Language::kEnglish, ui::Text::kTitleDepartures);
+  if (name == "weather") return ui::text(ui::Language::kEnglish, ui::Text::kTitleWeather);
+  if (name == "calendar") return ui::text(ui::Language::kEnglish, ui::Text::kTitleCalendar);
   return name;
 }
 
-const char* stateText(Language language, core::DataState state) {
+const char* stateText(core::DataState state) {
   switch (state) {
     case core::DataState::kFresh:
-      return tr(language, "aktuell", "up to date");
+      return "up to date";
     case core::DataState::kStale:
-      return tr(language, "veraltet", "outdated");
+      return "outdated";
     case core::DataState::kWaiting:
-      return tr(language, "wartet", "waiting");
+      return "waiting";
     case core::DataState::kNoData:
-      return tr(language, "keine Daten", "no data");
+      return "no data";
     case core::DataState::kNotSetUp:
-      return tr(language, "nicht eingerichtet", "not set up");
+      return "not set up";
   }
   return "";
 }
@@ -92,7 +64,8 @@ bool sameDay(int64_t a_s, int64_t b_s) {
          core::toLocalTime(b_s, b) && a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
-// "07:41" today, "06.11. 07:41" on another day, "–" if unknown.
+// "07:41" today, "11-06 07:41" (month-day, like the date of the download)
+// on another day, "–" if unknown.
 std::string clockText(int64_t wall_s, int64_t now_s, bool with_seconds = false) {
   core::LocalTime t;
   if (wall_s <= 0 || !core::toLocalTime(wall_s, t)) return "–";
@@ -104,7 +77,7 @@ std::string clockText(int64_t wall_s, int64_t now_s, bool with_seconds = false) 
       std::snprintf(buffer, sizeof(buffer), "%02d:%02d", t.hour, t.minute);
     }
   } else {
-    std::snprintf(buffer, sizeof(buffer), "%02d.%02d. %02d:%02d", t.day, t.month, t.hour, t.minute);
+    std::snprintf(buffer, sizeof(buffer), "%02d-%02d %02d:%02d", t.month, t.day, t.hour, t.minute);
   }
   return buffer;
 }
@@ -133,60 +106,47 @@ void row(ui::Canvas& canvas, int x, int x1, int baseline, int label_width, const
 }
 
 struct Overview {
-  std::string version, uptime, restart, wifi, clock, memory, psram, log;
+  std::string version, uptime, restart, wifi, signal, clock, psram, log;
   bool restart_warning = false, wifi_warning = false, log_warning = false;
 };
 
-Overview overviewOf(Language lang, const core::SystemReport& report) {
+Overview overviewOf(const core::SystemReport& report) {
   const core::DeviceInfo& d = report.device;
   Overview o;
   o.version = d.firmware;
   o.uptime = core::formatUptime(d.uptime_s);
-  o.restart = reasonText(lang, d.restart_reason);
+  o.restart = d.restart_reason;
   o.restart_warning = d.restart_unplanned;
+  // Two rows, so even "-100 dBm (excellent)" fits; a warning only without
+  // a connection (a weak signal is said in words).
+  o.wifi = d.wifi_connected ? "connected" : "not connected";
+  o.wifi_warning = !d.wifi_connected;
   if (d.wifi_connected) {
-    const std::string quality = core::signalQuality(d.rssi_dbm);
-    const char* q = quality == "excellent" ? tr(lang, "sehr gut", "excellent")
-                    : quality == "good"    ? tr(lang, "gut", "good")
-                    : quality == "fair"    ? tr(lang, "mäßig", "fair")
-                                           : tr(lang, "schwach", "weak");
-    o.wifi = std::string(tr(lang, "verbunden", "connected")) + " · " + std::to_string(d.rssi_dbm) +
-             " dBm (" + q + ")";
-    o.wifi_warning = quality == "weak";
+    o.signal = std::to_string(d.rssi_dbm) + " dBm (" + core::signalQuality(d.rssi_dbm) + ")";
   } else {
-    o.wifi = tr(lang, "nicht verbunden", "not connected");
-    o.wifi_warning = true;
+    o.signal = "–";
   }
-  o.clock = d.time_valid ? tr(lang, "gestellt (NTP)", "set (NTP)")
-                         : tr(lang, "noch nicht gestellt", "not set yet");
-  o.memory = kilobytes(d.heap_free) + tr(lang, " frei · min. ", " free · min. ") +
-             kilobytes(d.heap_min_free) + tr(lang, " · Block ", " · block ") +
-             kilobytes(d.heap_largest);
-  o.psram = megabytes(lang, d.psram_free) + tr(lang, " von ", " of ") +
-            megabytes(lang, d.psram_size) + tr(lang, " frei", " free");
-  o.log = std::to_string(report.warnings) +
-          (report.warnings == 1 ? tr(lang, " Warnung", " warning")
-                                : tr(lang, " Warnungen", " warnings")) +
-          " · " + std::to_string(report.errors) +
-          (report.errors == 1 ? tr(lang, " Fehler", " error") : tr(lang, " Fehler", " errors"));
+  o.clock = d.time_valid ? "set (NTP)" : "not set yet";
+  o.psram = megabytes(d.psram_free) + " of " + megabytes(d.psram_size) + " free";
+  o.log = std::to_string(report.warnings) + (report.warnings == 1 ? " warning" : " warnings") +
+          " · " + std::to_string(report.errors) + (report.errors == 1 ? " error" : " errors");
   o.log_warning = report.errors > 0;
   return o;
 }
 
-// "aktuell · 07:41 (0,9 s)" and, after a failure, "Fehler 07:30: HTTP 404".
-std::string sourceState(Language lang, const core::SourceReport& s, int64_t now_s) {
-  std::string text = stateText(lang, s.state);
+// "up to date · 07:41 (0.9 s)" and, after a failure, "failing 07:30: HTTP 404".
+std::string sourceState(const core::SourceReport& s, int64_t now_s) {
+  std::string text = stateText(s.state);
   if (s.last_success_wall_s > 0) {
-    text += " · " + clockText(s.last_success_wall_s, now_s) + " (" +
-            seconds(lang, s.last_duration_ms) + ")";
+    text +=
+        " · " + clockText(s.last_success_wall_s, now_s) + " (" + seconds(s.last_duration_ms) + ")";
   }
   return text;
 }
 
-std::string sourceFailure(Language lang, const core::SourceReport& s, int64_t now_s) {
+std::string sourceFailure(const core::SourceReport& s, int64_t now_s) {
   if (s.failures == 0) return "";
-  std::string text = s.failures_in_row > 0 ? tr(lang, "Fehler ", "failing ")
-                                           : tr(lang, "letzter Fehler ", "last failure ");
+  std::string text = s.failures_in_row > 0 ? "failing " : "last failure ";
   text += clockText(s.last_failure_wall_s, now_s) + ": " + s.problem;
   if (s.failures_in_row > 1) {
     text += " (" + std::to_string(s.failures_in_row) + "×)";
@@ -212,18 +172,22 @@ void levelMarker(ui::Canvas& canvas, int x, int baseline, core::LogLevel level) 
   }
 }
 
+// Columns of the log: time, level, area, text (gaps of 6 px, so the longest
+// texts of core/log_texts.h fit).
+int logTimeWidth() { return ui::textWidth(kLogFont, "11-06 07:41") + 6; }
+int logLevelWidth() { return kLogFont.cap_height + 10; }
+int logAreaWidth() { return ui::textWidth(kLogAreaFont, "calendar") + 6; }
+
 // The log lines from the baseline `top` down to `bottom`, newest first.
 // A dotted line separates entries of an earlier start.
 void drawLog(ui::Canvas& canvas, int x, int x1, int top, int bottom,
-             const std::vector<core::LogEntry>& log, int64_t now_s, Language lang) {
-  // Columns: time, level, area, text.
-  const int time_w = ui::textWidth(kLogFont, "06.11. 07:41") + 8;
-  const int level_w = kLogFont.cap_height + 10;
-  const int area_w = ui::textWidth(kLogAreaFont, "calendar") + 8;
+             const std::vector<core::LogEntry>& log, int64_t now_s) {
+  const int time_w = logTimeWidth();
+  const int level_w = logLevelWidth();
+  const int area_w = logAreaWidth();
   int baseline = top;
   if (log.empty()) {
-    ui::drawText(canvas, kLogFont, x, baseline,
-                 tr(lang, "Noch keine Einträge.", "No entries yet."));
+    ui::drawText(canvas, kLogFont, x, baseline, "No entries yet.");
     return;
   }
   for (size_t i = 0; i < log.size() && baseline <= bottom; i++) {
@@ -246,50 +210,51 @@ void drawLog(ui::Canvas& canvas, int x, int x1, int top, int bottom,
 constexpr int kLeftWidth = 270;  // width of the left column
 constexpr int kColumnGap = 26;
 constexpr int kLogTop = kTitleBaseline + 26;  // baseline of the newest line
+constexpr int kLabel = 78;                    // width of the labels on the left
 
-void drawPage(ui::Canvas& canvas, Language lang, const core::SystemReport& report,
+int logLeft() { return ui::kMargin + kLeftWidth + kColumnGap; }
+
+void drawPage(ui::Canvas& canvas, const core::SystemReport& report,
               const std::vector<core::LogEntry>& log, int64_t now_s) {
   const int x0 = ui::kMargin;
   const int left_end = x0 + kLeftWidth;
-  const int lx = left_end + kColumnGap;
+  const int lx = logLeft();
   const int x1 = ui::kScreenWidth - ui::kMargin;
-  ui::drawColumnTitle(canvas, x0, left_end, kTitleBaseline, tr(lang, "System", "System"),
+  ui::drawColumnTitle(canvas, x0, left_end, kTitleBaseline, "System",
                       "InkTavla " + report.device.firmware);
-  const Overview o = overviewOf(lang, report);
-  constexpr int kLabel = 78;
+  const Overview o = overviewOf(report);
   constexpr int kRow = 21;
   int y = kTitleBaseline + 28;
-  row(canvas, x0, left_end, y, kLabel, tr(lang, "Laufzeit", "Uptime"), o.uptime);
+  row(canvas, x0, left_end, y, kLabel, "Uptime", o.uptime);
   y += kRow;
-  row(canvas, x0, left_end, y, kLabel, tr(lang, "Neustart", "Restart"), o.restart,
-      o.restart_warning);
+  row(canvas, x0, left_end, y, kLabel, "Restart", o.restart, o.restart_warning);
   y += kRow;
-  row(canvas, x0, left_end, y, kLabel, tr(lang, "WLAN", "Wi-Fi"), o.wifi, o.wifi_warning);
+  row(canvas, x0, left_end, y, kLabel, "Wi-Fi", o.wifi, o.wifi_warning);
   y += kRow;
-  row(canvas, x0, left_end, y, kLabel, tr(lang, "Uhrzeit", "Clock"), o.clock,
-      !report.device.time_valid);
+  row(canvas, x0, left_end, y, kLabel, "Signal", o.signal);
   y += kRow;
-  row(canvas, x0, left_end, y, kLabel, tr(lang, "Speicher", "Memory"),
-      kilobytes(report.device.heap_free) + tr(lang, " frei, min. ", " free, min. ") +
-          kilobytes(report.device.heap_min_free));
+  row(canvas, x0, left_end, y, kLabel, "Clock", o.clock, !report.device.time_valid);
+  y += kRow;
+  row(canvas, x0, left_end, y, kLabel, "Memory",
+      kilobytes(report.device.heap_free) + " free, min. " + kilobytes(report.device.heap_min_free));
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "",
-      tr(lang, "größter Block ", "largest block ") + kilobytes(report.device.heap_largest));
+      "largest block " + kilobytes(report.device.heap_largest));
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "PSRAM", o.psram);
   y += kRow;
   row(canvas, x0, left_end, y, kLabel, "Log", o.log, o.log_warning);
 
-  y += 38;
-  ui::drawColumnTitle(canvas, x0, left_end, y, tr(lang, "Datenquellen", "Data sources"));
+  y += 34;
+  ui::drawColumnTitle(canvas, x0, left_end, y, "Data sources");
   y += 24;
   for (const core::SourceReport& s : report.sources) {
-    ui::drawText(canvas, kValueFont, x0, y, sourceTitle(lang, s.name));
+    ui::drawText(canvas, kValueFont, x0, y, sourceTitle(s.name));
     int sx = x0 + kLabel;
     if (sourceWarning(s)) sx += ui::drawWarningSign(canvas, sx, y, kValueFont.cap_height) + 5;
     ui::drawText(canvas, kLabelFont, sx, y,
-                 ui::fitTextEllipsis(kLabelFont, sourceState(lang, s, now_s), left_end - sx));
-    const std::string failure = sourceFailure(lang, s, now_s);
+                 ui::fitTextEllipsis(kLabelFont, sourceState(s, now_s), left_end - sx));
+    const std::string failure = sourceFailure(s, now_s);
     if (!failure.empty()) {
       y += 19;
       ui::drawText(
@@ -298,14 +263,12 @@ void drawPage(ui::Canvas& canvas, Language lang, const core::SystemReport& repor
     }
     y += 25;
   }
-  ui::drawText(canvas, kLabelFont, x0, ui::kScreenHeight - ui::kMarginBottom,
-               tr(lang, "KEY2: zurück", "KEY2: back"));
+  ui::drawText(canvas, kLabelFont, x0, ui::kScreenHeight - ui::kMarginBottom, "KEY2: back");
 
   canvas.dottedVLine(left_end + kColumnGap / 2, kTitleBaseline - 12,
                      ui::kScreenHeight - ui::kMarginBottom - kTitleBaseline + 12, 2);
-  ui::drawColumnTitle(canvas, lx, x1, kTitleBaseline, tr(lang, "Protokoll", "Log"),
-                      tr(lang, "neueste zuerst", "newest first"));
-  drawLog(canvas, lx, x1, kLogTop, ui::kScreenHeight - ui::kMarginBottom, log, now_s, lang);
+  ui::drawColumnTitle(canvas, lx, x1, kTitleBaseline, "Log", "newest first");
+  drawLog(canvas, lx, x1, kLogTop, ui::kScreenHeight - ui::kMarginBottom, log, now_s);
 }
 
 }  // namespace
@@ -315,9 +278,16 @@ size_t systemPageLogLines() {
   return static_cast<size_t>((bottom - kLogTop) / kLogLineHeight + 1);
 }
 
-void drawSystemPage(ui::Canvas& canvas, ui::Language language, const core::SystemReport& report,
+int systemPageLogTextWidth() {
+  const int text_x = logLeft() + logTimeWidth() + logLevelWidth() + logAreaWidth();
+  return ui::kScreenWidth - ui::kMargin - text_x;
+}
+
+int systemPageValueWidth() { return kLeftWidth - kLabel; }
+
+void drawSystemPage(ui::Canvas& canvas, const core::SystemReport& report,
                     const std::vector<core::LogEntry>& log, int64_t now_s) {
-  drawPage(canvas, language, report, log, now_s);
+  drawPage(canvas, report, log, now_s);
 }
 
 }  // namespace widgets::briefing

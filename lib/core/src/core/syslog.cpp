@@ -5,6 +5,7 @@
 #include <ctime>
 #include <new>
 
+#include "core/log_texts.h"
 #include "core/psram.h"
 #include "core/time.h"
 
@@ -369,9 +370,9 @@ void startSystemLog(const char* firmware_version) {
     Serial.printf("%-5s %-8s %s\n", logLevelName(e.level), e.area, e.text);
   });
   if (restartWasUnplanned()) {
-    logError("system", "start %s, restart reason: %s", firmware_version, restartReason());
+    logError("system", "%s", startText(firmware_version, restartReason()).c_str());
   } else {
-    logInfo("system", "start %s, restart reason: %s", firmware_version, restartReason());
+    logInfo("system", "%s", startText(firmware_version, restartReason()).c_str());
   }
 }
 

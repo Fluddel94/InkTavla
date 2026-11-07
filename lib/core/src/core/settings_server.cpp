@@ -40,7 +40,30 @@ std::mutex mutex;  // session, restart flag
 SettingsSession session([] { return esp_random(); });
 Wifi* wifi = nullptr;
 SettingsServerOptions options;
-WebServer server(80);
+// The web server of the Arduino core serves one connection at a time and
+// waits up to 5 s (HTTP_MAX_DATA_WAIT, a fixed #define) for the request on
+// an accepted connection. Browsers open connections in advance
+// ("preconnect") that may stay empty; the page then hung for 5 s per such
+// connection. PageServer drops an empty connection as soon as another one
+// waits, after a short grace for a request on its way.
+class PageServer : public WebServer {
+ public:
+  using WebServer::WebServer;
+
+  static constexpr uint32_t kIdleGraceMs = 150;
+
+  void handleClient() {
+    if (_currentStatus == HC_WAIT_READ && !_currentClient.available() &&
+        millis() - _statusChange >= kIdleGraceMs && _server.hasClient()) {
+      _currentClient.stop();
+      _currentClient = NetworkClient();
+      _currentStatus = HC_NONE;
+    }
+    WebServer::handleClient();
+  }
+};
+
+PageServer server(80);
 bool listening = false;
 int64_t shown_close_ms = 0;  // closing time on the display (monotonic)
 int64_t shown_close_wall_s = 0;

@@ -117,6 +117,9 @@ class DisplayController {
   static constexpr int64_t kLogSummaryMs = 60 * 60 * 1000;
   // A source still failing after this time is logged as an error once.
   static constexpr int64_t kLongFailureMs = 30 * 60 * 1000;
+  // A successful fetch taking at least this long is logged with its
+  // duration (it holds up the buttons; core/fetch_cancel.h).
+  static constexpr int64_t kSlowFetchMs = 5000;
 
   DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                     int full_refresh_minutes);
@@ -144,12 +147,14 @@ class DisplayController {
   void requestFullRefresh();
 
   // Shows or hides the notice of the settings page or the Wi-Fi setup;
-  // redraws at once when it changes. A Wi-Fi notice ends the start screen.
+  // redraws at once when it changes, before due fetches (like
+  // showSystemPage()). A Wi-Fi notice ends the start screen.
   void setAccessNotice(const AccessNotice& notice);
 
   // Shows the system page instead of everything else, or the normal screen
   // again (full refresh both ways). It closes by itself after
-  // kSystemPageMs; while shown it is redrawn every minute.
+  // kSystemPageMs; while shown it is redrawn every minute. The next step()
+  // draws it before it runs due fetches, so a button is answered first.
   void showSystemPage(bool show);
   bool systemPageShown() const { return system_page_; }
 
@@ -160,9 +165,11 @@ class DisplayController {
   // Every source with its fetch statistics, in the order of addContent().
   std::vector<SourceReport> sourceReports() const;
 
-  // One pass of the main loop: runs due fetches, redraws and refreshes the
-  // panel if anything changed. Returns the milliseconds until the next pass
-  // is needed.
+  // One pass of the main loop: draws a changed page or notice first, runs
+  // due fetches, redraws and refreshes the panel if anything changed.
+  // Returns the milliseconds until the next pass is needed (0 when a fetch
+  // was stopped or skipped for a button press, core/fetch_cancel.h: the
+  // press is handled in the next pass, then the fetch is repeated).
   int64_t step();
 
   // State used for the last frame.
@@ -188,7 +195,9 @@ class DisplayController {
     uint32_t period_max_ms = 0;
   };
 
-  void fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s);
+  // Runs one fetch; false if it was stopped for a button press (then it
+  // counts neither as success nor as failure and is due again at once).
+  bool fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s);
   void logSummary();
 
   void buildState(int64_t now_ms, int64_t wall_s);
@@ -215,6 +224,8 @@ class DisplayController {
   int64_t network_changed_ms_ = 0;  // last change of network_connected_
   bool network_shown_ = true;       // network as shown in the last frame
   bool force_redraw_ = true;
+  // A page or notice changed (a button): drawn before due fetches.
+  bool urgent_redraw_ = false;
   bool wall_valid_ = false;
   AccessNotice notice_;
   bool starting_ = false;

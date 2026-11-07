@@ -17,9 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state of the device and the newest lines; KEY2 again or after two minutes
   back), the new tab "System" of the settings page shows the state, the
   whole log with a filter and a download as a text file, and
-  `tools/inktavla_config.py log` reads it over USB. It holds fixed texts and
-  numbers only, no addresses, Wi-Fi names or calendar titles. Warnings and
-  errors survive a restart or a crash, nothing is written to flash. See
+  `tools/inktavla_config.py log` reads it over USB. The system page, the tab
+  and the log are always in English, whatever the language of the display,
+  so they can be shared to get help. It holds fixed texts and numbers only,
+  no addresses, Wi-Fi names or calendar titles. Warnings and errors survive
+  a restart or a crash, nothing is written to flash. Slow updates (5 s or
+  more) and buttons that had to wait are noted with their duration. See
   `docs/system-log.md`.
 - Calendar: emoji in event titles and locations are shown as 30 small
   pictures (all hearts, laughing, smiling, loving, crying and winking faces,
@@ -32,6 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Buttons are answered at once even while data is being updated: a press
+  stops a running download (it is repeated right after), and the page asked
+  for (system page, settings page) is drawn before the next update. Before,
+  a press could wait for a whole update (several seconds for a large
+  calendar, up to the timeout when a service did not answer) plus the
+  refresh of the panel.
+- Settings page: it no longer hangs for about 5 seconds now and then while
+  loading. Browsers open a connection in advance that stays empty; the web
+  server of the device waited for it and served nothing else meanwhile.
+- Settings page: the tabs wrap into a second row instead of scrolling
+  sideways without a hint, so the last tabs ("Gerät", "System") are visible
+  on narrow windows and phones.
 - Calendar: emoji and other characters the fonts do not contain no longer
   appear as several "?" ("Datenight???"). Emoji without a picture, skin
   tones, flags and the invisible characters that belong to emoji are left
