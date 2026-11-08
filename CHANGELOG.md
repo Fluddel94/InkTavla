@@ -7,35 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
+The display now keeps a system log that shows what it does and why
+something fails, on the display (KEY2) and on the settings page. Buttons
+answer at once, the settings page is quicker and easier to use, and the
+calendar shows emoji.
+
 ### Added
 
-- System log: the display notes what it does and why something fails
-  (start with the reason of the last restart, Wi-Fi, clock, failed and
-  recovered updates of every data source with the reason, settings page,
-  firmware updates, buttons, and once an hour a summary of the updates, the
-  memory and the Wi-Fi signal). KEY2 shows it on the display (system page:
-  state of the device and the newest lines; KEY2 again or after two minutes
-  back), the new tab "System" of the settings page shows the state, the
-  whole log with a filter and a download as a text file, and
-  `tools/inktavla_config.py log` reads it over USB. The system page, the tab
-  and the log are always in English, whatever the language of the display,
-  so they can be shared to get help. It holds fixed texts and numbers only,
-  no addresses, Wi-Fi names or calendar titles. Warnings and errors survive
-  a restart or a crash, nothing is written to flash. Slow updates (5 s or
-  more) and buttons that had to wait are noted with their duration.
-  Counters show how often the Wi-Fi connection was lost ("drops") and how
-  often every data source stopped working ("fails", a series of failed
-  attempts counts once), since the start and in the last 24 hours (these
-  survive a restart). Before the first Wi-Fi connection after a start
-  nothing is updated, so a restart leaves no failures. See
-  `docs/system-log.md`.
+- System log: the display notes the start with the reason of the last
+  restart, Wi-Fi, clock, failed and recovered updates of every data source
+  with the reason, slow updates, the settings page, firmware updates and
+  buttons, and once an hour a summary of the updates, the memory and the
+  Wi-Fi signal. KEY2 shows the state of the device and the newest lines on
+  the display; the new tab "System" of the settings page shows the state,
+  the whole log with a filter and a download as a text file;
+  `tools/inktavla_config.py log` reads it over USB. Always in English, so it
+  can be shared to get help, and with fixed texts and numbers only (no
+  addresses, Wi-Fi names or calendar titles). Warnings and errors survive a
+  restart or a crash; nothing is written to flash. See `docs/system-log.md`.
+- Counters on the system page, in the tab "System" and in the log: how often
+  the Wi-Fi connection was lost ("drops") and how often every data source
+  stopped working ("fails"; a series of failed attempts counts once), since
+  the start and in the last 24 hours (these survive a restart).
 - Calendar: emoji in event titles and locations are shown as 30 small
-  pictures (all hearts, laughing, smiling, loving, crying and winking faces,
-  thumbs up, party, cake, gift, star, check mark, warning, exclamation mark,
-  fire, calendar, clock, phone, briefcase, house, medical, tooth, shopping
-  cart, airplane, car, train, dining, coffee, soccer ball and Christmas
-  tree). The pictures
-  are original drawings in the size of the text; colours and skin tones make
+  pictures in the size of the text (hearts, faces, thumbs up, party, cake,
+  gift, star, check mark, warning, fire, calendar, clock, phone, briefcase,
+  house, medical, tooth, shopping cart, airplane, car, train, dining,
+  coffee, soccer ball, Christmas tree and more); colours and skin tones make
   no difference.
 
 ### Changed
@@ -44,32 +44,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   device: Wi-Fi (moved from "Allgemein", with "WLAN wechseln"), backup,
   firmware update with the installed version, time zone, restart and reset.
   Uptime and memory are only in the tab "System", which shows the state.
+- Settings page: the tabs look like index cards (the selected one white with
+  a coloured strip on top) and wrap into a second row instead of scrolling
+  sideways, so all tabs are visible on narrow windows and phones. Buttons
+  show that they were pressed, and buttons that ask the display ("Refresh",
+  search, "Netze suchen", "Nach Updates suchen") show a spinner until the
+  answer is there.
 - Web installer: also works with Firefox 151 or later on a computer (Firefox
-  first asks to add a site permission add-on for the page). The page and
-  `docs/updating.md` say so; uploading `firmware.bin` on the settings page
-  works in every browser.
+  first asks to add a site permission add-on for the page). Uploading
+  `firmware.bin` on the settings page works in every browser.
 
 ### Fixed
 
 - Buttons are answered at once even while data is being updated: a press
   stops a running download (it is repeated right after), and the page asked
-  for (system page, settings page) is drawn before the next update. Before,
-  a press could wait for a whole update (several seconds for a large
-  calendar, up to the timeout when a service did not answer) plus the
-  refresh of the panel.
+  for is drawn before the next update. Before, a press could wait for a
+  whole update (several seconds for a large calendar, up to the timeout when
+  a service did not answer) plus the refresh of the panel.
 - Settings page: it no longer hangs for about 5 seconds now and then while
-  loading. Browsers open a connection in advance that stays empty; the web
-  server of the device waited for it and served nothing else meanwhile.
-- Settings page: the tabs look like tabs (index cards with a frame, the
-  selected one white with a coloured strip on top) instead of plain grey
-  text, and they wrap into a second row instead of scrolling sideways
-  without a hint, so the last tabs ("Gerät", "System") are visible on narrow
-  windows and phones.
-- Settings page: buttons show that they were pressed (they turn darker for
-  a moment, also on phones), and buttons that ask the display ("Refresh",
-  search, "Netze suchen", "Nach Updates suchen") show a spinner until the
-  answer is there. Before, a press on "Refresh" gave no sign that anything
-  happened.
+  loading (the device waited for an empty connection the browser opens in
+  advance).
 - Calendar: emoji and other characters the fonts do not contain no longer
   appear as several "?" ("Datenight???"). Emoji without a picture, skin
   tones, flags and the invisible characters that belong to emoji are left
