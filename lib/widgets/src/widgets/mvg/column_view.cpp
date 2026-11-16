@@ -203,7 +203,14 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
   const TimeDisplay t = timeDisplay(d, options.time_format, options.now_s);
   drawLineSymbol(c, 0, centre - kSymbolHeight / 2, d.line, d.bus);
 
-  const int time_right = c.width() - kTimeRightMargin;
+  // With the unit ("+8 min", step L) the delay needs more room on the right.
+  const int right_margin =
+      options.delay_unit
+          ? kDelayGap +
+                ui::textWidth(delayFont(), std::string("+88 ") +
+                                               ui::text(options.language, ui::Text::kMinutesUnit))
+          : kTimeRightMargin;
+  const int time_right = c.width() - right_margin;
   const int dest_x = symbol_width + kDestinationGap;
   int dest_width = time_right - time_width - kTimeGap - dest_x;
   // The warning sign stands right before the time column, in the same
@@ -229,7 +236,10 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
   if (t.show_delay) {
     char delay[8];
     std::snprintf(delay, sizeof(delay), "%+d", t.delay);
-    ui::drawText(c, delayFont(), time_right + kDelayGap, baseline, delay);
+    std::string text = delay;
+    if (options.delay_unit)
+      text += std::string(" ") + ui::text(options.language, ui::Text::kMinutesUnit);
+    ui::drawText(c, delayFont(), time_right + kDelayGap, baseline, text);
   }
 }
 
@@ -370,6 +380,7 @@ void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) 
   options.language = context.language;
   options.now_s = context.now_s;
   options.show_incidents = source_.config().show_incidents;
+  options.delay_unit = step_ == ui::SizeStep::kL;
   drawDeparturesColumn(canvas, withoutDeparted(source_.sections(), context.now_s), options);
 }
 

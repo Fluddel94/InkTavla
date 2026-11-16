@@ -144,9 +144,8 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   }
   // The band reads the weather even if the weather column is not on the
   // screen, as long as its band switch is on (otherwise it is fetched only
-  // if the column is there); the departures only if they are on the screen
-  // (nothing is fetched just for the sentence). The calendar only for the
-  // note on failed updates.
+  // if the column is there); the departures and the calendar only if they
+  // are on the screen (nothing is fetched just for the sentence).
   briefing::BandOptions band_options;
   const weather::WeatherSource* weather = nullptr;
   for (const WidgetType& type : widgetTypes()) {
@@ -158,10 +157,13 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
       if (!band) builder.checkSettings(type);
     } else if (std::strcmp(type.id, "mvg") == 0) {
       band_options.departures_sentence = band;
+    } else if (std::strcmp(type.id, "calendar") == 0) {
+      band_options.event_sentence = band;
     }
   }
   const auto* departures = static_cast<const mvg::MvgSource*>(builder.existingSource("mvg"));
-  const DataSource* calendar = builder.existingSource("calendar");
+  const auto* calendar =
+      static_cast<const calendar::CalendarSource*>(builder.existingSource("calendar"));
   views_.push_back(
       std::make_unique<briefing::BandView>(weather, departures, calendar, band_options));
   views[0] = views_.back().get();

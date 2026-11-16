@@ -19,7 +19,7 @@ std::string forecastUrl(const Config& config) {
       "&hourly=temperature_2m,precipitation_probability,precipitation,sunshine_duration,"
       "weather_code,is_day"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
-      "&timezone=auto&timeformat=unixtime&forecast_days=4";
+      "&timezone=auto&timeformat=unixtime&forecast_days=6";
   return url;
 }
 

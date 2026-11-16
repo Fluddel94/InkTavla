@@ -26,10 +26,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the tab of the widget ("Wetter im Satz des Bands nennen", "Ausfälle im
   Satz des Bands nennen"). Where the weather is neither in a column nor
   fetched for the band (switch off), or has no place set, the band shows a
-  dotted cloud and "–°" instead of the picture and the temperature. The
-  calendar has nothing for the band; `widgets.calendar.band` is reported.
+  dotted cloud and "–°" instead of the picture and the temperature.
+- The band sentence names the next event of the calendar again, as its
+  last part: "Um 09:30 Zahnarzt.", "Heute: Geburtstag Oma.", from the
+  evening the first event of tomorrow ("Morgen um 08:00 Zahnarzt."). It is
+  the first part to give way when the sentence is too long. Switch:
+  `widgets.calendar.band` ("Nächsten Termin im Satz des Bands nennen").
+- More content in the columns of 367 px (band + 2): the weather chart shows
+  the whole day from 0 to 24 o'clock with labels every four hours, and five
+  days instead of three; the calendar shows the end time of the events of
+  today and the next day ("10:00–11:30"); the departures show the delay
+  with its unit ("+3 min").
 
 ### Changed
+
+- Calendar column: the lines of the rest of the week show the time on the
+  right again; the titles start at the same position as the titles of today
+  and the next day.
+- The weather is fetched for six days instead of four (about 5.8 instead of
+  4.2 KB).
 
 - The columns only come in three widths, the size steps S (214 px), M
   (280 px) and L (367 px). Every widget names the smallest step it is made

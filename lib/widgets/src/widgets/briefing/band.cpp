@@ -128,6 +128,8 @@ SentenceInput sentenceInput(const DrawContext& context, const BandData& data) {
   in.as_of = data.as_of;
   in.forecast = data.weather_sentence ? data.forecast : nullptr;
   in.departures = data.departures_sentence ? data.departures : nullptr;
+  in.events = data.event_sentence ? data.events : nullptr;
+  in.event_display = data.event_display;
   in.failed = data.failed;
   return in;
 }
@@ -251,6 +253,11 @@ void BandView::draw(ui::Canvas& canvas, const DrawContext& context) {
   }
   if (fresh(weather_)) data.forecast = &weather_->forecast();
   if (fresh(departures_)) data.departures = &departures_->sections();
+  if (fresh(calendar_)) {
+    data.events = &calendar_->occurrences();
+    data.event_display = calendar_->config().display;
+  }
+  data.event_sentence = options_.event_sentence;
   data.weather_sentence = options_.weather_sentence;
   data.departures_sentence = options_.departures_sentence;
   data.weather_missing = weather_ == nullptr || !weather_->isSetUp();

@@ -39,12 +39,16 @@ struct Entry {
   enum class Kind { kTimed, kAllDay, kNone };
   Kind kind = Kind::kTimed;
   std::string time;      // kTimed: "08:30"
+  std::string end;       // kTimed: "09:15" if it ends the same day, else ""
   std::string title;     // kNone: "Keine Termine"
   std::string suffix;    // kAllDay: "ganztägig", "bis Fr", "bis 12:00"
   std::string location;  // "" if none
   std::string note;      // right edge: "in 48 min", "läuft"
   bool next = false;     // the next event of today (no longer drawn in bold)
   bool past = false;     // an event of today that is over (stays until midnight)
+  // kAllDay: an event that began on an earlier day ("bis Fr" on its later
+  // days); the band does not name it again every day.
+  bool continues = false;
 };
 
 struct AgendaDay {

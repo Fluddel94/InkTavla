@@ -10,7 +10,8 @@
 // struck-through Wi-Fi symbol after the time and first in the sentence. The
 // sentence reads the weather and the departures (see sentence.h) and names
 // the widgets on the screen whose updates fail (weather, departures,
-// calendar); the picture shows the weather of the band (see summarize()).
+// calendar), and the next event of the calendar (2026-11-16); the picture shows the weather of the
+// band (see summarize()).
 
 #include <string>
 #include <vector>
@@ -20,6 +21,7 @@
 #include "ui/i18n.h"
 #include "ui/layout.h"
 #include "widgets/briefing/sentence.h"
+#include "widgets/calendar/widget.h"
 #include "widgets/mvg/widget.h"
 #include "widgets/weather/widget.h"
 #include "widgets/widget.h"
@@ -79,6 +81,11 @@ struct BandData {
   // departures_sentence is set ("widgets.mvg.band").
   const std::vector<mvg::Section>* departures = nullptr;
   bool departures_sentence = true;
+  // The calendar gives the event of the sentence only if event_sentence is
+  // set ("widgets.calendar.band"); event_display are its column settings.
+  const calendar::Occurrences* events = nullptr;
+  calendar::DisplayConfig event_display;
+  bool event_sentence = true;
   // Sources whose updates have failed for a while (stale or no data).
   std::vector<FailedSource> failed;
 };
@@ -98,6 +105,7 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
 struct BandOptions {
   bool weather_sentence = true;
   bool departures_sentence = true;
+  bool event_sentence = true;
 };
 
 class BandView : public View {
@@ -105,9 +113,8 @@ class BandView : public View {
   // Any source may be nullptr (widget not on the screen or not available):
   // then its parts are left out. Without weather only the greeting and the
   // other parts, and a placeholder instead of the picture.
-  // The calendar is only watched for failed updates.
   BandView(const weather::WeatherSource* weather, const mvg::MvgSource* departures,
-           const DataSource* calendar = nullptr, BandOptions options = {})
+           const calendar::CalendarSource* calendar = nullptr, BandOptions options = {})
       : weather_(weather), departures_(departures), calendar_(calendar), options_(options) {}
 
   std::vector<const DataSource*> sources() const override;
@@ -118,7 +125,7 @@ class BandView : public View {
  private:
   const weather::WeatherSource* weather_;
   const mvg::MvgSource* departures_;
-  const DataSource* calendar_;
+  const calendar::CalendarSource* calendar_;
   BandOptions options_;
 };
 

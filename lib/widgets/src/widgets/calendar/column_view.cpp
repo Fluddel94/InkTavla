@@ -17,6 +17,7 @@ using ui::Color;
 
 // Sizes of the Briefing design (design/briefing/werkzeug, calendar_fill()).
 constexpr int kTimeColumn = 50;  // titles start here
+constexpr int kTimeGap = 13;     // after "00:00" of kTimeFont up to kTimeColumn
 constexpr int kRowsBelowTitle = 8;
 constexpr int kRuleBelowRows = 10;
 constexpr int kTitleBelowRows = 32;
@@ -26,24 +27,8 @@ const ui::Font& kTitleFont = ui::fonts::kFraunces20;
 const ui::Font& kWeekTitleFont = ui::fonts::kFraunces18;
 const ui::Font& kWeekdayFont = ui::fonts::kRobotoCondensedBold16;
 const ui::Font& kWeekTimeFont = ui::fonts::kRobotoCondensedMedium15;
-
-// Where time and title start in the lines of the rest of the week: after
-// the widest short weekday of the language ("Mi", "Wed") and after a time.
-struct WeekColumns {
-  int time = 0;
-  int title = 0;
-};
-
-WeekColumns weekColumns(ui::Language language) {
-  int widest = 0;
-  for (int d = 0; d < 7; d++) {
-    widest = std::max(widest, ui::textWidth(kWeekdayFont, ui::weekdayShort(language, d)));
-  }
-  WeekColumns c;
-  c.time = widest + 6;
-  c.title = c.time + ui::textWidth(kWeekTimeFont, "00:00") + 12;
-  return c;
-}
+// Space between a title of the week and its right-aligned time.
+constexpr int kWeekTimeGap = 8;
 
 // The rest of title after the given lines of wrapText() (which drops
 // spaces at line breaks and may add a hyphen); false if the lines do not
@@ -123,9 +108,9 @@ int rowHeight(const Row& r) {
          (r.location ? kColumnLocationLineHeight : 0);
 }
 
-int wrappedLines(const Entry& e, int width, const DisplayConfig& display) {
+int wrappedLines(const Entry& e, int width, int title_x, const DisplayConfig& display) {
   if (!display.wrap || e.kind == Entry::Kind::kNone) return 1;
-  return titleLines(kTitleFont, e.title, width - kTimeColumn, 2).size() > 1 ? 2 : 1;
+  return titleLines(kTitleFont, e.title, width - title_x, 2).size() > 1 ? 2 : 1;
 }
 
 bool showsLocation(const Entry& e, const DisplayConfig& display) {
@@ -136,7 +121,8 @@ bool showsLocation(const Entry& e, const DisplayConfig& display) {
 // many events as fit in single lines (past events go first, then the last
 // ones; with display.more a line for the hint is kept free), then places and
 // second title lines in the space that is left, from the top.
-DayLayout fitDay(const AgendaDay& day, int width, int space, const DisplayConfig& display) {
+DayLayout fitDay(const AgendaDay& day, int width, int title_x, int space,
+                 const DisplayConfig& display) {
   std::vector<const Entry*> all;
   for (const Entry& e : day.entries) all.push_back(&e);
   DayLayout out;
@@ -166,7 +152,7 @@ DayLayout fitDay(const AgendaDay& day, int width, int space, const DisplayConfig
     }
   }
   for (Row& r : out.rows) {
-    if (wrappedLines(*r.entry, width, display) > 1 && kColumnDayLineHeight <= spare) {
+    if (wrappedLines(*r.entry, width, title_x, display) > 1 && kColumnDayLineHeight <= spare) {
       r.lines = 2;
       spare -= kColumnDayLineHeight;
     }
@@ -177,14 +163,16 @@ DayLayout fitDay(const AgendaDay& day, int width, int space, const DisplayConfig
 // Layout of the next day without the hint (as before the settings): row by
 // row from the top, each with its place and a second line if they still fit,
 // until the space is used up.
-DayLayout fillDay(const AgendaDay& day, int width, int space, const DisplayConfig& display) {
+DayLayout fillDay(const AgendaDay& day, int width, int title_x, int space,
+                  const DisplayConfig& display) {
   DayLayout out;
   int used = 0;
   for (const Entry& e : day.entries) {
     if (used + kColumnDayRowHeight > space) break;
     Row r{&e, 1, false};
     r.location = showsLocation(e, display) && used + rowHeight({&e, 1, true}) <= space;
-    if (wrappedLines(e, width, display) > 1 && used + rowHeight({&e, 2, r.location}) <= space) {
+    if (wrappedLines(e, width, title_x, display) > 1 &&
+        used + rowHeight({&e, 2, r.location}) <= space) {
       r.lines = 2;
     }
     used += rowHeight(r);
@@ -200,9 +188,10 @@ bool hasEvents(const AgendaDay& day) {
   return false;
 }
 
-// Draws one row of today or the next day with its first baseline at y + 22;
-// returns its height.
-int drawDayRow(ui::Canvas& c, const Row& r, int y) {
+// Draws one row of today or the next day with its first baseline at y + 22,
+// the title from title_x (with end times: the time "10:00–11:30"); returns
+// its height.
+int drawDayRow(ui::Canvas& c, const Row& r, int y, int title_x, bool end_times) {
   const Entry& e = *r.entry;
   const int baseline = y + 22;
   if (e.kind == Entry::Kind::kNone) {
@@ -212,17 +201,18 @@ int drawDayRow(ui::Canvas& c, const Row& r, int y) {
   if (e.kind == Entry::Kind::kAllDay) {
     ui::drawIcon(c, 2, baseline - 14, ui::kCalendarIcon);
   } else {
-    ui::drawText(c, kTimeFont, 0, baseline, e.time);
+    const std::string time = end_times && !e.end.empty() ? e.time + "–" + e.end : e.time;
+    ui::drawText(c, kTimeFont, 0, baseline, time);
   }
-  const int title_width = c.width() - kTimeColumn;
+  const int title_width = c.width() - title_x;
   const std::vector<std::string> lines = titleLines(kTitleFont, e.title, title_width, r.lines);
   for (size_t i = 0; i < lines.size(); i++) {
-    ui::drawText(c, kTitleFont, kTimeColumn, baseline + static_cast<int>(i) * kColumnDayLineHeight,
+    ui::drawText(c, kTitleFont, title_x, baseline + static_cast<int>(i) * kColumnDayLineHeight,
                  lines[i]);
   }
   int height = kColumnDayRowHeight + (lines.size() > 1 ? kColumnDayLineHeight : 0);
   if (r.location) {
-    ui::drawText(c, kLocationFont, kTimeColumn, y + height + 12,
+    ui::drawText(c, kLocationFont, title_x, y + height + 12,
                  ui::fitTextEllipsis(kLocationFont, e.location, title_width));
     height += kColumnLocationLineHeight;
   }
@@ -230,8 +220,9 @@ int drawDayRow(ui::Canvas& c, const Row& r, int y) {
 }
 
 // Draws the rows of a day from y and the hint below them; returns the new y.
-int drawDay(ui::Canvas& c, const DayLayout& layout, int y, ui::Language language) {
-  for (const Row& r : layout.rows) y += drawDayRow(c, r, y);
+int drawDay(ui::Canvas& c, const DayLayout& layout, int y, int title_x, bool end_times,
+            ui::Language language) {
+  for (const Row& r : layout.rows) y += drawDayRow(c, r, y, title_x, end_times);
   if (layout.hint) {
     ui::drawText(c, kMoreFont, c.width(), y + 16, ui::moreEvents(language, layout.hidden),
                  Color::kBlack, ui::Align::kRight);
@@ -265,7 +256,12 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
   // titles as long as all of them still fit.
   const DisplayConfig& display = options.display;
   int y = ui::kColumnTitleBaseline + kRowsBelowTitle;
-  y = drawDay(canvas, fitDay(agenda[0], width, bottom - y, display), y, lang);
+  // Titles start after the time column (wider with end times, 2026-11-16).
+  const int title_x =
+      options.end_times ? ui::textWidth(kTimeFont, "00:00–00:00") + kTimeGap : kTimeColumn;
+  const bool ends = options.end_times;
+  y = drawDay(canvas, fitDay(agenda[0], width, title_x, bottom - y, display), y, title_x, ends,
+              lang);
 
   // The next day with events, if its title and one row still fit.
   size_t next = 1;
@@ -285,15 +281,15 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
       canvas, 0, width, title, name,
       tomorrow ? std::string(ui::weekdayShort(lang, weekday)) : shortDate(day.day, lang));
   y = title + kRowsBelowTitle;
-  const DayLayout layout = display.more ? fitDay(day, width, bottom - y, display)
-                                        : fillDay(day, width, bottom - y, display);
-  y = drawDay(canvas, layout, y, lang);
+  const DayLayout layout = display.more ? fitDay(day, width, title_x, bottom - y, display)
+                                        : fillDay(day, width, title_x, bottom - y, display);
+  y = drawDay(canvas, layout, y, title_x, ends, lang);
   if (layout.rows.size() < day.entries.size()) return;
 
-  // The rest of the week, one line per event (2026-11-05): the weekday on
-  // the first line of each day, then the time (or the calendar sheet) and
-  // the title, so that the time stays in front as above.
-  const WeekColumns columns = weekColumns(lang);
+  // The rest of the week, one line per event (2026-11-16): the weekday on
+  // the first line of each day, the title from the same x as the titles of
+  // today and the next day, the time (or the calendar sheet) right-aligned.
+  const int time_width = ui::textWidth(kWeekTimeFont, "00:00");
   bool rule = false;
   for (size_t i = next + 1; i < agenda.size(); i++) {
     bool first = true;
@@ -314,17 +310,18 @@ void drawAgendaColumn(ui::Canvas& canvas, const std::vector<AgendaDay>& agenda,
         first = false;
       }
       if (e.kind == Entry::Kind::kTimed) {
-        ui::drawText(canvas, kWeekTimeFont, columns.time, y, e.time);
+        ui::drawText(canvas, kWeekTimeFont, width, y, e.time, Color::kBlack, ui::Align::kRight);
       } else {
-        ui::drawIcon(canvas, columns.time + 2, y - 13, ui::kCalendarIcon);
+        ui::drawIcon(canvas, width - ui::kCalendarIcon.width, y - 13, ui::kCalendarIcon);
       }
       // A second line only if it still fits above the bottom edge.
       const bool room =
           display.wrap && y + kColumnWeekLineHeight + kWeekTitleFont.descent <= bottom;
+      const int title_width = width - title_x - time_width - kWeekTimeGap;
       const std::vector<std::string> lines =
-          titleLines(kWeekTitleFont, e.title, width - columns.title, room ? 2 : 1);
+          titleLines(kWeekTitleFont, e.title, title_width, room ? 2 : 1);
       for (size_t l = 0; l < lines.size(); l++) {
-        ui::drawText(canvas, kWeekTitleFont, columns.title,
+        ui::drawText(canvas, kWeekTitleFont, title_x,
                      y + static_cast<int>(l) * kColumnWeekLineHeight, lines[l]);
       }
       if (lines.size() > 1) y += kColumnWeekLineHeight;
@@ -347,6 +344,7 @@ void AgendaColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
                    std::to_string(isoWeek(localDay(context.now_s)));
   }
   options.display = source_.config().display;
+  options.end_times = step_ == ui::SizeStep::kL;
   drawAgendaColumn(
       canvas, buildAgenda(source_.occurrences(), context.now_s, context.language, options.display),
       options);

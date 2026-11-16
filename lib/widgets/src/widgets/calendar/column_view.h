@@ -7,8 +7,11 @@
 //  - then the next day that has events ("MORGEN" or its weekday) if there
 //    is room;
 //  - then the following events of the week, as many as fit: the weekday on
-//    the first line of each day, then the time and the title
-//    (2026-11-05; "MORGEN" has only the weekday on the right, "Mi").
+//    the first line of each day, the title from the same x as above and the
+//    time right-aligned (2026-11-16; "MORGEN" has only the weekday on the
+//    right, "Mi").
+// On step L (2026-11-16) today and the next day show the end time as well
+// ("10:00–11:30").
 // Times in Roboto Condensed, titles in Fraunces, all in the same weight
 // (2026-10-25: the next event is no longer bold). A long title wraps once
 // onto a second line if there is room (today: as long as all events of today
@@ -23,6 +26,7 @@
 
 #include "ui/canvas.h"
 #include "ui/i18n.h"
+#include "ui/layout.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/config.h"
 #include "widgets/calendar/widget.h"
@@ -35,6 +39,9 @@ struct ColumnOptions {
   bool note_alert = false;
   ui::Language language = ui::Language::kGerman;
   DisplayConfig display;  // wrap, location, more (the agenda is built with it)
+  // Step L (2026-11-16): today and the next day show the end time too
+  // ("10:00–11:30"); the titles start after the wider time column.
+  bool end_times = false;
 };
 
 // Row heights (Briefing design): today and the next day, the week lines.
@@ -58,7 +65,8 @@ std::string shortDate(int64_t day, ui::Language language);
 class AgendaColumnView : public View {
  public:
   // source must outlive the view.
-  explicit AgendaColumnView(const CalendarSource& source) : source_(source) {}
+  AgendaColumnView(const CalendarSource& source, ui::SizeStep step = ui::SizeStep::kS)
+      : source_(source), step_(step) {}
 
   std::vector<const DataSource*> sources() const override { return {&source_}; }
   std::string title(ui::Language language) const override;
@@ -66,6 +74,7 @@ class AgendaColumnView : public View {
 
  private:
   const CalendarSource& source_;
+  ui::SizeStep step_;
 };
 
 }  // namespace widgets::calendar

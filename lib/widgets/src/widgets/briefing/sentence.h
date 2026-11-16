@@ -17,9 +17,11 @@
 //       trockener Abend, später 5°."),
 //     - from eveningStartHour() tomorrow ("Morgen früh Nebel, später
 //       sonnig, bis 12°.").
+//  4. the next event of the calendar (2026-11-16, see eventText()): of
+//     today until eveningStartHour(), then the first one of tomorrow.
 // The parts stand side by side; the rank decides their order and which part
-// gives way when the sentence does not fit. Disruption messages and events
-// are in their columns, not in the sentence. Sources without fresh data
+// gives way when the sentence does not fit. Disruption messages are in
+// their column, not in the sentence. Sources without fresh data
 // leave their parts out.
 //
 // Sentence and symbols never contradict each other (2026-10-28):
@@ -41,6 +43,7 @@
 
 #include "ui/i18n.h"
 #include "ui/icons.h"
+#include "widgets/calendar/agenda.h"
 #include "widgets/mvg/departure.h"
 #include "widgets/weather/forecast.h"
 
@@ -131,6 +134,18 @@ std::string failureText(const std::vector<FailedSource>& failed, ui::Language la
 std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t now_s,
                              ui::Language language);
 
+// The event of the sentence (2026-11-16): before the evening (see
+// weatherPeriod()) the next event of today that has not begun yet ("Um
+// 09:30 Zahnarzt."), or, if no timed event is left, an all-day event that
+// begins today ("Heute: Geburtstag Oma."); in the evening the first event
+// of tomorrow ("Morgen um 08:00 Zahnarzt.", "Morgen: Geburtstag Oma.").
+// Events that began on an earlier day are not named again. The settings of
+// the column apply (all-day events, words left out). "" for none. *shorter
+// (if given) gets the form with the title shortened.
+std::string eventText(const calendar::Occurrences& occurrences,
+                      const calendar::DisplayConfig& display, int64_t now_s, bool tomorrow,
+                      ui::Language language, std::string* shorter = nullptr);
+
 // --- The whole sentence -----------------------------------------------------
 
 // Topics of the parts; the order is the rank and the reading order.
@@ -139,6 +154,7 @@ enum class Topic {
   kFailure,
   kCancellation,
   kWeather,
+  kEvent,
 };
 
 struct Part {
@@ -157,6 +173,9 @@ struct SentenceInput {
   std::vector<FailedSource> failed;
   const weather::Forecast* forecast = nullptr;
   const std::vector<mvg::Section>* departures = nullptr;
+  // Occurrences of the calendar with the settings of its column.
+  const calendar::Occurrences* events = nullptr;
+  calendar::DisplayConfig event_display;
 };
 
 // The parts that apply, ordered by rank.

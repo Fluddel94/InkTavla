@@ -181,12 +181,14 @@ std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s
       if (entry.past && !display.past) continue;
       if (o.all_day) {
         entry.kind = Entry::Kind::kAllDay;
+        entry.continues = o.first_day < d;
         entry.suffix = o.last_day > d ? untilDay(o.last_day, d, language)
                                       : ui::text(language, ui::Text::kAllDay);
         day.entries.push_back(std::move(entry));
       } else if (!timed_start) {
         // Continues from an earlier day: shown like an all-day event.
         entry.kind = Entry::Kind::kAllDay;
+        entry.continues = true;
         entry.suffix = o.last_day == d ? std::string(ui::text(language, ui::Text::kUntil)) + " " +
                                              clockText(o.end)
                                        : untilDay(o.last_day, d, language);
@@ -194,6 +196,9 @@ std::vector<AgendaDay> buildAgenda(const Occurrences& occurrences, int64_t now_s
       } else {
         entry.kind = Entry::Kind::kTimed;
         entry.time = clockText(o.start);
+        // Events without length (end = start) and events that end on a
+        // later day have no end time of their own.
+        if (o.end > o.start && localDay(o.end - 1) == d) entry.end = clockText(o.end);
         if (d == today && !entry.past) {
           if (o.start <= now_s) {
             entry.note = ui::text(language, ui::Text::kRunning);

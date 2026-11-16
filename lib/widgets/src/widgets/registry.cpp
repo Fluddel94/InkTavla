@@ -49,21 +49,20 @@ std::unique_ptr<DataSource> createCalendar(JsonObjectConst root, const Services&
 const std::vector<WidgetType>& widgetTypes() {
   static const std::vector<WidgetType> types = {
       {"mvg", ui::SizeStep::kM, true, false, createMvg,
-       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
+       [](const DataSource& s, ui::SizeStep step) -> std::unique_ptr<View> {
          const auto& source = static_cast<const mvg::MvgSource&>(s);
-         return std::make_unique<mvg::DeparturesColumnView>(source);
+         return std::make_unique<mvg::DeparturesColumnView>(source, step);
        }},
       {"weather", ui::SizeStep::kS, true, true, createWeather,
-       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
+       [](const DataSource& s, ui::SizeStep step) -> std::unique_ptr<View> {
          const auto& source = static_cast<const weather::WeatherSource&>(s);
-         return std::make_unique<weather::ForecastColumnView>(source);
+         return std::make_unique<weather::ForecastColumnView>(source, step);
        }},
-      // The calendar has nothing for the band (only the note on failed
-      // updates, which every widget gets).
-      {"calendar", ui::SizeStep::kS, false, false, createCalendar,
-       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
+      // The calendar names its next event in the band (2026-11-16).
+      {"calendar", ui::SizeStep::kS, true, false, createCalendar,
+       [](const DataSource& s, ui::SizeStep step) -> std::unique_ptr<View> {
          const auto& source = static_cast<const calendar::CalendarSource&>(s);
-         return std::make_unique<calendar::AgendaColumnView>(source);
+         return std::make_unique<calendar::AgendaColumnView>(source, step);
        }},
   };
   return types;

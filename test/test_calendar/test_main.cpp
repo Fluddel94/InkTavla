@@ -493,6 +493,11 @@ void test_agenda_morning() {
   TEST_ASSERT_EQUAL_STRING("19:00 Chorprobe", entries(agenda[2]).c_str());
   TEST_ASSERT_EQUAL_STRING("[Geburtstag Oma] ganztägig", entries(agenda[3]).c_str());
   TEST_ASSERT_EQUAL_INT64(cal::daysFromCivil(2026, 10, 24), agenda[3].day);
+  // End times (shown on step L, 2026-11-16); none for all-day events.
+  TEST_ASSERT_EQUAL_STRING("08:45", agenda[0].entries[0].end.c_str());
+  TEST_ASSERT_EQUAL_STRING("18:00", agenda[0].entries[2].end.c_str());
+  TEST_ASSERT_EQUAL_STRING("", agenda[1].entries[0].end.c_str());
+  TEST_ASSERT_FALSE(agenda[1].entries[0].continues);
 }
 
 void test_agenda_during_the_day() {

@@ -615,6 +615,28 @@ void test_rain_bars_between_the_hour_marks() {
   TEST_ASSERT_EQUAL_INT(chart.line_x1, empty.line_x1);
 }
 
+void test_chart_full_day() {
+  // Step L (2026-11-16): the whole day 0-24 h, labels every four hours
+  // (not at 0 and 24 h), the rain of every hour as a bar.
+  const wx::Forecast f = forecast(course(4, 12), rainFrom(20, 80));
+  const wx::ColumnChart chart = wx::columnChart(f, kMorning, 367, wx::ChartSpan::kFullDay);
+  TEST_ASSERT_EQUAL_INT(14, chart.pitch);  // (367 - 12) / 24
+  TEST_ASSERT_EQUAL_INT(16, chart.line_x0);
+  TEST_ASSERT_EQUAL_INT(15 + 24 * 14 - 2, chart.line_x1);
+  TEST_ASSERT_EQUAL_size_t(5, chart.labels.size());
+  const int hours[] = {4, 8, 12, 16, 20};
+  for (size_t i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_INT(hours[i], chart.labels[i].hour);
+    TEST_ASSERT_EQUAL_INT(15 + hours[i] * 14, chart.labels[i].x);
+  }
+  // Rain from 20 h: the values of 20-23 h, bars from 19 to 23 h.
+  TEST_ASSERT_EQUAL_size_t(4, chart.bars.size());
+  TEST_ASSERT_EQUAL_INT(15 + 19 * 14 + 1, chart.bars[0].x0);
+  // The day of 5-23 h stays as it was.
+  TEST_ASSERT_EQUAL_size_t(5, wx::columnChart(f, kMorning, 367).labels.size());
+  TEST_ASSERT_EQUAL_INT(8, wx::columnChart(f, kMorning, 367).labels[0].hour);
+}
+
 void test_chart_curve_is_smoothed() {
   // Saved response of 2026-10-22 07:41: the curve runs through the hourly
   // values averaged with their neighbours (1-2-1); the labels show the values
@@ -1657,6 +1679,77 @@ void test_tomorrow_follows_the_daily_code() {
                            text(night_rain, evening).c_str());
 }
 
+void test_event_sentence() {
+  // The next event of today that has not begun; in the evening the first
+  // one of tomorrow (2026-11-16).
+  const cal::Occurrences week = occurrences("week.ics", kMorning);
+  const cal::DisplayConfig display;
+  const auto text = [&](int64_t now, bool tomorrow) {
+    return br::eventText(week, display, now, tomorrow, ui::Language::kGerman);
+  };
+  TEST_ASSERT_EQUAL_STRING("Um\u00a008:30 Team-Standup.", text(kMorning, false).c_str());
+  TEST_ASSERT_EQUAL_STRING("Um\u00a017:15 Zahnarzt.", text(kMidnight + 14 * 3600, false).c_str());
+  // The dentist has begun and nothing else follows today: nothing.
+  TEST_ASSERT_EQUAL_STRING("", text(kMidnight + 17 * 3600 + 30 * 60, false).c_str());
+  // Tomorrow: the timed event before the all-day one ("Papiertonne").
+  TEST_ASSERT_EQUAL_STRING("Morgen um\u00a018:30 Kino mit Lena.",
+                           text(kMidnight + 20 * 3600, true).c_str());
+  // Only an all-day event on the day.
+  TEST_ASSERT_EQUAL_STRING("Heute: Geburtstag Oma.", text(kMorning + 4 * kDay, false).c_str());
+  TEST_ASSERT_EQUAL_STRING("Morgen: Geburtstag Oma.",
+                           text(kMidnight + 3 * kDay + 20 * 3600, true).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Tomorrow at\u00a018:30: Kino mit Lena.",
+      br::eventText(week, display, kMidnight + 20 * 3600, true, ui::Language::kEnglish).c_str());
+  // The settings of the column apply: words left out, no all-day events.
+  cal::DisplayConfig without = display;
+  without.exclude = {"STANDUP"};  // stored in capitals
+  TEST_ASSERT_EQUAL_STRING(
+      "Um\u00a012:30 Mittagessen mit Jonas.",
+      br::eventText(week, without, kMorning, false, ui::Language::kGerman).c_str());
+  without.all_day = false;
+  TEST_ASSERT_EQUAL_STRING(
+      "", br::eventText(week, without, kMorning + 4 * kDay, false, ui::Language::kGerman).c_str());
+
+  // An event of several days is named on its first day only; a long title
+  // has a shorter form.
+  cal::Occurrences trip(1);
+  trip[0].all_day = true;
+  trip[0].first_day = cal::localDay(kMorning) - 1;
+  trip[0].last_day = trip[0].first_day + 3;
+  trip[0].start = kMidnight - kDay;
+  trip[0].end = kMidnight + 3 * kDay;
+  trip[0].summary = "Urlaub";
+  TEST_ASSERT_EQUAL_STRING(
+      "", br::eventText(trip, display, kMorning, false, ui::Language::kGerman).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Heute: Urlaub.",
+      br::eventText(trip, display, kMorning - kDay, false, ui::Language::kGerman).c_str());
+  cal::Occurrences talk(1);
+  talk[0].start = kMorning + 3600;
+  talk[0].end = kMorning + 2 * 3600;
+  talk[0].first_day = talk[0].last_day = cal::localDay(kMorning);
+  talk[0].summary = "Jahresgespräch mit der Abteilungsleitung über die Planung";
+  std::string shorter;
+  br::eventText(talk, display, kMorning, false, ui::Language::kGerman, &shorter);
+  TEST_ASSERT_EQUAL_STRING("Um\u00a008:42 Jahresgespr\u2026", shorter.c_str());
+
+  // In the band: last part, after the weather; off with the switch.
+  widgets::DrawContext context;
+  context.network_connected = true;
+  context.now_s = kMorning;
+  const wx::Forecast dry = forecast(course(7, 14), rainFrom(0, 0));
+  br::BandData data;
+  data.forecast = &dry;
+  data.events = &week;
+  const std::string sentence = br::bandSentence(context, data);
+  TEST_ASSERT_TRUE(sentence.size() > 30);
+  TEST_ASSERT_EQUAL_size_t(sentence.size() - std::strlen("Um\u00a008:30 Team-Standup."),
+                           sentence.find("Um\u00a008:30 Team-Standup."));
+  data.event_sentence = false;
+  TEST_ASSERT_EQUAL_size_t(std::string::npos, br::bandSentence(context, data).find("Team-Standup"));
+}
+
 void test_preview_band_switches() {
   // The band switches of the widgets: the weather without its sentence
   // (the picture stays), the departures without their cancellations, and a
@@ -1745,6 +1838,7 @@ int main() {
   RUN_TEST(test_day_symbol);
   RUN_TEST(test_symbol_and_sentence_agree);
   RUN_TEST(test_band_picture_by_daylight);
+  RUN_TEST(test_event_sentence);
   RUN_TEST(test_preview_band_switches);
   RUN_TEST(test_picture_follows_the_weather_of_now);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
@@ -1755,6 +1849,7 @@ int main() {
   RUN_TEST(test_evening_after_sunset);
   RUN_TEST(test_tomorrow_follows_the_daily_code);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
+  RUN_TEST(test_chart_full_day);
   RUN_TEST(test_chart_curve_is_smoothed);
   RUN_TEST(test_rain_bar_heights);
   RUN_TEST(test_rain_bars_between_the_hour_marks);

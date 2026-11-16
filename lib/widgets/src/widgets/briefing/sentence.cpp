@@ -4,6 +4,8 @@
 #include <cstdio>
 
 #include "core/time.h"
+#include "ui/fonts.h"
+#include "ui/text.h"
 
 namespace widgets::briefing {
 
@@ -890,6 +892,74 @@ std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t 
   return "The " + first->line + " at " + time + " to " + first->destination + " is cancelled.";
 }
 
+namespace {
+
+// Width the title keeps in the shorter form of the event.
+constexpr int kEventTitleShortWidth = 260;
+
+// Ends with a full stop, "!", "?" or the "…" of a shortened title.
+bool endsSentence(const std::string& text) {
+  const std::string ellipsis = "…";
+  if (text.size() >= ellipsis.size() &&
+      text.compare(text.size() - ellipsis.size(), ellipsis.size(), ellipsis) == 0) {
+    return true;
+  }
+  return !text.empty() && (text.back() == '.' || text.back() == '!' || text.back() == '?');
+}
+
+}  // namespace
+
+std::string eventText(const calendar::Occurrences& occurrences,
+                      const calendar::DisplayConfig& display, int64_t now_s, bool tomorrow,
+                      ui::Language language, std::string* shorter) {
+  if (shorter != nullptr) shorter->clear();
+  calendar::DisplayConfig d = display;
+  d.days = 2;
+  d.past = false;
+  const std::vector<calendar::AgendaDay> agenda =
+      calendar::buildAgenda(occurrences, now_s, language, d);
+  const size_t index = tomorrow ? 1 : 0;
+  if (agenda.size() <= index) return "";
+  const calendar::Entry* timed = nullptr;
+  const calendar::Entry* all_day = nullptr;
+  for (const calendar::Entry& e : agenda[index].entries) {
+    if (e.kind == calendar::Entry::Kind::kTimed && timed == nullptr && (tomorrow || e.next)) {
+      timed = &e;
+    }
+    if (e.kind == calendar::Entry::Kind::kAllDay && !e.continues && all_day == nullptr) {
+      all_day = &e;
+    }
+  }
+  const calendar::Entry* e = timed != nullptr ? timed : all_day;
+  if (e == nullptr || e->title.empty()) return "";
+  const bool de = language == ui::Language::kGerman;
+  const auto build = [&](const std::string& title) {
+    std::string out;
+    if (e->kind == calendar::Entry::Kind::kTimed) {
+      // "Um 09:30 Zahnarzt.", "Morgen um 08:00 Zahnarzt." (no-break space
+      // before the time, as for the departures).
+      if (de) {
+        out = std::string(tomorrow ? "Morgen um " : "Um ") + e->time + " " + title;
+      } else {
+        out = std::string(tomorrow ? "Tomorrow at " : "At ") + e->time + ": " + title;
+      }
+    } else {
+      out =
+          std::string(tomorrow ? (de ? "Morgen: " : "Tomorrow: ") : (de ? "Heute: " : "Today: ")) +
+          title;
+    }
+    if (!endsSentence(out)) out += ".";
+    return out;
+  };
+  const std::string text = build(e->title);
+  if (shorter != nullptr) {
+    const std::string cut =
+        ui::fitTextEllipsis(ui::fonts::kFraunces38, e->title, kEventTitleShortWidth);
+    if (cut != e->title) *shorter = build(cut);
+  }
+  return text;
+}
+
 std::vector<Part> sentenceParts(const SentenceInput& in) {
   std::vector<Part> parts;
   if (!core::isValidUnixTime(in.now_s)) return parts;
@@ -914,6 +984,16 @@ std::vector<Part> sentenceParts(const SentenceInput& in) {
     std::string shorter;
     const std::string text = weatherSentence(*in.forecast, in.now_s, in.language, &shorter);
     if (!text.empty()) parts.push_back({Topic::kWeather, text, shorter});
+  }
+  if (in.events != nullptr) {
+    // Tomorrow from the same hour as the weather sentence.
+    const weather::Forecast none;
+    const bool tomorrow =
+        weatherPeriod(in.forecast != nullptr ? *in.forecast : none, in.now_s) == Greeting::kEvening;
+    std::string shorter;
+    const std::string text =
+        eventText(*in.events, in.event_display, in.now_s, tomorrow, in.language, &shorter);
+    if (!text.empty()) parts.push_back({Topic::kEvent, text, shorter});
   }
   return parts;
 }

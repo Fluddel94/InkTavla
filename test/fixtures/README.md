@@ -49,7 +49,7 @@ firmware requests.
 | File | Content |
 |---|---|
 | `muenchen_20261020.json` | Response of 2026-10-20 18:30 (hourly and daily values, no 15 minute values): rain the next afternoon |
-| `muenchen_20261022.json` | Response of 2026-10-22 07:30 with temperatures every 15 minutes from 24 hours back (here 20) to ahead, without the amount of precipitation |
+| `muenchen_20261022.json` | Response of 2026-10-22 07:30 with temperatures every 15 minutes from 24 hours back (here 20) to ahead, without the amount of precipitation; the days 2026-10-26 and 27 (hours and daily values) were added from the historical forecast API of Open-Meteo for the five days of step L |
 | `muenchen_20261025.json` | Response of 2026-10-25 11:45 as the firmware requests it now (with `precipitation`): steady rain from 4 to 18 h (100 %, 0.1–1.1 mm per hour); the day the clocks went back |
 
 ## `settings/`

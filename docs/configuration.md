@@ -37,7 +37,7 @@ again or press **Schließen** / **Close**, and after five wrong codes. It
 has a tab "Layout", one tab for every widget that is in a column (in the
 order of the columns; the weather keeps its tab without a column because
 the band shows it), "Gerät / Device" and "System". At the top of the tab of a
-widget that has something for the band (departures, weather) is a box that
+widget that has something for the band (departures, weather, calendar) is a box that
 switches its part of the band sentence off. The settings of a widget
 without a column stay in the file.
 
@@ -293,18 +293,28 @@ Tag" until 18:00, then "Guten Abend"), then
    date and the time of day pick one, so it does not change with every
    refresh.
 
-Disruption messages and events are not part of the sentence; they are shown
-in their columns. The parts stand side by side; the sentence has at most
+4. the next event of the calendar (if the calendar is on the screen): until
+   the evening (the hour from which the weather sentence talks about
+   tomorrow) the next event of today that has not begun yet, "Um 09:30
+   Zahnarzt.", or, if no event with a time is left today, an all-day event
+   that begins today, "Heute: Geburtstag Oma."; in the evening the first
+   event of tomorrow, "Morgen um 08:00 Zahnarzt.", "Morgen: Geburtstag
+   Oma.". Events of several days are named on their first day only; the
+   settings of the calendar column (`all_day`, `exclude`) apply.
+
+Disruption messages are not part of the sentence; they are shown in their
+column. The parts stand side by side; the sentence has at most
 three lines (Fraunces 38, else 34 px). If it does not fit, the weather
-sentence leaves out the temperature, the notices before it take their
-shorter form, and if it still does not fit, it is left out (the notices and
-a cancellation come first). Parts of sources without fresh data are left
+sentence leaves out the temperature, the event shortens its title with
+"…", the notices before it take their shorter form, and if it still does
+not fit, it is left out (the notices and a cancellation come first, the
+event last). Parts of sources without fresh data are left
 out. The band reads the weather section (`widgets.weather`) even if the
-weather column is not on the screen, the departures only if they are on the
-screen. Two widgets have a switch `band` in their section that takes their
-part out of the sentence: `widgets.weather.band: false` leaves out the
-weather sentence (the picture stays), `widgets.mvg.band: false` the
-cancellation. The notes on failed updates do not depend on it. Without a
+weather column is not on the screen, the departures and the calendar only
+if they are on the screen. Every widget has a switch `band` in its section
+that takes its part out of the sentence: `widgets.weather.band: false`
+leaves out the weather sentence (the picture stays), `widgets.mvg.band:
+false` the cancellation, `widgets.calendar.band: false` the event. The notes on failed updates do not depend on it. Without a
 weather column, `widgets.weather.band: false` also stops the weather from
 being fetched; the band then shows a dotted cloud and "–°" in place of the
 picture and the temperature (as it does when no place is set). The picture shows by daylight the weather of the rest of the
@@ -315,8 +325,9 @@ The calendar column shows today (past events stay until midnight unless
 switched off, "Keine Termine" without any), then the next day that has
 events ("MORGEN" with the weekday on the right, or the name of the weekday
 with the date) if there is room, then the following events of the week, one
-line each with the weekday on the first line of every day, the time and the
-title, as many as fit (settings: see [the calendar
+line each with the weekday on the first line of every day, the title (from
+the same position as the titles above) and the time on the right, as many
+as fit (settings: see [the calendar
 widget](#calendar-calendar-agenda)). The departure column shows one list
 (title: the station) or the two `sections` (titles with an arrow, or with
 the location pin for two stations), 28 px per row. Disruption messages of
@@ -342,7 +353,7 @@ time.
 | `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. Not used with `sections`. |
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
-| `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
+| `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`; in a column of step L `14:32 +3 min`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
 | `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the box at the top of the tab *Abfahrten - MVG* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
 | `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: tab *Abfahrten - MVG*. |
 
@@ -454,7 +465,10 @@ Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
 every 30 minutes. The column shows the course of the day from 5 to 23
 o'clock (temperature curve from the hourly values, each averaged with its
 neighbours so that the line runs smoothly, with five labelled hours; the amount of rain per hour as bars) and the next three
-days; the band at the top uses the same data for its sentence and picture.
+days. In a column of step L (367 px, band + 2) the chart shows the whole
+day from 0 to 24 o'clock with labels at 4, 8, 12, 16 and 20 o'clock, and
+five days follow below. The forecast is fetched for six days (today and
+five); the band at the top uses the same data for its sentence and picture.
 Temperatures are in degrees Celsius. The column title is the place (`name`)
 with the location pin and the credit "Open-Meteo" on the right.
 
@@ -512,6 +526,8 @@ weight; a long title wraps once onto a second line where there is room
 (today only as long as every event of today that fits still has its line),
 with long words hyphenated as in the disruption text of the departures,
 else it is shortened with "…". All-day events have a small calendar symbol.
+In a column of step L (367 px, band + 2) today and the next day show the
+end time as well ("10:00–11:30"; not for events that end on a later day).
 
 Emoji in titles and locations are shown as small pictures for a set of 30
 common ones (hearts of every colour, a few faces, thumbs up, party, cake,
@@ -542,6 +558,7 @@ them the column looks as described above.
 | `more` | `true`, `false` | `false` | If not all events of today or of the next day fit, "+ 2 weitere Termine" in small letters below them, right-aligned. Past events that give way are not counted. |
 | `wrap` | `true`, `false` | `true` | Long titles wrap once onto a second line where there is room. `false`: always one line, shortened with "…". |
 | `exclude` | list of words | `[]` | Events whose title contains one of the words are left out, e.g. `["Geburtstag"]`. Upper and lower case do not matter, part of the title is enough. At most 10 words of at most 32 bytes. |
+| `band` | `true`, `false` | `true` | Mention the next event in the sentence of the band (see the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the box at the top of the tab *Kalender* ("Nächsten Termin im Satz des Bands nennen"). Only `false` is saved. |
 | `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched; changes appear with the next fetch. Every request loads the whole calendar file and blocks the device for a few seconds. |
 
 How the column uses its room: today first gets as many events as fit in one

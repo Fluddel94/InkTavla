@@ -5,6 +5,8 @@
 // values, averaged with their neighbours, with five labelled points; the
 // precipitation of every hour as a screened bar between its hour marks), the
 // next three days with the symbol of the daily code of Open-Meteo (2026-10-28).
+// On step L (2026-11-16) the chart shows the whole day 0-24 h and five days
+// follow below.
 // Title (2026-10-26): the place with the location pin, the credit
 // "Open-Meteo" on the right (the age badge takes its place while the data is
 // old).
@@ -26,6 +28,7 @@
 
 #include "ui/canvas.h"
 #include "ui/i18n.h"
+#include "ui/layout.h"
 #include "widgets/weather/forecast.h"
 #include "widgets/weather/widget.h"
 
@@ -62,6 +65,14 @@ int rainBarHeight(float mm, float day_max);
 inline constexpr double kColumnMinSpan = 8;
 inline constexpr int kColumnDayIconSize = 44;
 
+// Days below the chart: three, five on step L (2026-11-16).
+inline constexpr int kColumnDays = 3;
+inline constexpr int kColumnDaysWide = 5;
+
+// Hours of the chart: 5-23 h of today (steps S and M); on step L the whole
+// day 0-24 h with labels at 4, 8, 12, 16 and 20 h (2026-11-16), 24 bars.
+enum class ChartSpan { kDay, kFullDay };
+
 // Geometry of the chart (column coordinates), for drawing and tests.
 struct ColumnChart {
   using Point = ui::PointF;
@@ -81,16 +92,18 @@ struct ColumnChart {
   int curve_bottom = 0;      // lowest possible point of the curve
   std::vector<Point> curve;  // smoothed temperature line (not rounded to pixels)
   std::vector<Bar> bars;
-  std::vector<Label> labels;  // 8, 11, 14, 17, 20 h
+  std::vector<Label> labels;  // 8, 11, 14, 17, 20 h (L: 4, 8, ..., 20 h)
 };
 
-// Chart of the local day of now_s (5-23 h) for a column of this width;
+// Chart of the local day of now_s (5-23 h, or 0-24 h with ChartSpan::kFullDay)
+// for a column of this width;
 // empty curve if the forecast has fewer than two hours of that day. The hour
 // marks are a whole number of px apart (12 at 232 px, 11 at 214 px) and the
 // chart is centred in the column, so all bars have the same width (pitch - 2)
 // and the same gaps (2 px); 18 bars for 6-23 h (the value of 5 h, rain from 4
 // to 5 h, is not shown).
-ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width);
+ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width,
+                        ChartSpan span = ChartSpan::kDay);
 
 struct ColumnOptions {
   std::string place;  // title with the pin; "" = "Wetter" without the pin
@@ -98,6 +111,8 @@ struct ColumnOptions {
   bool note_alert = false;
   ui::Language language = ui::Language::kGerman;
   int64_t now_s = 0;
+  ChartSpan span = ChartSpan::kDay;
+  int days = kColumnDays;
 };
 
 void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const ColumnOptions& options);
@@ -105,7 +120,8 @@ void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const Colum
 class ForecastColumnView : public View {
  public:
   // source must outlive the view.
-  explicit ForecastColumnView(const WeatherSource& source) : source_(source) {}
+  ForecastColumnView(const WeatherSource& source, ui::SizeStep step = ui::SizeStep::kS)
+      : source_(source), step_(step) {}
 
   std::vector<const DataSource*> sources() const override { return {&source_}; }
   // The place, or "Wetter" if none is set.
@@ -116,6 +132,7 @@ class ForecastColumnView : public View {
 
  private:
   const WeatherSource& source_;
+  ui::SizeStep step_;
 };
 
 }  // namespace widgets::weather

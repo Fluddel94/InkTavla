@@ -399,7 +399,7 @@ void test_layout_follows_the_widgets() {
   TEST_ASSERT_TRUE(mvg->fits(ui::SizeStep::kL));
   TEST_ASSERT_TRUE(widgets::findWidgetType("calendar")->fits(ui::SizeStep::kS));
   TEST_ASSERT_TRUE(mvg->band);
-  TEST_ASSERT_FALSE(widgets::findWidgetType("calendar")->band);
+  TEST_ASSERT_TRUE(widgets::findWidgetType("calendar")->band);  // since 2026-11-16
 }
 
 void test_settings_page_gets_the_layouts() {
@@ -412,7 +412,7 @@ void test_settings_page_gets_the_layouts() {
   TEST_ASSERT_TRUE(doc["widgets"][0]["band_alone"].isNull());
   TEST_ASSERT_TRUE(doc["widgets"][1]["band_alone"].as<bool>());  // the weather
   TEST_ASSERT_EQUAL_STRING("S", doc["widgets"][2]["min"]);
-  TEST_ASSERT_FALSE(doc["widgets"][2]["band"].as<bool>());
+  TEST_ASSERT_TRUE(doc["widgets"][2]["band"].as<bool>());
   TEST_ASSERT_EQUAL_size_t(2, doc["layouts"].size());
   TEST_ASSERT_EQUAL_size_t(3, doc["layouts"][0]["steps"].size());
   TEST_ASSERT_EQUAL_STRING("M", doc["layouts"][0]["steps"][0]);
@@ -646,19 +646,14 @@ void test_band_switch_of_the_weather() {
 }
 
 void test_band_switch_is_checked() {
-  // Not a switch: reported by the reader of the key; a widget with nothing
-  // for the band says so.
+  // Not a switch: reported by the reader of the key. Every widget has a
+  // switch now (the calendar since 2026-11-16).
   Rig bad(R"({"widgets": {"mvg": {"band": "yes"}}})", "band_bad");
   bool wrong_type = false;
   for (const auto& i : bad.issues) wrong_type = wrong_type || i.path == "widgets.mvg.band";
   TEST_ASSERT_TRUE(wrong_type);
   Rig calendar(R"({"widgets": {"calendar": {"band": false}}})", "band_calendar");
-  bool nothing = false;
-  for (const auto& i : calendar.issues) {
-    nothing = nothing || (i.path == "widgets.calendar.band" &&
-                          i.message.find("nothing for the band") != std::string::npos);
-  }
-  TEST_ASSERT_TRUE(nothing);
+  TEST_ASSERT_EQUAL_size_t(0, calendar.issues.size());
 }
 
 void test_removed_grid_setting_is_reported() {

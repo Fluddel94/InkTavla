@@ -6,13 +6,15 @@
 // Disruption messages of the shown departures (2026-10-26): below the
 // station title (two stations: below the title of the first one), a warning
 // sign and the wrapped, hyphenated text, no heading. Only the first message
-// is shown, with "+2 weitere" for the others (2026-10-28).
+// is shown, with "+2 weitere" for the others (2026-10-28). On step L the
+// delay has its unit, "+8 min" (2026-11-16).
 
 #include <string>
 #include <vector>
 
 #include "ui/canvas.h"
 #include "ui/i18n.h"
+#include "ui/layout.h"
 #include "widgets/mvg/departure.h"
 #include "widgets/mvg/time_display.h"
 #include "widgets/mvg/widget.h"
@@ -33,6 +35,8 @@ struct ColumnOptions {
   // station title (Briefing design D). Off: only the warning signs in the
   // rows.
   bool show_incidents = false;
+  // Step L (2026-11-16): the delay with its unit ("+8 min").
+  bool delay_unit = false;
 };
 
 // The disruption text: only the first message (the one of the earliest
@@ -78,7 +82,8 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
 class DeparturesColumnView : public View {
  public:
   // source must outlive the view.
-  explicit DeparturesColumnView(const MvgSource& source) : source_(source) {}
+  DeparturesColumnView(const MvgSource& source, ui::SizeStep step = ui::SizeStep::kM)
+      : source_(source), step_(step) {}
 
   std::vector<const DataSource*> sources() const override { return {&source_}; }
   std::string title(ui::Language language) const override;
@@ -87,6 +92,7 @@ class DeparturesColumnView : public View {
 
  private:
   const MvgSource& source_;
+  ui::SizeStep step_;
 };
 
 }  // namespace widgets::mvg
