@@ -19,8 +19,10 @@ using ui::Color;
 constexpr int kTimeColumn = 50;  // titles start here
 constexpr int kTimeGap = 13;     // after "00:00" of kTimeFont up to kTimeColumn
 constexpr int kRowsBelowTitle = 8;
-constexpr int kRuleBelowRows = 10;
-constexpr int kTitleBelowRows = 32;
+// The dotted rules 1 px closer to the rows above (2026-11-16: one more line
+// of the week fits).
+constexpr int kRuleBelowRows = 9;
+constexpr int kTitleBelowRows = 31;
 
 const ui::Font& kTimeFont = ui::fonts::kRobotoCondensedMedium17;
 const ui::Font& kTitleFont = ui::fonts::kFraunces20;

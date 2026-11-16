@@ -833,6 +833,45 @@ void test_preview_calendar_settings() {
 }
 
 // The hint counts only events that are still ahead and needs its line.
+void test_calendar_week_line_below_two_wrapped_days() {
+  // Photo of 2026-11-16 (step L, end times): today an all-day event and a
+  // title in two lines, tomorrow a title in two lines, then two lines of the
+  // week. The second one (baseline 254, descender to 259) fits since the
+  // dotted rules moved 1 px up; before, it ended at 261 and was left out.
+  std::vector<cal::AgendaDay> agenda(5);
+  for (size_t i = 0; i < agenda.size(); i++) agenda[i].day = 20543 + static_cast<int64_t>(i);
+  cal::Entry all_day;
+  all_day.kind = cal::Entry::Kind::kAllDay;
+  all_day.title = "HO";
+  cal::Entry concert;
+  concert.time = "20:00";
+  concert.end = "21:00";
+  concert.title = "Verena @Tokio Hotel Konzert";
+  agenda[0].entries = {all_day, concert};
+  cal::Entry pizza;
+  pizza.time = "19:00";
+  pizza.end = "20:00";
+  pizza.title = "Pizza Essen mit FTI Girls&Boys";
+  agenda[1].entries = {pizza};
+  agenda[2].entries = {all_day};
+  cal::Entry friday;
+  friday.time = "18:00";
+  friday.title = "Gym";
+  agenda[4].entries = {friday};
+  ui::Bitmap bitmap(367, 260);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas column(bitmap);
+  cal::ColumnOptions options;
+  options.end_times = true;
+  cal::drawAgendaColumn(column, agenda, options);
+  // The time of the Friday line, right-aligned, between 240 and 259.
+  bool friday_drawn = false;
+  for (int y = 240; y < 260; y++) {
+    for (int x = 330; x < 367; x++) friday_drawn |= bitmap.get(x, y) == ui::Color::kBlack;
+  }
+  TEST_ASSERT_TRUE(friday_drawn);
+}
+
 void test_calendar_more_hint() {
   std::vector<std::string> titles;
   for (int i = 0; i < 9; i++) titles.push_back("Termin " + std::to_string(i + 1));
@@ -2001,6 +2040,7 @@ int main() {
   RUN_TEST(test_preview_emoji_icons);
   RUN_TEST(test_preview_calendar_settings);
   RUN_TEST(test_calendar_more_hint);
+  RUN_TEST(test_calendar_week_line_below_two_wrapped_days);
   RUN_TEST(test_preview_departure_columns);
   RUN_TEST(test_view_incidents_switch);
   RUN_TEST(test_incident_label);

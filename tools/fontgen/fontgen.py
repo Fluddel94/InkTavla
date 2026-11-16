@@ -50,6 +50,10 @@ ICON_SCALE = 0.9
 
 # Oversampled rasterisation: (factor, coverage threshold); see render_oversampled().
 OVERSAMPLED = (8, 0.45)
+# Small Fraunces sizes (2026-11-16): oversampled like Medium 16; the large
+# font keeps the optical size of the small one (opsz 144 would be a thinner
+# display cut).
+FRAUNCES_SMALL = (8, 0.45)
 
 # (C++ name, output file, weight, pixel size[, characters[, source[, oversampled]]]).
 # Sizes follow the "Briefing" design from 2026-10-21; they are provisional
@@ -74,9 +78,12 @@ FONTS = [
     ("kFraunces38", "fraunces_38.cpp", 420, 38, None, "fraunces"),  # sentence
     ("kFraunces34", "fraunces_34.cpp", 420, 34, None, "fraunces"),  # long sentence
     ("kFraunces24Medium", "fraunces_24_medium.cpp", 500, 24, None, "fraunces"),  # "7° bis 14°"
-    ("kFraunces20", "fraunces_20.cpp", 420, 20, None, "fraunces"),  # events
+    # Fraunces 20 and 18 oversampled (2026-11-16): FreeType's 1-bit
+    # rasterisation dropped thin serif ends (the right arm of "y" one pixel
+    # short, "Boy s" and "Ab teilung" looked like two words).
+    ("kFraunces20", "fraunces_20.cpp", 420, 20, None, "fraunces", FRAUNCES_SMALL),  # events
     ("kFraunces20Bold", "fraunces_20_bold.cpp", 640, 20, None, "fraunces"),  # next event
-    ("kFraunces18", "fraunces_18.cpp", 420, 18, None, "fraunces"),  # events later in the week
+    ("kFraunces18", "fraunces_18.cpp", 420, 18, None, "fraunces", FRAUNCES_SMALL),  # later events
     # Word mark on the start screen: only the letters of "InkTavla".
     ("kFraunces96Bold", "fraunces_96_bold.cpp", 640, 96, sorted(set(map(ord, "InkTavla"))), "fraunces"),
 ]
@@ -91,13 +98,13 @@ CHARSET = (
 )
 
 
-def load(source, weight, size):
+def load(source, weight, size, optical_size=None):
     font = ImageFont.truetype(str(FONT_DIR / SOURCES[source]["file"]), size)
     if source == "roboto":
         font.set_variation_by_axes([weight])
         return font
     # Fraunces: set every axis by name, in the order of the font.
-    wanted = {"Weight": weight, "Optical Size": min(144, max(9, size)), "Softness": 50,
+    wanted = {"Weight": weight, "Optical Size": min(144, max(9, optical_size or size)), "Softness": 50,
               "Wonky": 0}
     values = []
     for axis in font.get_variation_axes():
@@ -169,7 +176,8 @@ def generate(name, filename, weight, size, charset=None, source="roboto", oversa
     font = load(source, weight, size)
     ascent, descent = font.getmetrics()
     if oversampled:
-        big = load(source, weight, size * oversampled[0])
+        # The large font keeps the optical size of the small one.
+        big = load(source, weight, size * oversampled[0], optical_size=size)
 
         def glyph_of(cp):
             return render_oversampled(font, big, size, cp, *oversampled)
