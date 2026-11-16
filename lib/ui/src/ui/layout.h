@@ -1,12 +1,13 @@
 #pragma once
 
 // Layout of the screen ("Briefing" design): a band at the top (header line
-// with date and clock, a sentence and a weather picture) and three columns
-// below it, without frames. Views get a canvas for their area.
+// with date and clock, a sentence and a weather picture) and two or three
+// columns below it, without frames. Views get a canvas for their area.
 //
-// Every column has a size type. A widget's view is made for certain size
-// types and is only placed in columns of those (see widgets/registry.h);
-// otherwise the column shows a message instead of a clipped view.
+// The columns only come in three widths, the size steps S, M and L. A widget
+// names the smallest step its view is made for (see widgets/registry.h) and
+// is only placed in columns of at least that step; otherwise the column
+// shows a message instead of a clipped view.
 
 #include <vector>
 
@@ -33,14 +34,15 @@ inline constexpr int kBriefingHeaderHeight = 44;
 inline constexpr int kBriefingClockAreaWidth = 600;
 inline constexpr int kBriefingContentBottom = kScreenHeight - kMarginBottom;
 
-// Columns of the standard grid: calendar and weather have a fixed width, the
-// departures get the rest; gap between the columns.
+// Widths of the columns (size steps) and the gap between two columns. Band
+// + 3 has one column of M and two of S, band + 2 two of L. S is fixed, M and
+// L follow from the margins: M is what two columns of S leave, L half of the
+// content width.
 inline constexpr int kColumnGap = 26;
-inline constexpr int kColumnWidth = 214;
-inline constexpr int kWideColumnWidth =
-    kScreenWidth - 2 * kMargin - 2 * kColumnWidth - 2 * kColumnGap;
-// Equal grid: three columns of the same width with gaps of about this size.
-inline constexpr int kEqualColumnGap = 24;
+inline constexpr int kContentWidth = kScreenWidth - 2 * kMargin;
+inline constexpr int kStepWidthS = 214;
+inline constexpr int kStepWidthM = kContentWidth - 2 * kStepWidthS - 2 * kColumnGap;
+inline constexpr int kStepWidthL = (kContentWidth - kColumnGap) / 2;
 
 struct Rect {
   int x = 0;
@@ -49,21 +51,25 @@ struct Rect {
   int h = 0;
 };
 
-// Content sizes of the columns.
-enum class SlotSize {
-  kBriefingWide,    // departures, 280 x 260 (237 x 260 in the equal grid)
-  kBriefingColumn,  // calendar and weather, 214 x 260 (237 x 260 in the equal grid)
+// Width steps of the columns, from narrow to wide.
+enum class SizeStep {
+  kS,  // 214 x 260
+  kM,  // 280 x 260
+  kL,  // 367 x 260
 };
 
-// Name of a size type for messages: "wide column", "column".
-const char* slotSizeName(SlotSize size);
+// Content width of a column of this step in pixels.
+int stepWidth(SizeStep step);
+
+// Name of a step: "S", "M", "L".
+const char* sizeStepName(SizeStep step);
 
 struct Layout {
   Rect header;  // the band (header line, sentence, picture)
   // The columns ("slots"): they cover the screen below the band without gaps
   // and are what the display refreshes.
   std::vector<Rect> slots;
-  std::vector<SlotSize> sizes;  // size type of every column
+  std::vector<SizeStep> steps;  // size step of every column
   // Area of every column the view draws into (without the margins).
   std::vector<Rect> content;
   // Areas of the band checked separately for changes (partial refresh): the
@@ -74,12 +80,18 @@ struct Layout {
   std::vector<Rect> dividers;
 };
 
-// Variants of the layout (configuration "layout.grid" and
-// "layout.dividers").
+// Number of columns of the two layouts.
+inline constexpr int kMinColumns = 2;
+inline constexpr int kMaxColumns = 3;
+
+// What the configuration chooses ("layout.slots" and "layout.dividers").
 struct LayoutOptions {
-  // Three columns of 237 px with gaps of 24 px instead of 280/214/214
-  // (off by default).
-  bool equal_columns = false;
+  // Number of columns: 3 (band + 3, one column of M and two of S) or 2
+  // (band + 2, two columns of L).
+  int columns = 3;
+  // Band + 3: index of the column that is M wide (0 to 2). It is where the
+  // widget sits that needs M, see widgets::layoutOptions().
+  int wide_column = 0;
   // Dotted vertical lines between the columns (on by default).
   bool dividers = true;
 };
@@ -88,11 +100,12 @@ struct LayoutOptions {
 Rect contentOf(const Layout& layout, size_t i);
 
 // The band of 800 x 205 (header line, sentence, weather picture, rule at y
-// 204) and three columns with the margin kMargin (20 px) at the sides and
-// 26 px between them: departures 280 px, calendar and weather 214 px each,
-// from y 205 to the bottom edge of the content at y 465 (kMarginBottom
-// 15 px). With equal_columns all three are 237 px wide (24 px between them);
-// the first one stays the "wide column" for the departures.
+// 204) and the columns below it, from y 205 to the bottom edge of the
+// content at y 465 (kMarginBottom 15 px), with the margin kMargin (20 px) at
+// the sides and 26 px between them:
+//   band + 3: 280 | 214 | 214 px, the 280 at options.wide_column
+//   band + 2: 367 | 367 px
+// The slots (refresh areas) split the gaps between the columns.
 Layout screenLayout(const LayoutOptions& options = {});
 
 // Top of the dotted lines between the columns (at the cap height of the

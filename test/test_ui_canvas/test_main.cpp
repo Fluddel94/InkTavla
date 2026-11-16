@@ -349,21 +349,30 @@ void test_i18n() {
 void test_layout_covers_the_screen_without_overlap() {
   const ui::Layout l = ui::screenLayout();
   TEST_ASSERT_EQUAL_size_t(3, l.slots.size());
-  TEST_ASSERT_EQUAL_size_t(3, l.sizes.size());  // a size type for every column
-  Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
-  std::vector<ui::Rect> areas = l.slots;
-  areas.push_back(l.header);
-  int total = 0;
-  for (const ui::Rect& r : areas) {
-    for (int y = r.y; y < r.y + r.h; y++) {
-      for (int x = r.x; x < r.x + r.w; x++) {
-        TEST_ASSERT_TRUE(b.get(x, y) == Color::kWhite);  // no overlap
-        b.set(x, y, Color::kBlack);
-        total++;
+  TEST_ASSERT_EQUAL_size_t(3, l.steps.size());  // a size step for every column
+  // Every layout: band + 3 with the wide column at each place, band + 2.
+  std::vector<ui::LayoutOptions> all(4);
+  all[1].wide_column = 1;
+  all[2].wide_column = 2;
+  all[3].columns = 2;
+  for (const ui::LayoutOptions& options : all) {
+    const ui::Layout layout = ui::screenLayout(options);
+    TEST_ASSERT_EQUAL_size_t(static_cast<size_t>(options.columns), layout.slots.size());
+    Bitmap b(ui::kScreenWidth, ui::kScreenHeight);
+    std::vector<ui::Rect> areas = layout.slots;
+    areas.push_back(layout.header);
+    int total = 0;
+    for (const ui::Rect& r : areas) {
+      for (int y = r.y; y < r.y + r.h; y++) {
+        for (int x = r.x; x < r.x + r.w; x++) {
+          TEST_ASSERT_TRUE(b.get(x, y) == Color::kWhite);  // no overlap
+          b.set(x, y, Color::kBlack);
+          total++;
+        }
       }
     }
+    TEST_ASSERT_EQUAL_INT(ui::kScreenWidth * ui::kScreenHeight, total);
   }
-  TEST_ASSERT_EQUAL_INT(ui::kScreenWidth * ui::kScreenHeight, total);
 }
 
 void test_layout_columns_and_band() {
@@ -385,11 +394,12 @@ void test_layout_columns_and_band() {
     // Inside its slot.
     TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
   }
-  using ui::SlotSize;
-  TEST_ASSERT_TRUE(l.sizes ==
-                   (std::vector<SlotSize>{SlotSize::kBriefingWide, SlotSize::kBriefingColumn,
-                                          SlotSize::kBriefingColumn}));
-  TEST_ASSERT_EQUAL_STRING("wide column", ui::slotSizeName(SlotSize::kBriefingWide));
+  using ui::SizeStep;
+  TEST_ASSERT_TRUE(l.steps == (std::vector<SizeStep>{SizeStep::kM, SizeStep::kS, SizeStep::kS}));
+  TEST_ASSERT_EQUAL_INT(214, ui::stepWidth(SizeStep::kS));
+  TEST_ASSERT_EQUAL_INT(280, ui::stepWidth(SizeStep::kM));
+  TEST_ASSERT_EQUAL_INT(367, ui::stepWidth(SizeStep::kL));
+  TEST_ASSERT_EQUAL_STRING("M", ui::sizeStepName(SizeStep::kM));
   TEST_ASSERT_EQUAL_INT(313, l.slots[1].x);
   TEST_ASSERT_EQUAL_INT(553, l.slots[2].x);
   TEST_ASSERT_EQUAL_INT(800, l.slots[2].x + l.slots[2].w);
@@ -407,30 +417,48 @@ void test_layout_columns_and_band() {
   TEST_ASSERT_EQUAL_INT(800 * 205, area);
 }
 
-void test_layout_variants_for_the_display_test() {
-  ui::LayoutOptions options;
-  options.equal_columns = true;
-  options.dividers = true;
+// Content areas (x from-to) and dividers of a layout.
+void checkColumns(const ui::LayoutOptions& options, const std::vector<int>& from,
+                  const std::vector<int>& to, const std::vector<int>& lines) {
   const ui::Layout l = ui::screenLayout(options);
-  // Three columns of 237 px with gaps of 24 px: 20-257, 281-518, 542-779.
-  const int x[] = {20, 281, 542};
-  int covered = 0;
-  for (size_t i = 0; i < 3; i++) {
+  TEST_ASSERT_EQUAL_size_t(from.size(), l.content.size());
+  TEST_ASSERT_EQUAL_size_t(from.size(), l.steps.size());
+  for (size_t i = 0; i < from.size(); i++) {
     const ui::Rect c = ui::contentOf(l, i);
-    TEST_ASSERT_EQUAL_INT(x[i], c.x);
-    TEST_ASSERT_EQUAL_INT(237, c.w);
+    TEST_ASSERT_EQUAL_INT(from[i], c.x);
+    TEST_ASSERT_EQUAL_INT(to[i], c.x + c.w);
+    TEST_ASSERT_EQUAL_INT(ui::stepWidth(l.steps[i]), c.w);
+    TEST_ASSERT_EQUAL_INT(205, c.y);
+    TEST_ASSERT_EQUAL_INT(465, c.y + c.h);
     TEST_ASSERT_TRUE(c.x >= l.slots[i].x && c.x + c.w <= l.slots[i].x + l.slots[i].w);
-    covered += l.slots[i].w;
   }
-  TEST_ASSERT_EQUAL_INT(ui::kScreenWidth, covered);
-  // The dotted lines in the middle of the gaps, at the edge of a slot.
-  TEST_ASSERT_EQUAL_size_t(2, l.dividers.size());
-  TEST_ASSERT_EQUAL_INT(269, l.dividers[0].x);
-  TEST_ASSERT_EQUAL_INT(530, l.dividers[1].x);
-  TEST_ASSERT_EQUAL_INT(l.slots[1].x, l.dividers[0].x);
-  TEST_ASSERT_EQUAL_INT(465, l.dividers[1].y + l.dividers[1].h);
-  // Standard grid without lines ("dividers": false): none.
-  options.equal_columns = false;
+  // The dotted lines in the middle of the gaps, at the left edge of a slot.
+  TEST_ASSERT_EQUAL_size_t(lines.size(), l.dividers.size());
+  for (size_t i = 0; i < lines.size(); i++) {
+    TEST_ASSERT_EQUAL_INT(lines[i], l.dividers[i].x);
+    TEST_ASSERT_EQUAL_INT(l.slots[i + 1].x, l.dividers[i].x);
+    TEST_ASSERT_EQUAL_INT(465, l.dividers[i].y + l.dividers[i].h);
+  }
+}
+
+void test_layout_wide_column_moves_and_band_plus_two() {
+  ui::LayoutOptions options;
+  checkColumns(options, {20, 326, 566}, {300, 540, 780}, {313, 553});
+  options.wide_column = 1;
+  checkColumns(options, {20, 260, 566}, {234, 540, 780}, {247, 553});
+  options.wide_column = 2;
+  checkColumns(options, {20, 260, 500}, {234, 474, 780}, {247, 487});
+  options.wide_column = 7;  // out of range: the first column
+  checkColumns(options, {20, 326, 566}, {300, 540, 780}, {313, 553});
+  // Band + 2: two columns of 367 px, the slots are the halves of the screen.
+  options = {};
+  options.columns = 2;
+  checkColumns(options, {20, 413}, {387, 780}, {400});
+  const ui::Layout two = ui::screenLayout(options);
+  TEST_ASSERT_TRUE(two.steps == (std::vector<ui::SizeStep>{ui::SizeStep::kL, ui::SizeStep::kL}));
+  TEST_ASSERT_EQUAL_INT(400, two.slots[0].w);
+  TEST_ASSERT_EQUAL_INT(400, two.slots[1].w);
+  // Without lines ("dividers": false): none.
   options.dividers = false;
   TEST_ASSERT_EQUAL_size_t(0, ui::screenLayout(options).dividers.size());
 }
@@ -748,7 +776,7 @@ int main() {
   RUN_TEST(test_i18n);
   RUN_TEST(test_layout_covers_the_screen_without_overlap);
   RUN_TEST(test_layout_columns_and_band);
-  RUN_TEST(test_layout_variants_for_the_display_test);
+  RUN_TEST(test_layout_wide_column_moves_and_band_plus_two);
   RUN_TEST(test_briefing_fonts_contain_the_needed_characters);
   RUN_TEST(test_fit_text_with_ellipsis);
   RUN_TEST(test_wrap_text_between_words);

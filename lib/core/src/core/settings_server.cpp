@@ -184,8 +184,7 @@ void handleState() {
   if (options.layout_json) {
     JsonDocument layout;
     deserializeJson(layout, "{" + options.layout_json() + "}");
-    state["widgets"] = layout["widgets"];
-    state["slots"] = layout["slots"];
+    for (JsonPairConst member : layout.as<JsonObjectConst>()) state[member.key()] = member.value();
   }
   std::string out;
   serializeJson(state, out);

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Layout with two widgets: `layout.slots` with two entries shows two columns
+  of 367 px below the band instead of three.
+- With three widgets the wide column (280 px) is where the departures are,
+  so they can be in the middle or on the right, too.
+- Settings page: the first tab is now "Layout". It offers the two layouts
+  as small sketches and shows the chosen one true to scale with a list of
+  widgets in every column; choosing a widget that is in another column
+  swaps the two. Only widgets that are in a column have a tab (the weather
+  keeps its tab because the band shows it). Problems the display reports
+  when saving are links to the tab of the setting.
+
+### Changed
+
+- The columns only come in three widths, the size steps S (214 px), M
+  (280 px) and L (367 px). Every widget names the smallest step it is made
+  for (departures M, calendar and weather S) and fits every wider column;
+  the message of a widget that does not fit names the widths.
+
+### Removed
+
+- `layout.grid` (three columns of the same width, for trying out). A file
+  that still has it is reported and shown with the standard widths; the
+  settings page removes it when saving.
+
 ## [0.3.0] - 2026-11-08
 
 The display now keeps a system log that shows what it does and why

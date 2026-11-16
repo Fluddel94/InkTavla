@@ -21,20 +21,17 @@ class Builder {
   Builder(JsonObjectConst root, const Services& services, core::ConfigIssues& issues)
       : root_(root), services_(services), issues_(issues) {}
 
-  std::unique_ptr<View> viewFor(const std::string& id, size_t slot, ui::SlotSize size) {
+  std::unique_ptr<View> viewFor(const std::string& id, size_t slot, ui::SizeStep step) {
     const WidgetType* type = findWidgetType(id);
     if (type == nullptr) {
       issues_.push_back({"layout.slots", "unknown widget \"" + id + "\""});
       return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
     }
-    if (!type->fits(size)) {
-      std::string fits;
-      for (ui::SlotSize s : type->sizes) {
-        fits += std::string(fits.empty() ? "" : ", ") + ui::slotSizeName(s);
-      }
-      issues_.push_back({"layout.slots", "widget \"" + id + "\" does not fit slot " +
-                                             std::to_string(slot + 1) + " (" +
-                                             ui::slotSizeName(size) + "); it fits: " + fits});
+    if (!type->fits(step)) {
+      issues_.push_back(
+          {"layout.slots", "widget \"" + id + "\" does not fit slot " + std::to_string(slot + 1) +
+                               " (" + std::to_string(ui::stepWidth(step)) + " px); it needs " +
+                               std::to_string(ui::stepWidth(type->min_step)) + " px"});
       checkSettings(*type);  // no source (nothing to fetch), but the settings are checked
       return std::make_unique<PlaceholderView>(PlaceholderView::doesNotFit(id));
     }
@@ -42,7 +39,7 @@ class Builder {
     if (source == nullptr) {
       return std::make_unique<PlaceholderView>(PlaceholderView::notAvailable(id));
     }
-    return type->create_view(*source, size);
+    return type->create_view(*source, step);
   }
 
   // The data source of a widget for the band, nullptr if it cannot be
@@ -110,12 +107,15 @@ class Builder {
 
 void validateConfig(JsonObjectConst root, core::ConfigIssues& issues) {
   const core::CoreConfig config = core::parseCoreConfig(root, issues);
-  const ui::Layout layout = ui::screenLayout();
+  const ui::Layout layout = ui::screenLayout(layoutOptions(config.slots));
   Builder builder(root, Services{}, issues);
   for (size_t i = 0; i < layout.slots.size(); i++) {
-    builder.viewFor(i < config.slots.size() ? config.slots[i] : "", i, layout.sizes[i]);
+    builder.viewFor(i < config.slots.size() ? config.slots[i] : "", i, layout.steps[i]);
   }
-  builder.sourceById("weather");  // the band reads the weather
+  // The band reads these even if they are in no column (the weather).
+  for (const WidgetType& type : widgetTypes()) {
+    if (type.band_alone) builder.sourceById(type.id);
+  }
 }
 
 App::App(core::Clock& clock, hal::Display& display, const Services& services)
@@ -125,17 +125,14 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
   config_ = core::parseCoreConfig(root, issues);
   core::setTimeZone(config_.time_zone.c_str());
   const ui::Language language = ui::languageFromCode(config_.language);
-  ui::LayoutOptions options;
-  options.equal_columns = config_.equal_columns;
-  options.dividers = config_.dividers;
-  const ui::Layout layout = ui::screenLayout(options);
+  const ui::Layout layout = ui::screenLayout(layoutOptions(config_.slots, config_.dividers));
 
   Builder builder(root, services_, issues);
   views_.clear();
   std::vector<View*> views{nullptr};  // the band, see below
   for (size_t i = 0; i < layout.slots.size(); i++) {
     const std::string id = i < config_.slots.size() ? config_.slots[i] : "";
-    views_.push_back(builder.viewFor(id, i, layout.sizes[i]));
+    views_.push_back(builder.viewFor(id, i, layout.steps[i]));
     views.push_back(views_.back().get());
   }
   // The band reads the weather even if the weather column is not on the

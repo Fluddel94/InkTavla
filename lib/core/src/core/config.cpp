@@ -38,8 +38,9 @@ bool isWidgetId(const char* text) {
   return true;
 }
 
-// Columns of the layout (see ui/layout.h).
-constexpr size_t kSlots = 3;
+// "layout.slots" has two entries (band + 2) or three (band + 3).
+constexpr size_t kMinSlots = 2;
+constexpr size_t kMaxSlots = 3;
 
 }  // namespace
 
@@ -210,15 +211,18 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
       }
       if (!valid) {
         addIssue(issues, "layout.slots", "must be a list of widget IDs such as \"mvg\"");
-      } else if (ids.size() != kSlots) {
-        addIssue(issues, "layout.slots", "must have " + std::to_string(kSlots) + " entries");
+      } else if (ids.size() < kMinSlots || ids.size() > kMaxSlots) {
+        addIssue(issues, "layout.slots", "must have 2 or 3 entries");
       } else {
         c.slots = ids;
       }
     }
 
-    // Variants for trying out on the display (off by default).
-    c.equal_columns = readChoice(layout, "grid", {"standard", "equal"}, 0, "layout", issues) == 1;
+    // Removed with the fixed column widths; files from older versions may
+    // still have it.
+    if (!layout["grid"].isNull()) {
+      addIssue(issues, "layout.grid", "no longer used, the columns have fixed widths");
+    }
     c.dividers = readBool(layout, "dividers", c.dividers, "layout", issues);
   }
   return c;

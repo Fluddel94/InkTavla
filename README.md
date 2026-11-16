@@ -43,13 +43,14 @@ A widget consists of two parts (`widgets/widget.h`):
 - a **view** draws one area of the screen from the data of one or more
   sources.
 
-All widgets are listed in `widgets/registry.cpp` with their ID, the column
-sizes their view is made for and how their source and view are created.
+All widgets are listed in `widgets/registry.cpp` with their ID, the
+smallest column width their view is made for, whether they have something
+for the band and how their source and view are created.
 The screen follows the "Briefing" design: a band with the date, the time, a
-sentence and the weather at the top, three columns below (departures in the
-wide one, calendar and weather in the narrow ones). A widget placed in a
-column it is not made for is reported and the column shows "Passt hier
-nicht" instead of a clipped view. Adding a widget means adding
+sentence and the weather at the top and three or two columns below. The
+columns only come in three widths (steps S 214, M 280 and L 367 px). A
+widget placed in a column that is too narrow for it is reported and the
+column shows "Passt hier nicht" instead of a clipped view. Adding a widget means adding
 its folder and one entry in `registry.cpp` (plus its API object in
 `Services` and `deviceServices()` in the same file).
 
@@ -58,10 +59,11 @@ its folder and one entry in `registry.cpp` (plus its API object in
 The screen keeps a margin of 20 px at the left, right and top and 15 px at
 the bottom; they are two constants (`kMargin` and `kMarginBottom` in
 `lib/ui/src/ui/layout.h`), so they can be adapted if a case covers the edge
-of the panel. Below the band the three columns are 280, 214
-and 214 px wide with 26 px between them (the departure column gets what the
-margin leaves), separated by dotted lines that can be switched off
-(`layout.dividers`). The weather chart shows the amount of rain of every
+of the panel. Below the band there are three columns of 280, 214 and
+214 px (the wide one is where the departures are) or two of 367 px, with
+26 px between them, separated by dotted lines that can be switched off
+(`layout.dividers`); `layout.slots` chooses the widgets and, by their
+number, the layout. The weather chart shows the amount of rain of every
 hour as bars.
 
 ### Main loop

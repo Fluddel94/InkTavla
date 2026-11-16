@@ -34,11 +34,17 @@ the same Wi-Fi as the display:
 
 The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes. It
-has six tabs:
+has a tab "Layout", one tab for every widget that is in a column (in the
+order of the columns; the weather keeps its tab without a column because
+the band shows it), "Gerät / Device" and "System". The settings of a widget
+without a column stay in the file.
 
-- **Allgemein / General:** widgets of the columns, language, full refresh,
-  the dotted lines between the columns (on by default; three columns of the
-  same width can be tried out below).
+- **Layout:** the arrangement of the screen (band with three or with two
+  widgets) and, in a sketch of it, the widget of every column; below that
+  the language, the full refresh and the dotted lines between the columns.
+  Every widget is offered once; choosing one that is in another column
+  already swaps the two. With three widgets the wide column moves to where
+  the departures are.
 - **Abfahrten - MVG / Departures - MVG:** station search; the display name
   follows the chosen station (and can still be edited); one list, two
   directions or two stations; under every station buttons for the means of
@@ -192,29 +198,45 @@ the settings page when saving.
 | `language` | `"de"`, `"en"` | `"de"` | Language of texts on the display. |
 | `ntp_server` | text | `"pool.ntp.org"` | Time server (host name or IP address). |
 | `display.full_refresh_minutes` | 1–1440 | `360` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
-| `layout.slots` | list of 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. A widget may appear more than once; its data is fetched only once. |
-| `layout.grid` | `"standard"`, `"equal"` | `"standard"` | Widths of the columns: 280/214/214 px, or three columns of 237 px (for trying out on the display; the departure column gets narrower). |
+| `layout.slots` | list of 2 or 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. The number of entries is the layout: three widgets below the band, or two. A widget may appear more than once (its data is fetched only once); the settings page offers every widget once. |
 | `layout.dividers` | `true`, `false` | `true` | Dotted vertical lines in the middle between the columns; `false` turns them off. |
 
 The `layout.template` setting of earlier versions is no longer needed: the
 screen always uses the "Briefing" layout (see below). `"briefing"` is still
 accepted; another value is reported and ignored.
 
-Every column has a size type, and each widget only goes into columns of the
-sizes its view is made for. A widget in another column is reported
-(`layout.slots: widget "calendar" does not fit slot 1 (wide column); it
-fits: column`) and the column shows "Passt hier nicht" instead of a clipped
-view; its data is not fetched there.
+The `layout.grid` setting of earlier versions (three columns of the same
+width) was removed: the columns have fixed widths. A file that still has it
+is reported (`layout.grid: no longer used, the columns have fixed widths`)
+and shown with the standard widths; the settings page removes it when
+saving.
 
-| Column 1 | Column 2 | Column 3 |
+The columns only come in three widths, the size steps **S** (214 px),
+**M** (280 px) and **L** (367 px); they are 260 px high.
+
+| `layout.slots` | Layout | Columns |
 |---|---|---|
-| wide column (280 × 260) | column (214 × 260) | column (214 × 260) |
+| 3 entries | band + 3 | one of M and two of S: 280 \| 214 \| 214 px |
+| 2 entries | band + 2 | two of L: 367 \| 367 px |
 
-| Widget | Fits |
+In band + 3 the wide column (M) is the first one from the left whose widget
+needs M, so `["calendar", "weather", "mvg"]` gives 214 | 214 | 280 px.
+Without such a widget the first column is the wide one.
+
+Every widget has a smallest step and goes into every column of at least
+that width:
+
+| Widget | Smallest step |
 |---|---|
-| `mvg` | wide column |
-| `weather` | column |
-| `calendar` | column |
+| `mvg` | M (280 px) |
+| `weather` | S (214 px) |
+| `calendar` | S (214 px) |
+
+A widget in a column that is too narrow for it - a second one that needs M
+in band + 3 - is reported (`layout.slots: widget "mvg" does not fit slot 3
+(214 px); it needs 280 px`) and the column shows "Passt hier nicht" instead
+of a clipped view; another number of entries than 2 or 3 is reported
+(`layout.slots: must have 2 or 3 entries`) and the standard is used.
 
 ### The "Briefing" layout
 
@@ -222,10 +244,10 @@ The screen keeps a margin of 20 px at the left, right and top (the capitals
 of the date line start 20 px from the top) and 15 px at the bottom. The
 margins are two constants in the firmware (`kMargin` and `kMarginBottom` in
 `lib/ui/src/ui/layout.h`), in case a case covers the edge of the panel; the
-departure column gets the width that is left.
+steps M and L follow from them (S stays 214 px).
 
 At the top a band with the date and time, a sentence and a weather picture
-with the temperature of now ("Jetzt 8°"); below three columns without frames
+with the temperature of now ("Jetzt 8°"); below two or three columns without frames
 that are filled down to the bottom edge. The sentence follows fixed rules
 (no AI): a greeting by the time of day ("Guten Morgen" until 11:00, "Guten
 Tag" until 18:00, then "Guten Abend"), then

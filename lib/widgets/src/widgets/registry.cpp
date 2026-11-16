@@ -46,30 +46,22 @@ std::unique_ptr<DataSource> createCalendar(JsonObjectConst root, const Services&
 
 }  // namespace
 
-bool WidgetType::fits(ui::SlotSize size) const {
-  return std::find(sizes.begin(), sizes.end(), size) != sizes.end();
-}
-
 const std::vector<WidgetType>& widgetTypes() {
   static const std::vector<WidgetType> types = {
-      {"mvg",
-       {ui::SlotSize::kBriefingWide},
-       createMvg,
-       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
+      {"mvg", ui::SizeStep::kM, true, false, createMvg,
+       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
          const auto& source = static_cast<const mvg::MvgSource&>(s);
          return std::make_unique<mvg::DeparturesColumnView>(source);
        }},
-      {"weather",
-       {ui::SlotSize::kBriefingColumn},
-       createWeather,
-       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
+      {"weather", ui::SizeStep::kS, true, true, createWeather,
+       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
          const auto& source = static_cast<const weather::WeatherSource&>(s);
          return std::make_unique<weather::ForecastColumnView>(source);
        }},
-      {"calendar",
-       {ui::SlotSize::kBriefingColumn},
-       createCalendar,
-       [](const DataSource& s, ui::SlotSize) -> std::unique_ptr<View> {
+      // The calendar has nothing for the band (only the note on failed
+      // updates, which every widget gets).
+      {"calendar", ui::SizeStep::kS, false, false, createCalendar,
+       [](const DataSource& s, ui::SizeStep) -> std::unique_ptr<View> {
          const auto& source = static_cast<const calendar::CalendarSource&>(s);
          return std::make_unique<calendar::AgendaColumnView>(source);
        }},
@@ -84,13 +76,23 @@ const WidgetType* findWidgetType(std::string_view id) {
   return nullptr;
 }
 
-namespace {
-
-const char* sizeName(ui::SlotSize size) {
-  return size == ui::SlotSize::kBriefingWide ? "wide" : "column";
+ui::LayoutOptions layoutOptions(const std::vector<std::string>& slots, bool dividers) {
+  ui::LayoutOptions options;
+  options.dividers = dividers;
+  if (slots.size() == 2) {
+    options.columns = 2;
+    return options;
+  }
+  options.columns = 3;
+  for (size_t i = 0; i < slots.size() && i < 3; i++) {
+    const WidgetType* type = findWidgetType(slots[i]);
+    if (type != nullptr && type->min_step >= ui::SizeStep::kM) {
+      options.wide_column = static_cast<int>(i);
+      break;
+    }
+  }
+  return options;
 }
-
-}  // namespace
 
 std::string settingsLayoutJson() {
   JsonDocument doc;
@@ -98,11 +100,29 @@ std::string settingsLayoutJson() {
   for (const WidgetType& type : widgetTypes()) {
     JsonObject w = widgets.add<JsonObject>();
     w["id"] = type.id;
-    JsonArray sizes = w["sizes"].to<JsonArray>();
-    for (ui::SlotSize size : type.sizes) sizes.add(sizeName(size));
+    w["min"] = ui::sizeStepName(type.min_step);
+    w["band"] = type.band;
+    if (type.band_alone) w["band_alone"] = true;
   }
-  JsonArray slots = doc["slots"].to<JsonArray>();
-  for (ui::SlotSize size : ui::screenLayout().sizes) slots.add(sizeName(size));
+  JsonArray layouts = doc["layouts"].to<JsonArray>();
+  for (int columns = ui::kMaxColumns; columns >= ui::kMinColumns; columns--) {
+    ui::LayoutOptions options;
+    options.columns = columns;
+    JsonObject l = layouts.add<JsonObject>();
+    JsonArray steps = l["steps"].to<JsonArray>();
+    for (ui::SizeStep step : ui::screenLayout(options).steps) steps.add(ui::sizeStepName(step));
+    if (columns == 3) l["wide"] = ui::sizeStepName(ui::SizeStep::kM);
+  }
+  JsonObject steps = doc["steps"].to<JsonObject>();
+  for (ui::SizeStep step : {ui::SizeStep::kS, ui::SizeStep::kM, ui::SizeStep::kL}) {
+    steps[ui::sizeStepName(step)] = ui::stepWidth(step);
+  }
+  JsonObject screen = doc["screen"].to<JsonObject>();
+  screen["width"] = ui::kScreenWidth;
+  screen["height"] = ui::kScreenHeight;
+  screen["band"] = ui::kBriefingBandHeight;
+  screen["margin"] = ui::kMargin;
+  screen["gap"] = ui::kColumnGap;
   std::string text;
   serializeJson(doc, text);
   // Members only, without the braces.

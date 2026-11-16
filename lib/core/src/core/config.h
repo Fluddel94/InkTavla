@@ -35,12 +35,10 @@ struct CoreConfig {
   std::string language = "de";
   std::string ntp_server = "pool.ntp.org";
   int full_refresh_minutes = 360;  // full refresh against ghosting (6 h)
-  // Widgets of the three columns from left to right.
+  // Widgets of the columns from left to right; two entries are the layout
+  // band + 2, three band + 3.
   std::vector<std::string> slots = {"mvg", "calendar", "weather"};
-  // Layout variants: three columns of the same width ("grid": "equal", to try
-  // out, off by default) and dotted lines between the columns (on by
-  // default, "dividers": false turns them off).
-  bool equal_columns = false;
+  // Dotted lines between the columns ("dividers": false turns them off).
   bool dividers = true;
 
   CoreConfig();

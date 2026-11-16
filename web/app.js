@@ -18,7 +18,7 @@ const TEXTS = {
     openUntil: "Offen bis",
     saveHint: "Änderungen gelten nach dem Speichern; das Display startet dann neu.",
     departures: "Abfahrten",
-    tabGeneral: "Allgemein", tabMvg: "Abfahrten - MVG", tabWeather: "Wetter - Open Meteo", tabCalendar: "Kalender - Google", tabDevice: "Gerät",
+    tabLayout: "Layout", tabMvg: "Abfahrten - MVG", tabWeather: "Wetter - Open Meteo", tabCalendar: "Kalender - Google", tabDevice: "Gerät",
     transportModes: "Verkehrsmittel an dieser Haltestelle",
     transportHint: "Ein Knopf wählt alle Linien des Verkehrsmittels ab und blendet sie aus; erneut gedrückt sind alle wieder gewählt. Einzelne Linien lassen sich danach in den Listen ändern.",
     transportHintDir: "Ein Knopf blendet alle Linien des Verkehrsmittels aus; erneut gedrückt gilt wieder die vorherige Zuordnung.",
@@ -102,17 +102,20 @@ const TEXTS = {
     calRefresh: "Kalender abrufen alle",
     calRefreshHint: "Änderungen im Kalender erscheinen beim nächsten Abruf. Jeder Abruf lädt die ganze Kalenderdatei und hält die Anzeige einige Sekunden an.",
     display: "Anzeige",
-    columns: "Spalten von links nach rechts",
-    wideColumn: "Breite Spalte",
-    column: "Spalte",
+    arrangement: "Aufteilung",
+    assignment: "Zuordnung",
+    nWidgets: "{n} Widgets",
+    band: "Band",
+    slotN: "Platz {n}",
+    swapWith: "{name} (tauscht mit Platz {n})",
+    assignmentHint: "Jedes Widget gibt es einmal. Wählst du eines, das schon auf einem anderen Platz steht, tauschen die beiden.",
+    wideHint: "Der breite Platz liegt dort, wo ein Widget ihn braucht ({names}).",
     widgetMvg: "Abfahrten",
     widgetWeather: "Wetter",
     widgetCalendar: "Kalender",
     language: "Sprache",
     fullRefresh: "Voll-Refresh alle",
     fullRefreshHint: "Voll-Refresh: Das ganze Bild blinkt einmal und entfernt Geisterbilder.",
-    tryOut: "Zum Ausprobieren",
-    gridEqual: "Drei gleich breite Spalten",
     dividers: "Gepunktete Linien zwischen den Spalten",
     wifi: "WLAN",
     wifiConnected: "Verbunden mit",
@@ -191,7 +194,7 @@ const TEXTS = {
     urlBad: "Die Adresse muss mit https:// oder webcal:// beginnen.",
     days: "Tagen", hours: "Std.", minutesShort: "Min.",
     pathFile: "Datei", pathMvg: "Abfahrten", pathWeather: "Wetter", pathCalendar: "Kalender",
-    pathLayout: "Anzeige", pathLanguage: "Sprache", pathTimeZone: "Zeitzone", pathNtp: "Zeitserver",
+    pathLayout: "Layout", pathDisplay: "Anzeige", pathLanguage: "Sprache", pathTimeZone: "Zeitzone", pathNtp: "Zeitserver",
     pathCalendarUrl: "Kalender-Adresse",
     tabSystem: "System",  // the tab itself is English (TEXTS.en, see "System" below)
   },
@@ -206,7 +209,7 @@ const TEXTS = {
     openUntil: "Open until",
     saveHint: "Changes apply after saving; the display then restarts.",
     departures: "Departures",
-    tabGeneral: "General", tabMvg: "Departures - MVG", tabWeather: "Weather - Open Meteo", tabCalendar: "Calendar - Google", tabDevice: "Device",
+    tabLayout: "Layout", tabMvg: "Departures - MVG", tabWeather: "Weather - Open Meteo", tabCalendar: "Calendar - Google", tabDevice: "Device",
     transportModes: "Modes of transport at this station",
     transportHint: "A button clears and hides all lines of that mode; pressed again, they are all selected again. Single lines can then be changed in the lists.",
     transportHintDir: "A button hides all lines of that mode; pressed again, the previous assignment applies again.",
@@ -290,17 +293,20 @@ const TEXTS = {
     calRefresh: "Fetch the calendar every",
     calRefreshHint: "Changes in the calendar appear with the next fetch. Every fetch loads the whole calendar file and holds the display for a few seconds.",
     display: "Display",
-    columns: "Columns from left to right",
-    wideColumn: "Wide column",
-    column: "Column",
+    arrangement: "Arrangement",
+    assignment: "Widgets",
+    nWidgets: "{n} widgets",
+    band: "Band",
+    slotN: "Slot {n}",
+    swapWith: "{name} (swaps with slot {n})",
+    assignmentHint: "Every widget is there once. If you choose one that is in another slot already, the two swap.",
+    wideHint: "The wide slot is where a widget needs it ({names}).",
     widgetMvg: "Departures",
     widgetWeather: "Weather",
     widgetCalendar: "Calendar",
     language: "Language",
     fullRefresh: "Full refresh every",
     fullRefreshHint: "Full refresh: the whole picture flashes once and removes ghosting.",
-    tryOut: "To try out",
-    gridEqual: "Three columns of the same width",
     dividers: "Dotted lines between the columns",
     wifi: "Wi-Fi",
     wifiConnected: "Connected to",
@@ -379,7 +385,7 @@ const TEXTS = {
     urlBad: "The address must start with https:// or webcal://.",
     days: "days", hours: "h", minutesShort: "min",
     pathFile: "File", pathMvg: "Departures", pathWeather: "Weather", pathCalendar: "Calendar",
-    pathLayout: "Display", pathLanguage: "Language", pathTimeZone: "Time zone", pathNtp: "Time server",
+    pathLayout: "Layout", pathDisplay: "Display", pathLanguage: "Language", pathTimeZone: "Time zone", pathNtp: "Time server",
     pathCalendarUrl: "Calendar address",
     tabSystem: "System", system: "System", sysSources: "Data sources", sysLog: "Log",
     sysLogHint: "Newest entries first. It holds fixed texts and numbers only – no addresses, Wi-Fi names or calendar titles – and can be shared to get help. Warnings and errors survive a restart; after a power cut it starts again. On the display, KEY2 shows the same.",
@@ -589,6 +595,7 @@ async function loadState() {
   closesAt = Date.now() + S.closes_in_s * 1000;
   config = S.config && typeof S.config === "object" ? S.config : {};
   fillForm();
+  updateTabs();
   selectTab(initialTab());
   show("main");
   setDirty(false);
@@ -1228,28 +1235,107 @@ $("calendarRemove").addEventListener("click", () => {
 
 // --- Display -----------------------------------------------------------------------
 
+// Widgets of the columns from left to right; their number is the layout
+// (two: band + 2, three: band + 3).
+let slotIds = [];
+
 function fillDisplay() {
   const layout = config.layout || {};
-  const slots = Array.isArray(layout.slots) ? layout.slots : ["mvg", "calendar", "weather"];
-  const box = $("slots");
-  box.replaceChildren();
-  S.slots.forEach((size, i) => {
-    const fitting = S.widgets.filter((w) => w.sizes.includes(size));
-    const value = slots[i] || "";
-    const select = el("select", { id: "slot" + i, onchange: () => setDirty(true) },
-      fitting.map((w) => el("option", { value: w.id, selected: w.id === value }, widgetName(w.id))));
-    if (value && !fitting.some((w) => w.id === value)) {
-      select.append(el("option", { value, selected: true }, value));
-    }
-    box.append(el("div", {}, el("label", { class: "label", for: "slot" + i }, size === "wide" ? t("wideColumn") : t("column") + " " + (i + 1)), select));
-  });
+  const slots = Array.isArray(layout.slots) ? layout.slots.filter((id) => typeof id === "string") : [];
+  slotIds = S.layouts.some((l) => l.steps.length === slots.length) ? slots : ["mvg", "calendar", "weather"];
+  renderLayout();
   $("language").value = config.language === "en" ? "en" : "de";
   const refresh = (config.display && config.display.full_refresh_minutes) || 360;
   const choices = REFRESH_CHOICES.includes(refresh) ? REFRESH_CHOICES : [...REFRESH_CHOICES, refresh].sort((a, b) => a - b);
   $("fullRefresh").replaceChildren(...choices.map((m) =>
     el("option", { value: m, selected: m === refresh }, minutesText(m))));
-  $("gridEqual").checked = layout.grid === "equal";
   $("dividers").checked = layout.dividers !== false;  // on by default
+}
+
+// --- Layout ------------------------------------------------------------------------
+// The display tells which layouts there are, how wide their columns are
+// (steps S, M, L) and the smallest step of every widget (S.layouts, S.steps,
+// S.widgets, S.screen); the sketches are drawn from that.
+
+const STEPS = ["S", "M", "L"];
+function widgetInfo(id) { return S.widgets.find((w) => w.id === id); }
+// Steps of the columns for these widgets. In band + 3 the wide column is the
+// first one whose widget needs it, otherwise the first column - the same
+// rule as on the display.
+function stepsFor(ids) {
+  const layout = S.layouts.find((l) => l.steps.length === ids.length) || S.layouts[0];
+  const steps = layout.steps.slice();
+  if (!layout.wide) return steps;
+  steps.splice(steps.indexOf(layout.wide), 1);
+  const need = STEPS.indexOf(layout.wide);
+  const at = ids.findIndex((id) => widgetInfo(id) && STEPS.indexOf(widgetInfo(id).min) >= need);
+  steps.splice(Math.max(at, 0), 0, layout.wide);
+  return steps;
+}
+function allFit(ids) {
+  const steps = stepsFor(ids);
+  return ids.every((id, i) => !widgetInfo(id) || STEPS.indexOf(widgetInfo(id).min) <= STEPS.indexOf(steps[i]));
+}
+// The columns after choosing a widget for column i: a widget that is in
+// another column already swaps places with the one it replaces.
+function withWidget(i, id) {
+  const ids = slotIds.slice();
+  const j = ids.indexOf(id);
+  if (j >= 0 && j !== i) ids[j] = ids[i];
+  ids[i] = id;
+  return ids;
+}
+// Columns of a sketch; their widths include the margins and half the gaps,
+// like the areas of the display.
+function sketchColumns(steps, content) {
+  const m = S.screen.margin, g = S.screen.gap / 2;
+  return el("div", { class: "cols" }, steps.map((step, i) => {
+    const w = (i ? g : m) + S.steps[step] + (i < steps.length - 1 ? g : m);
+    return el("div", { class: "col", style: "flex:" + w + " 0 0" }, content ? content(step, i) : null);
+  }));
+}
+function renderLayout() {
+  $("layouts").replaceChildren(...S.layouts.map((l) => {
+    const n = l.steps.length;
+    return el("button", { type: "button", "aria-pressed": String(n === slotIds.length), onclick: () => chooseLayout(n) },
+      el("div", { class: "mini" }, el("div", { class: "band" }), sketchColumns(l.steps)), t("nWidgets", { n }));
+  }));
+  const steps = stepsFor(slotIds);
+  $("sketch").replaceChildren(el("div", { class: "band" }, t("band")), sketchColumns(steps, (step, i) => {
+    const options = S.widgets.filter((w) => allFit(withWidget(i, w.id))).map((w) => {
+      const j = slotIds.indexOf(w.id);
+      const name = j >= 0 && j !== i ? t("swapWith", { name: widgetName(w.id), n: j + 1 }) : widgetName(w.id);
+      return el("option", { value: w.id, selected: w.id === slotIds[i] }, name);
+    });
+    // From a file written by hand: an unknown widget or one that does not fit.
+    if (!options.some((o) => o.selected)) options.push(el("option", { value: slotIds[i], selected: true }, widgetName(slotIds[i])));
+    const select = el("select", { id: "slot" + i, "aria-label": t("slotN", { n: i + 1 }), onchange: () => {
+      slotIds = withWidget(i, select.value);
+      layoutChanged();
+    } }, options);
+    return [select, el("small", {}, S.steps[step] + " px")];
+  }));
+  const layout = S.layouts.find((l) => l.steps.length === slotIds.length);
+  const wide = layout && layout.wide ? S.widgets.filter((w) => w.min === layout.wide).map((w) => widgetName(w.id)) : [];
+  $("assignmentHint").textContent = t("assignmentHint") + (wide.length ? " " + t("wideHint", { names: wide.join(", ") }) : "");
+}
+// Another layout: fewer columns keep the first widgets, more columns get the
+// first widgets that are not shown yet.
+function chooseLayout(n) {
+  if (n === slotIds.length) return;
+  const ids = slotIds.slice(0, n);
+  while (ids.length < n) {
+    const free = S.widgets.filter((w) => !ids.includes(w.id));
+    const next = free.find((w) => allFit([...ids, w.id])) || free[0] || S.widgets[0];
+    ids.push(next.id);
+  }
+  slotIds = ids;
+  layoutChanged();
+}
+function layoutChanged() {
+  renderLayout();
+  updateTabs();
+  setDirty(true);
 }
 function widgetName(id) {
   const key = "widget" + id.charAt(0).toUpperCase() + id.slice(1);
@@ -1568,7 +1654,7 @@ function buildConfig() {
   delete m.note;  // removed setting
   m.time_format = segValue($("mvgTime")) || "clock";
   if ($("mvgIncidents").checked) delete m.incidents; else m.incidents = false;
-  const usesMvg = [0, 1, 2].some((i) => $("slot" + i) && $("slot" + i).value === "mvg");
+  const usesMvg = slotIds.includes("mvg");
   const lineError = (msg) => errors.push(["mvgLinesError", msg]);
   if (mvg.mode === "list") {
     setOrDelete(m, "station", mvg.station ? mvg.station.id : "");
@@ -1646,8 +1732,8 @@ function buildConfig() {
 
   // Display
   c.layout = c.layout || {};
-  c.layout.slots = [0, 1, 2].map((i) => $("slot" + i).value);
-  if ($("gridEqual").checked) c.layout.grid = "equal"; else delete c.layout.grid;
+  c.layout.slots = slotIds.slice();
+  delete c.layout.grid;  // removed setting
   if ($("dividers").checked) delete c.layout.dividers; else c.layout.dividers = false;
   delete c.layout.template;
   c.language = $("language").value;
@@ -1783,9 +1869,25 @@ $("sysRefresh").addEventListener("click", loadSystem);
 
 // --- Tabs ----------------------------------------------------------------------------
 
-const TABS = ["general", "mvg", "weather", "calendar", "device", "system"];
+// "Layout", then the widgets of the columns in their order, then "Device"
+// and "System". A widget that is in no column has no tab - except one the
+// band shows anyway (the weather) and one with an entry to correct.
+const FIXED_TABS = ["layout", "device", "system"];
+function tabButton(name) {
+  return [...document.querySelectorAll("#tabs button")].find((b) => b.dataset.tab === name);
+}
+function updateTabs() {
+  const shown = [];
+  for (const id of slotIds) if (!shown.includes(id) && tabButton(id)) shown.push(id);
+  for (const w of S.widgets) if (w.band_alone && !shown.includes(w.id) && tabButton(w.id)) shown.push(w.id);
+  for (const id of shown) $("tabs").insertBefore(tabButton(id), tabButton("device"));
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    b.hidden = !FIXED_TABS.includes(b.dataset.tab) && !shown.includes(b.dataset.tab) && !b.classList.contains("bad");
+  });
+}
 function selectTab(name) {
-  if (!TABS.includes(name)) name = "general";
+  const button = tabButton(name);
+  if (!button || button.hidden) name = "layout";
   document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
   document.querySelectorAll("main section[data-tab]").forEach((s) => { s.hidden = s.dataset.tab !== name; });
   try { sessionStorage.setItem("inktavlaTab", name); } catch (e) { /* not available */ }
@@ -1796,7 +1898,11 @@ $("tabs").addEventListener("click", (e) => {
   if (b) selectTab(b.dataset.tab);
 });
 function initialTab() {
-  try { return sessionStorage.getItem("inktavlaTab") || "general"; } catch (e) { return "general"; }
+  try { return sessionStorage.getItem("inktavlaTab") || "layout"; } catch (e) { return "layout"; }
+}
+function markTabs(bad) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("bad", bad.has(b.dataset.tab)));
+  updateTabs();
 }
 function markTabErrors(errors) {
   const bad = new Set();
@@ -1804,8 +1910,16 @@ function markTabErrors(errors) {
     const s = $(id) && $(id).closest("section[data-tab]");
     if (s) bad.add(s.dataset.tab);
   }
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("bad", bad.has(b.dataset.tab)));
+  markTabs(bad);
   return bad;
+}
+// Tab of a setting the display reports.
+function tabOfPath(path) {
+  const widget = /^widgets\.([a-z0-9_]+)/.exec(path);
+  if (widget) return widget[1];
+  if (path.startsWith("secrets.calendar_url")) return "calendar";
+  if (/^(time_zone|ntp_server)/.test(path)) return "device";
+  return "layout";
 }
 
 function showFieldErrors(errors) {
@@ -1842,7 +1956,7 @@ function showFieldErrors(errors) {
 function pathName(path) {
   const map = [
     ["secrets.calendar_url", "pathCalendarUrl"], ["widgets.mvg", "pathMvg"], ["widgets.weather", "pathWeather"],
-    ["widgets.calendar", "pathCalendar"], ["layout", "pathLayout"], ["display", "pathLayout"],
+    ["widgets.calendar", "pathCalendar"], ["layout", "pathLayout"], ["display", "pathDisplay"],
     ["language", "pathLanguage"], ["time_zone", "pathTimeZone"], ["ntp_server", "pathNtp"],
   ];
   for (const [prefix, key] of map) if (path === prefix || path.startsWith(prefix + ".")) return t(key);
@@ -1855,9 +1969,14 @@ function showIssues(issues) {
   box.replaceChildren(
     el("h2", {}, t("issuesTitle")),
     el("p", { class: "hint" }, blocking ? t("issuesBlocking") : t("issuesHint")),
-    el("ul", {}, issues.map((i) => el("li", {}, el("b", {}, pathName(i.path)), el("small", {}, (i.path ? i.path + ": " : "") + i.message)))),
+    el("ul", {}, issues.map((i) => el("li", {},
+      el("button", { type: "button", class: "link", onclick: () => { selectTab(tabOfPath(i.path)); $("tabs").scrollIntoView({ block: "start", behavior: "smooth" }); } }, pathName(i.path)),
+      el("small", {}, (i.path ? i.path + ": " : "") + i.message)))),
     blocking ? null : el("div", { class: "actions" }, el("button", { type: "button", class: "danger", onclick: () => save(true) }, t("saveAnyway"))));
   box.hidden = false;
+  // The tabs of these settings are marked and the first one is opened.
+  markTabs(new Set(issues.map((i) => tabOfPath(i.path))));
+  if (issues.length) selectTab(tabOfPath(issues[0].path));
   box.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 

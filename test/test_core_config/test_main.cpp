@@ -197,23 +197,52 @@ void test_layout_variants() {
   JsonDocument doc;
   core::ConfigIssues issues;
   core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_FALSE(c.equal_columns);  // off by default
-  TEST_ASSERT_TRUE(c.dividers);        // on by default
-  deserializeJson(doc, R"({"layout": {"grid": "equal", "dividers": true}})");
-  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_EQUAL_size_t(0, issues.size());
-  TEST_ASSERT_TRUE(c.equal_columns);
-  TEST_ASSERT_TRUE(c.dividers);
+  TEST_ASSERT_TRUE(c.dividers);  // on by default
   deserializeJson(doc, R"({"layout": {"dividers": false}})");
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_FALSE(c.dividers);
-  deserializeJson(doc, R"({"layout": {"grid": "wide", "dividers": "yes"}})");
+  // "grid" was removed: reported (not as an unknown key), whatever its value.
+  deserializeJson(doc, R"({"layout": {"grid": "equal", "dividers": "yes"}})");
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(2, issues.size());
   TEST_ASSERT_EQUAL_STRING("layout.grid", issues[0].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("no longer used, the columns have fixed widths",
+                           issues[0].message.c_str());
   TEST_ASSERT_EQUAL_STRING("layout.dividers", issues[1].path.c_str());
-  TEST_ASSERT_FALSE(c.equal_columns);
+  TEST_ASSERT_TRUE(c.dividers);
+}
+
+void test_layout_slots_two_or_three_entries() {
+  JsonDocument doc;
+  core::ConfigIssues issues;
+  // Two entries are the layout band + 2, three band + 3.
+  deserializeJson(doc, R"({"layout": {"slots": ["weather", "mvg"]}})");
+  core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_size_t(2, c.slots.size());
+  TEST_ASSERT_EQUAL_STRING("weather", c.slots[0].c_str());
+  deserializeJson(doc, R"({"layout": {"slots": ["weather", "calendar", "mvg"]}})");
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(0, issues.size());
+  TEST_ASSERT_EQUAL_size_t(3, c.slots.size());
+  // Any other number: reported, the standard is used.
+  for (const char* text : {R"({"layout": {"slots": ["mvg"]}})", R"({"layout": {"slots": []}})",
+                           R"({"layout": {"slots": ["mvg", "calendar", "weather", "mvg"]}})"}) {
+    issues.clear();
+    deserializeJson(doc, text);
+    c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+    TEST_ASSERT_EQUAL_size_t(1, issues.size());
+    TEST_ASSERT_EQUAL_STRING("layout.slots", issues[0].path.c_str());
+    TEST_ASSERT_EQUAL_STRING("must have 2 or 3 entries", issues[0].message.c_str());
+    TEST_ASSERT_EQUAL_size_t(3, c.slots.size());
+    TEST_ASSERT_EQUAL_STRING("mvg", c.slots[0].c_str());
+  }
+  issues.clear();
+  deserializeJson(doc, R"({"layout": {"slots": "mvg"}})");
+  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_STRING("must be a list of widget IDs such as \"mvg\"",
+                           issues[0].message.c_str());
 }
 
 void test_settings_page_opens_only_without_settings() {
@@ -246,6 +275,7 @@ int main() {
   RUN_TEST(test_helpers);
   RUN_TEST(test_removed_templates_are_reported);
   RUN_TEST(test_layout_variants);
+  RUN_TEST(test_layout_slots_two_or_three_entries);
   RUN_TEST(test_settings_page_opens_only_without_settings);
   return UNITY_END();
 }

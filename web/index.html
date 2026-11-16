@@ -44,7 +44,7 @@
   <div id="issues" class="issues" hidden></div>
 
   <nav id="tabs" class="tabs" role="tablist">
-    <button type="button" role="tab" data-tab="general" data-t="tabGeneral"></button>
+    <button type="button" role="tab" data-tab="layout" data-t="tabLayout"></button>
     <button type="button" role="tab" data-tab="mvg" data-t="tabMvg"></button>
     <button type="button" role="tab" data-tab="weather" data-t="tabWeather"></button>
     <button type="button" role="tab" data-tab="calendar" data-t="tabCalendar"></button>
@@ -121,11 +121,18 @@
     <p class="hint" data-t="calRefreshHint"></p>
   </section>
 
+  <!-- Layout: arrangement of the screen and the widgets of its columns -->
+  <section id="secLayout" data-tab="layout">
+    <h2 data-t="arrangement"></h2>
+    <div class="layouts" id="layouts"></div>
+    <h3 data-t="assignment"></h3>
+    <div class="sketch" id="sketch"></div>
+    <p class="hint" id="assignmentHint"></p>
+  </section>
+
   <!-- Display -->
-  <section id="secDisplay" data-tab="general">
+  <section id="secDisplay" data-tab="layout">
     <h2 data-t="display"></h2>
-    <span class="label" data-t="columns"></span>
-    <div class="slots" id="slots"></div>
     <div class="row">
       <div><label for="language" data-t="language"></label>
         <select id="language"><option value="de">Deutsch</option><option value="en">English</option></select></div>
@@ -134,10 +141,6 @@
     </div>
     <p class="hint" data-t="fullRefreshHint"></p>
     <div class="cb"><input id="dividers" type="checkbox"><label for="dividers" data-t="dividers"></label></div>
-    <details>
-      <summary data-t="tryOut"></summary>
-      <div class="cb"><input id="gridEqual" type="checkbox"><label for="gridEqual" data-t="gridEqual"></label></div>
-    </details>
   </section>
 
   <!-- Device: Wi-Fi first, then the rest of the device (set up and act; the state is in "System") -->

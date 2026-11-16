@@ -7,12 +7,26 @@ Rect contentOf(const Layout& layout, size_t i) {
   return i < layout.slots.size() ? layout.slots[i] : Rect{};
 }
 
-const char* slotSizeName(SlotSize size) {
-  switch (size) {
-    case SlotSize::kBriefingWide:
-      return "wide column";
-    case SlotSize::kBriefingColumn:
-      return "column";
+int stepWidth(SizeStep step) {
+  switch (step) {
+    case SizeStep::kS:
+      return kStepWidthS;
+    case SizeStep::kM:
+      return kStepWidthM;
+    case SizeStep::kL:
+      return kStepWidthL;
+  }
+  return 0;
+}
+
+const char* sizeStepName(SizeStep step) {
+  switch (step) {
+    case SizeStep::kS:
+      return "S";
+    case SizeStep::kM:
+      return "M";
+    case SizeStep::kL:
+      return "L";
   }
   return "";
 }
@@ -31,26 +45,25 @@ Layout screenLayout(const LayoutOptions& options) {
   const int h = kScreenHeight - top;
   const int content_h = kBriefingContentBottom - top;
   // Columns from left to right; the slots split the gaps between them.
-  int widths[3] = {kWideColumnWidth, kColumnWidth, kColumnWidth};
-  int gap = kColumnGap;
-  if (options.equal_columns) {
-    const int content_w = kScreenWidth - 2 * kMargin;
-    const int w = (content_w - 2 * kEqualColumnGap) / 3;
-    widths[0] = widths[1] = widths[2] = w;
-    gap = (content_w - 3 * w) / 2;  // the rest of the division goes into the gaps
+  if (options.columns == 2) {
+    l.steps = {SizeStep::kL, SizeStep::kL};
+  } else {
+    l.steps = {SizeStep::kS, SizeStep::kS, SizeStep::kS};
+    const int wide = options.wide_column >= 0 && options.wide_column < 3 ? options.wide_column : 0;
+    l.steps[wide] = SizeStep::kM;
   }
   int x = kMargin;
   int slot_x = 0;
-  for (int i = 0; i < 3; i++) {
-    l.content.push_back({x, top, widths[i], content_h});
-    const int slot_end = i < 2 ? x + widths[i] + gap / 2 : kScreenWidth;
+  for (size_t i = 0; i < l.steps.size(); i++) {
+    const int w = stepWidth(l.steps[i]);
+    l.content.push_back({x, top, w, content_h});
+    const int slot_end = i + 1 < l.steps.size() ? x + w + kColumnGap / 2 : kScreenWidth;
     l.slots.push_back({slot_x, top, slot_end - slot_x, h});
     slot_x = slot_end;
-    x += widths[i] + gap;
+    x += w + kColumnGap;
   }
-  l.sizes = {SlotSize::kBriefingWide, SlotSize::kBriefingColumn, SlotSize::kBriefingColumn};
   if (options.dividers) {
-    // In the middle of the gaps, i.e. at the left edge of slots 2 and 3.
+    // In the middle of the gaps, i.e. at the left edge of every slot but the first.
     for (size_t i = 1; i < l.slots.size(); i++) {
       l.dividers.push_back({l.slots[i].x, kDividerTop, 1, kBriefingContentBottom - kDividerTop});
     }

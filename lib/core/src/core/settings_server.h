@@ -70,8 +70,8 @@ struct SettingsServerOptions {
   const char* firmware_version = "";
   std::string language = "de";  // of the configuration
   ConfigValidator validate;
-  // JSON object members describing the layout for the page:
-  // "widgets": [{"id", "sizes": ["wide"|"column"]}], "slots": [...]
+  // JSON object members describing the widgets and layouts for the page
+  // (see widgets::settingsLayoutJson()); they become members of the state.
   std::function<std::string()> layout_json;
   std::vector<SettingsRoute> routes;
   // State of the device for the tab "System" (called in the server task).
