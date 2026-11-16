@@ -142,6 +142,9 @@ std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t 
 // Events that began on an earlier day are not named again. The settings of
 // the column apply (all-day events, words left out). "" for none. *shorter
 // (if given) gets the form with the title shortened.
+// Three wordings for each case (2026-11-16, V1), chosen like those of the
+// weather by the date and the time of day; English with the title first
+// ("Kino mit Lena at 18:30.").
 std::string eventText(const calendar::Occurrences& occurrences,
                       const calendar::DisplayConfig& display, int64_t now_s, bool tomorrow,
                       ui::Language language, std::string* shorter = nullptr);

@@ -38,16 +38,18 @@ void drawLogo(ui::Canvas& canvas, const ui::Font& font, int center_x, int baseli
   const int x = center_x - total / 2;
   const int top = baseline - grid_h;
   const ui::Color black = ui::Color::kBlack;
-  // Grid of four fields, the lower left one black.
+  // Mark (2026-11-16, instead of the 2 x 2 grid): a band across the top and
+  // two columns of equal width below it, the lower left one black. The line
+  // under the band at 45.6 % of the height (centre).
   canvas.fillRect(x, top, grid_w, stroke, black);
   canvas.fillRect(x, baseline - stroke, grid_w, stroke, black);
   canvas.fillRect(x, top, stroke, grid_h, black);
   canvas.fillRect(x + grid_w - stroke, top, stroke, grid_h, black);
   const int mid_x = x + (grid_w - stroke) / 2;
-  const int mid_y = top + (grid_h - stroke) / 2;
-  canvas.fillRect(mid_x, top, stroke, grid_h, black);
-  canvas.fillRect(x, mid_y, grid_w, stroke, black);
-  canvas.fillRect(x, mid_y, mid_x - x + stroke, baseline - mid_y, black);
+  const int band_y = top + (grid_h * 456 + 500) / 1000 - stroke / 2;
+  canvas.fillRect(x, band_y, grid_w, stroke, black);
+  canvas.fillRect(mid_x, band_y, stroke, baseline - band_y, black);
+  canvas.fillRect(x, band_y, mid_x - x + stroke, baseline - band_y, black);
   ui::drawText(canvas, font, x + grid_w + gap, baseline, kWordMark);
   canvas.fillRect(x, baseline + rule_gap, total, stroke, black);
 }

@@ -48,9 +48,10 @@ DAY_ONLY = [
     ("kShowers", "showers"),
     ("kFreezingRain", "freezing"),
 ]
-# Sizes: (pixel size, stroke). The symbols fill their square (the drawing
+# Sizes: (pixel size, stroke); 30 px for the parts of tomorrow on step L
+# (2026-11-16). The symbols fill their square (the drawing
 # scaled up until it touches the edges): the days of the weather column.
-TIGHT_SIZES = [(44, 3.0)]
+TIGHT_SIZES = [(44, 3.0), (30, 2.4)]
 
 # Large weather pictures for the band of the "Briefing" layout: drawn in
 # their final size (not scaled up) into a box of BAND_W x BAND_H. Rain is an

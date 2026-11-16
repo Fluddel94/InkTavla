@@ -18,7 +18,8 @@ struct StartInfo {
   std::string network;  // name of the saved Wi-Fi; empty = not shown
 };
 
-// The logo: grid with one black field, word mark in `font`, rule below;
+// The logo: mark (band on top, two columns below, the lower
+// left one black), word mark in `font`, rule below;
 // centred on center_x, the word mark on `baseline`.
 void drawLogo(ui::Canvas& canvas, const ui::Font& font, int center_x, int baseline);
 

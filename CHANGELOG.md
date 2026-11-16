@@ -33,13 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the first part to give way when the sentence is too long. Switch:
   `widgets.calendar.band` ("Nächsten Termin im Satz des Bands nennen").
 - More content in the columns of 367 px (band + 2): the weather chart shows
-  the whole day from 0 to 24 o'clock with labels every four hours, and five
-  days instead of three; the calendar shows the end time of the events of
+  the whole day from 0 to 24 o'clock with labels every four hours; below
+  it the next day in three parts (6–10, 11–15 and 16–20 o'clock, each with a
+  symbol and a temperature) and the two days after it; the calendar shows the end time of the events of
   today and the next day ("10:00–11:30"); the departures show the delay
   with its unit ("+3 min").
 
 ### Changed
 
+- The event in the sentence of the band has three wordings for each case
+  (today or tomorrow, with a time or all day), chosen by the date and the
+  time of day; English puts the title first ("Kino mit Lena at 18:30.").
+- The wordings of the weather sentence now change from day to day (with
+  three wordings the same one was chosen every day).
+- New logo on the start screen: a band across the top and two columns
+  below it, the lower left one black (instead of the 2 × 2 grid).
 - Calendar column: the lines of the rest of the week show the time on the
   right again; the titles start at the same position as the titles of today
   and the next day.

@@ -245,12 +245,18 @@ struct Wording {
   Text shorter;
 };
 
-// One of the wordings, chosen by the date and the time of day.
-const Wording& choose(const std::vector<Wording>& list, int64_t now_s, Greeting greeting) {
+// Index of one of `count` wordings, chosen by the date and the time of day:
+// the next one every day (2026-11-16: "day * 3 + greeting" chose the same
+// one every day for lists of three).
+size_t chooseIndex(size_t count, int64_t now_s, Greeting greeting) {
   core::LocalTime t;
   core::toLocalTime(now_s, t);
   const int day = t.year * 372 + t.month * 31 + t.day;
-  return list[static_cast<size_t>(day * 3 + static_cast<int>(greeting)) % list.size()];
+  return static_cast<size_t>(day + static_cast<int>(greeting)) % count;
+}
+
+const Wording& choose(const std::vector<Wording>& list, int64_t now_s, Greeting greeting) {
+  return list[chooseIndex(list.size(), now_s, greeting)];
 }
 
 // Dry days (morning: the whole day).
@@ -907,6 +913,30 @@ bool endsSentence(const std::string& text) {
   return !text.empty() && (text.back() == '.' || text.back() == '!' || text.back() == '?');
 }
 
+// Wordings of the event (2026-11-16, V1), chosen like the weather sentence;
+// without the full stop (added unless the title ends a sentence). A no-break
+// space joins "um"/"at" and the time.
+const std::vector<Text>& eventWordings(bool timed, bool tomorrow) {
+  static const std::vector<Text> today_timed = {
+      {"Um\u00a0{time} {title}", "{title} at\u00a0{time}"},
+      {"Heute um\u00a0{time}: {title}", "Next up at\u00a0{time}: {title}"},
+      {"Als Nächstes um\u00a0{time}: {title}", "Coming up at\u00a0{time}: {title}"}};
+  static const std::vector<Text> tomorrow_timed = {
+      {"Morgen um\u00a0{time} {title}", "Tomorrow at\u00a0{time}: {title}"},
+      {"Morgen als Erstes um\u00a0{time}: {title}", "{title} tomorrow at\u00a0{time}"},
+      {"Für morgen vorgemerkt: {time} {title}", "First thing tomorrow, {time}: {title}"}};
+  static const std::vector<Text> today_all_day = {
+      {"Heute: {title}", "Today: {title}"},
+      {"Heute ganztägig: {title}", "All day today: {title}"},
+      {"Den ganzen Tag: {title}", "On the calendar today: {title}"}};
+  static const std::vector<Text> tomorrow_all_day = {
+      {"Morgen: {title}", "Tomorrow: {title}"},
+      {"Morgen ganztägig: {title}", "All day tomorrow: {title}"},
+      {"Morgen den ganzen Tag: {title}", "Coming up tomorrow: {title}"}};
+  if (timed) return tomorrow ? tomorrow_timed : today_timed;
+  return tomorrow ? tomorrow_all_day : today_all_day;
+}
+
 }  // namespace
 
 std::string eventText(const calendar::Occurrences& occurrences,
@@ -932,22 +962,19 @@ std::string eventText(const calendar::Occurrences& occurrences,
   }
   const calendar::Entry* e = timed != nullptr ? timed : all_day;
   if (e == nullptr || e->title.empty()) return "";
-  const bool de = language == ui::Language::kGerman;
+  const bool with_time = e->kind == calendar::Entry::Kind::kTimed;
+  const std::vector<Text>& list = eventWordings(with_time, tomorrow);
+  core::LocalTime t;
+  core::toLocalTime(now_s, t);
+  const Greeting greeting = tomorrow
+                                ? Greeting::kEvening
+                                : (t.hour < kMorningEndHour ? Greeting::kMorning : Greeting::kDay);
+  const char* wording = pick(list[chooseIndex(list.size(), now_s, greeting)], language);
   const auto build = [&](const std::string& title) {
-    std::string out;
-    if (e->kind == calendar::Entry::Kind::kTimed) {
-      // "Um 09:30 Zahnarzt.", "Morgen um 08:00 Zahnarzt." (no-break space
-      // before the time, as for the departures).
-      if (de) {
-        out = std::string(tomorrow ? "Morgen um " : "Um ") + e->time + " " + title;
-      } else {
-        out = std::string(tomorrow ? "Tomorrow at " : "At ") + e->time + ": " + title;
-      }
-    } else {
-      out =
-          std::string(tomorrow ? (de ? "Morgen: " : "Tomorrow: ") : (de ? "Heute: " : "Today: ")) +
-          title;
-    }
+    std::string out = wording;
+    size_t pos;
+    if ((pos = out.find("{time}")) != std::string::npos) out.replace(pos, 6, e->time);
+    if ((pos = out.find("{title}")) != std::string::npos) out.replace(pos, 7, title);
     if (!endsSentence(out)) out += ".";
     return out;
   };

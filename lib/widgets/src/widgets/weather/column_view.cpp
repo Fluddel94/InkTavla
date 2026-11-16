@@ -88,44 +88,110 @@ void drawChart(ui::Canvas& c, const ColumnChart& chart) {
   }
 }
 
-void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang, int count) {
-  const int width = c.width();
-  c.dottedHLine(0, kDaysTop, width, 2);
-  if (f.days.empty()) return;
+// The forecast days after the local day of now_s, at most count.
+std::vector<const Day*> laterDays(const Forecast& f, int64_t now_s, size_t count) {
+  std::vector<const Day*> days;
+  if (f.days.empty()) return days;
   core::LocalTime today;
   core::toLocalTime(core::isValidUnixTime(now_s) ? now_s : f.days.front().time, today);
-  std::vector<const Day*> days;
   for (const Day& d : f.days) {
     // Daily values start at midnight at the location; noon is safely inside.
     core::LocalTime t;
     core::toLocalTime(d.time + 12 * 3600, t);
     const bool later = t.year > today.year || (t.year == today.year && t.month > today.month) ||
                        (t.year == today.year && t.month == today.month && t.day > today.day);
-    if (later && days.size() < static_cast<size_t>(count)) days.push_back(&d);
+    if (later && days.size() < count) days.push_back(&d);
   }
+  return days;
+}
+
+// "10°/3°": high and low in bold (the low a little smaller), a thin slash
+// between them (2026-10-29: the low in Medium looked too thin).
+void drawHighLow(ui::Canvas& c, const Day& day, int cx, int baseline) {
+  const std::string high = degreesText(day.high);
+  const std::string low = degreesText(day.low);
+  const ui::Font& hf = ui::fonts::kRobotoCondensedBold17;
+  const ui::Font& sf = ui::fonts::kRobotoCondensedMedium16;
+  const ui::Font& lf = ui::fonts::kRobotoCondensedBold16;
+  const int x =
+      cx - (ui::textWidth(hf, high) + ui::textWidth(sf, "/") + ui::textWidth(lf, low)) / 2;
+  int end = ui::drawText(c, hf, x, baseline, high);
+  end = ui::drawText(c, sf, end, baseline, "/");
+  ui::drawText(c, lf, end, baseline, low);
+}
+
+// A whole day: weekday, 44 px symbol of the daily code, high and low.
+void drawWholeDay(ui::Canvas& c, const Day& day, int cx, ui::Language lang) {
+  core::LocalTime t;
+  core::toLocalTime(day.time + 12 * 3600, t);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + kDays.weekday_baseline,
+               ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
+  ui::drawIcon(c, cx - kDays.icon_size / 2, kDaysTop + kDays.icon_top,
+               ui::weatherIcon(dayIcon(day.code, day.condition), kDays.icon_size));
+  drawHighLow(c, day, cx, kDaysTop + kDays.temperatures_baseline);
+}
+
+void drawDays(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang, int count) {
+  const int width = c.width();
+  c.dottedHLine(0, kDaysTop, width, 2);
+  const std::vector<const Day*> days = laterDays(f, now_s, static_cast<size_t>(count));
   const double cw = width / static_cast<double>(count);
   for (size_t i = 0; i < days.size(); i++) {
     const int cx = roundToInt(cw * i + cw / 2);
     if (i > 0)
       c.dottedVLine(roundToInt(cw * i), kDaysTop + 10, kDays.temperatures_baseline - 10, 2);
-    core::LocalTime t;
-    core::toLocalTime(days[i]->time + 12 * 3600, t);
-    ui::drawText(c, ui::fonts::kRobotoCondensedBold16, cx, kDaysTop + kDays.weekday_baseline,
-                 ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
-    ui::drawIcon(c, cx - kDays.icon_size / 2, kDaysTop + kDays.icon_top,
-                 ui::weatherIcon(dayIcon(days[i]->code, days[i]->condition), kDays.icon_size));
-    // "10°/3°": high and low in bold (the low a little smaller), a thin
-    // slash between them (2026-10-29: the low in Medium looked too thin).
-    const std::string high = degreesText(days[i]->high);
-    const std::string low = degreesText(days[i]->low);
-    const ui::Font& hf = ui::fonts::kRobotoCondensedBold17;
-    const ui::Font& sf = ui::fonts::kRobotoCondensedMedium16;
-    const ui::Font& lf = ui::fonts::kRobotoCondensedBold16;
-    const int x =
-        cx - (ui::textWidth(hf, high) + ui::textWidth(sf, "/") + ui::textWidth(lf, low)) / 2;
-    int end = ui::drawText(c, hf, x, kDaysTop + kDays.temperatures_baseline, high);
-    end = ui::drawText(c, sf, end, kDaysTop + kDays.temperatures_baseline, "/");
-    ui::drawText(c, lf, end, kDaysTop + kDays.temperatures_baseline, low);
+    drawWholeDay(c, *days[i], cx, lang);
+  }
+}
+
+// Hours of a part, "6–10".
+std::string partHours(const DayPartHours& h) {
+  char buffer[16];
+  std::snprintf(buffer, sizeof(buffer), "%d–%d", h.first, h.last);
+  return buffer;
+}
+
+void drawPart(ui::Canvas& c, const DayPart& p, int cx) {
+  const int baseline = kDaysTop + kDays.temperatures_baseline;
+  if (!p.known) {
+    ui::drawText(c, ui::fonts::kRobotoCondensedBold17, cx, baseline, "–°", Color::kBlack,
+                 ui::Align::kCenter);
+    return;
+  }
+  ui::drawIcon(c, cx - kDayPartIconSize / 2, kDaysTop + 50,
+               ui::weatherIcon(conditionIcon(p.condition, true), kDayPartIconSize));
+  char t[12];
+  std::snprintf(t, sizeof(t), "%d°", p.temperature);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold17, cx, baseline, t, Color::kBlack,
+               ui::Align::kCenter);
+}
+
+// Step L (V1): tomorrow in three parts under its weekday, then two whole days.
+void drawDayParts(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language lang) {
+  const int width = c.width();
+  c.dottedHLine(0, kDaysTop, width, 2);
+  const std::vector<const Day*> days = laterDays(f, now_s, 3);
+  if (days.empty()) return;
+  const int group = 3 * kDayPartWidth;
+  core::LocalTime t;
+  core::toLocalTime(days[0]->time + 12 * 3600, t);
+  ui::drawText(c, ui::fonts::kRobotoCondensedBold16, group / 2, kDaysTop + kDays.weekday_baseline,
+               ui::weekdayShort(lang, t.weekday), Color::kBlack, ui::Align::kCenter);
+  const std::vector<DayPart> parts = dayParts(f, days[0]->time + 12 * 3600);
+  for (int i = 0; i < 3; i++) {
+    const int cx = kDayPartWidth * i + kDayPartWidth / 2;
+    if (i > 0) c.dottedVLine(kDayPartWidth * i, kDaysTop + 34, 54, 2);
+    ui::drawText(c, ui::fonts::kRobotoCondensedMedium13, cx, kDaysTop + 41, partHours(kDayParts[i]),
+                 Color::kBlack, ui::Align::kCenter);
+    drawPart(c, parts[i], cx);
+  }
+  c.vLine(group, kDaysTop + 8, kDays.temperatures_baseline - 12, Color::kBlack);
+  const double day_w = (width - group) / 2.0;
+  for (size_t i = 1; i < days.size(); i++) {
+    if (i > 1) {
+      c.dottedVLine(roundToInt(group + day_w), kDaysTop + 10, kDays.temperatures_baseline - 10, 2);
+    }
+    drawWholeDay(c, *days[i], roundToInt(group + day_w * (i - 1) + day_w / 2), lang);
   }
 }
 
@@ -309,7 +375,37 @@ void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const Colum
                       options.note.empty() ? kAttribution : options.note,
                       place ? ui::TitleIcon::kPin : ui::TitleIcon::kNone, options.note_alert);
   drawChart(canvas, columnChart(forecast, options.now_s, canvas.width(), options.span));
-  drawDays(canvas, forecast, options.now_s, options.language, options.days);
+  if (options.day_parts) {
+    drawDayParts(canvas, forecast, options.now_s, options.language);
+  } else {
+    drawDays(canvas, forecast, options.now_s, options.language, kColumnDays);
+  }
+}
+
+std::vector<DayPart> dayParts(const Forecast& forecast, int64_t day_time) {
+  std::vector<DayPart> parts;
+  for (const DayPartHours& h : kDayParts) {
+    DayPart p;
+    const std::vector<const Hour*> hours = hoursOfDay(forecast, day_time, h.first, h.last);
+    if (static_cast<int>(hours.size()) >= kDayPartMinHours) {
+      p.known = true;
+      p.condition = spanCondition(hours);
+      double sum = 0;
+      bool middle = false;
+      for (const Hour* hour : hours) {
+        sum += hour->temperature;
+        core::LocalTime t;
+        core::toLocalTime(hour->time, t);
+        if (t.hour == h.middle) {
+          p.temperature = displayTemperature(hour->temperature);
+          middle = true;
+        }
+      }
+      if (!middle) p.temperature = displayTemperature(static_cast<float>(sum / hours.size()));
+    }
+    parts.push_back(p);
+  }
+  return parts;
 }
 
 std::string ForecastColumnView::title(ui::Language language) const {
@@ -330,10 +426,10 @@ void ForecastColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
   options.note_alert = context.note_alert;
   options.language = context.language;
   options.now_s = context.now_s;
-  // Step L (2026-11-16): the 24 hours and five days.
+  // Step L (2026-11-16): the 24 hours; tomorrow in parts and two days (V1).
   if (step_ == ui::SizeStep::kL) {
     options.span = ChartSpan::kFullDay;
-    options.days = kColumnDaysWide;
+    options.day_parts = true;
   }
   drawWeatherColumn(canvas, source_.forecast(), options);
 }

@@ -594,10 +594,12 @@ void test_briefing_icons() {
     TEST_ASSERT_EQUAL_INT(ui::kBandIconWidth, band.width);
     TEST_ASSERT_EQUAL_INT(ui::kBandIconHeight, band.height);
     TEST_ASSERT_EQUAL_INT(44, ui::weatherIcon(kind, 44).width);
+    TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(kind, 30).width);  // parts on step L (V1)
   }
   TEST_ASSERT_TRUE(ui::bandIcon(ui::WeatherIcon::kSun).bits !=
                    ui::bandIcon(ui::WeatherIcon::kRain).bits);
-  TEST_ASSERT_EQUAL_INT(44, ui::weatherIcon(ui::WeatherIcon::kSun, 30).width);  // nearest size
+  TEST_ASSERT_EQUAL_INT(44, ui::weatherIcon(ui::WeatherIcon::kSun, 40).width);  // nearest size
+  TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(ui::WeatherIcon::kSun, 20).width);
   TEST_ASSERT_EQUAL_INT(15, ui::kCalendarIcon.width);
   TEST_ASSERT_EQUAL_INT(16, ui::kPinIcon.height);
 }

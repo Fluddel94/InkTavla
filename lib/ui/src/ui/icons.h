@@ -38,7 +38,7 @@ enum class WeatherIcon {
   kFreezingRain,  // rain and a snow star (also sleet)
 };
 
-// Weather symbol in one of the generated sizes (44 px); other sizes give the
+// Weather symbol in one of the generated sizes (44 and 30 px); other sizes give the
 // nearest one.
 const Icon& weatherIcon(WeatherIcon kind, int size);
 

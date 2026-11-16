@@ -5,8 +5,9 @@
 // values, averaged with their neighbours, with five labelled points; the
 // precipitation of every hour as a screened bar between its hour marks), the
 // next three days with the symbol of the daily code of Open-Meteo (2026-10-28).
-// On step L (2026-11-16) the chart shows the whole day 0-24 h and five days
-// follow below.
+// On step L (2026-11-16) the chart shows the whole day 0-24 h; below it
+// tomorrow in three parts (morning, midday, evening) and the two days after
+// (V1, 2026-11-16).
 // Title (2026-10-26): the place with the location pin, the credit
 // "Open-Meteo" on the right (the age badge takes its place while the data is
 // old).
@@ -65,9 +66,8 @@ int rainBarHeight(float mm, float day_max);
 inline constexpr double kColumnMinSpan = 8;
 inline constexpr int kColumnDayIconSize = 44;
 
-// Days below the chart: three, five on step L (2026-11-16).
+// Days below the chart: three (steps S and M).
 inline constexpr int kColumnDays = 3;
-inline constexpr int kColumnDaysWide = 5;
 
 // Hours of the chart: 5-23 h of today (steps S and M); on step L the whole
 // day 0-24 h with labels at 4, 8, 12, 16 and 20 h (2026-11-16), 24 bars.
@@ -105,6 +105,27 @@ struct ColumnChart {
 ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width,
                         ChartSpan span = ChartSpan::kDay);
 
+// Parts of tomorrow on step L (2026-11-16, V1, variant C of the probe):
+// morning, midday and evening from the hourly values (spanCondition(), the
+// symbol always by day as for the days); the temperature of the middle hour,
+// or the mean of the part if that hour is missing. Drawn under the weekday of
+// tomorrow, each part with its hours ("6–10") and a 30 px symbol; a solid line
+// separates them from the two whole days after, which are wider.
+struct DayPartHours {
+  int first, last, middle;
+};
+inline constexpr DayPartHours kDayParts[3] = {{6, 10, 8}, {11, 15, 13}, {16, 20, 18}};
+inline constexpr int kDayPartMinHours = 2;  // fewer: no symbol, "–°"
+inline constexpr int kDayPartWidth = 62;
+inline constexpr int kDayPartIconSize = 30;
+struct DayPart {
+  bool known = false;
+  Condition condition = Condition::kUnknown;
+  int temperature = 0;
+};
+// The three parts of the local day of day_time.
+std::vector<DayPart> dayParts(const Forecast& forecast, int64_t day_time);
+
 struct ColumnOptions {
   std::string place;  // title with the pin; "" = "Wetter" without the pin
   std::string note;   // age badge instead of the credit, "" = the credit
@@ -112,7 +133,7 @@ struct ColumnOptions {
   ui::Language language = ui::Language::kGerman;
   int64_t now_s = 0;
   ChartSpan span = ChartSpan::kDay;
-  int days = kColumnDays;
+  bool day_parts = false;  // step L: tomorrow in three parts, then two days
 };
 
 void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const ColumnOptions& options);

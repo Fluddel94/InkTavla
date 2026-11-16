@@ -637,6 +637,41 @@ void test_chart_full_day() {
   TEST_ASSERT_EQUAL_INT(8, wx::columnChart(f, kMorning, 367).labels[0].hour);
 }
 
+void test_day_parts() {
+  // Step L (V1): tomorrow in three parts from the hourly values. Morning and
+  // midday dry and clear, rain from 16 h; the temperature of 8, 13 and 18 h.
+  const int64_t tomorrow = kMidnight + kDay;
+  const std::vector<float> temps = course(4, 12);
+  wx::Forecast f = forecast(temps, rainFrom(16, 80), Condition::kRain, Condition::kClear, tomorrow);
+  std::vector<wx::DayPart> parts = wx::dayParts(f, tomorrow + 12 * 3600);
+  TEST_ASSERT_EQUAL_size_t(3, parts.size());
+  const Condition want[] = {Condition::kClear, Condition::kClear, Condition::kRain};
+  const int hours[] = {8, 13, 18};
+  for (size_t i = 0; i < 3; i++) {
+    TEST_ASSERT_TRUE(parts[i].known);
+    TEST_ASSERT_TRUE(want[i] == parts[i].condition);
+    TEST_ASSERT_EQUAL_INT(wx::displayTemperature(temps[hours[i]]), parts[i].temperature);
+  }
+  // Without 8 h: the mean of 6, 7, 9 and 10 h. Midday with one hour only:
+  // unknown. No hours of tomorrow at all (the day of the forecast is today):
+  // all unknown.
+  std::vector<wx::Hour> kept;
+  for (const wx::Hour& h : f.hours) {
+    const int hour = static_cast<int>((h.time - tomorrow) / 3600);
+    if (hour == 8 || (hour >= 11 && hour <= 14)) continue;
+    kept.push_back(h);
+  }
+  f.hours = kept;
+  parts = wx::dayParts(f, tomorrow + 12 * 3600);
+  const float mean = (temps[6] + temps[7] + temps[9] + temps[10]) / 4;
+  TEST_ASSERT_EQUAL_INT(wx::displayTemperature(mean), parts[0].temperature);
+  TEST_ASSERT_FALSE(parts[1].known);
+  TEST_ASSERT_TRUE(parts[2].known);
+  for (const wx::DayPart& p : wx::dayParts(f, tomorrow + kDay + 12 * 3600)) {
+    TEST_ASSERT_FALSE(p.known);
+  }
+}
+
 void test_chart_curve_is_smoothed() {
   // Saved response of 2026-10-22 07:41: the curve runs through the hourly
   // values averaged with their neighbours (1-2-1); the labels show the values
@@ -1679,40 +1714,81 @@ void test_tomorrow_follows_the_daily_code() {
                            text(night_rain, evening).c_str());
 }
 
+// The three wordings of an event (2026-11-16, V1); a full stop unless the
+// title ends with "…".
+std::vector<std::string> eventForms(bool timed, bool tomorrow, bool english,
+                                    const std::string& title, const std::string& time = "") {
+  const std::string at = english ? "at " + time : "um " + time;
+  std::vector<std::string> f;
+  if (!english) {
+    if (timed && !tomorrow)
+      f = {"Um " + time + " " + title, "Heute " + at + ": " + title,
+           "Als Nächstes " + at + ": " + title};
+    if (timed && tomorrow)
+      f = {"Morgen " + at + " " + title, "Morgen als Erstes " + at + ": " + title,
+           "Für morgen vorgemerkt: " + time + " " + title};
+    if (!timed && !tomorrow)
+      f = {"Heute: " + title, "Heute ganztägig: " + title, "Den ganzen Tag: " + title};
+    if (!timed && tomorrow)
+      f = {"Morgen: " + title, "Morgen ganztägig: " + title, "Morgen den ganzen Tag: " + title};
+  } else {
+    if (timed && !tomorrow)
+      f = {title + " " + at, "Next up " + at + ": " + title, "Coming up " + at + ": " + title};
+    if (timed && tomorrow)
+      f = {"Tomorrow " + at + ": " + title, title + " tomorrow " + at,
+           "First thing tomorrow, " + time + ": " + title};
+    if (!timed && !tomorrow)
+      f = {"Today: " + title, "All day today: " + title, "On the calendar today: " + title};
+    if (!timed && tomorrow)
+      f = {"Tomorrow: " + title, "All day tomorrow: " + title, "Coming up tomorrow: " + title};
+  }
+  const std::string ellipsis = "…";
+  for (std::string& t : f) {
+    if (t.size() < ellipsis.size() ||
+        t.compare(t.size() - ellipsis.size(), ellipsis.size(), ellipsis) != 0)
+      t += ".";
+  }
+  return f;
+}
+
+void assertOneOf(const std::string& text, const std::vector<std::string>& forms) {
+  TEST_ASSERT_TRUE_MESSAGE(std::find(forms.begin(), forms.end(), text) != forms.end(),
+                           text.c_str());
+}
+
 void test_event_sentence() {
   // The next event of today that has not begun; in the evening the first
-  // one of tomorrow (2026-11-16).
+  // one of tomorrow (2026-11-16). The wording changes (see
+  // test_event_wordings); here: which event.
   const cal::Occurrences week = occurrences("week.ics", kMorning);
   const cal::DisplayConfig display;
   const auto text = [&](int64_t now, bool tomorrow) {
     return br::eventText(week, display, now, tomorrow, ui::Language::kGerman);
   };
-  TEST_ASSERT_EQUAL_STRING("Um\u00a008:30 Team-Standup.", text(kMorning, false).c_str());
-  TEST_ASSERT_EQUAL_STRING("Um\u00a017:15 Zahnarzt.", text(kMidnight + 14 * 3600, false).c_str());
+  assertOneOf(text(kMorning, false), eventForms(true, false, false, "Team-Standup", "08:30"));
+  assertOneOf(text(kMidnight + 14 * 3600, false),
+              eventForms(true, false, false, "Zahnarzt", "17:15"));
   // The dentist has begun and nothing else follows today: nothing.
   TEST_ASSERT_EQUAL_STRING("", text(kMidnight + 17 * 3600 + 30 * 60, false).c_str());
   // Tomorrow: the timed event before the all-day one ("Papiertonne").
-  TEST_ASSERT_EQUAL_STRING("Morgen um\u00a018:30 Kino mit Lena.",
-                           text(kMidnight + 20 * 3600, true).c_str());
+  assertOneOf(text(kMidnight + 20 * 3600, true),
+              eventForms(true, true, false, "Kino mit Lena", "18:30"));
   // Only an all-day event on the day.
-  TEST_ASSERT_EQUAL_STRING("Heute: Geburtstag Oma.", text(kMorning + 4 * kDay, false).c_str());
-  TEST_ASSERT_EQUAL_STRING("Morgen: Geburtstag Oma.",
-                           text(kMidnight + 3 * kDay + 20 * 3600, true).c_str());
-  TEST_ASSERT_EQUAL_STRING(
-      "Tomorrow at\u00a018:30: Kino mit Lena.",
-      br::eventText(week, display, kMidnight + 20 * 3600, true, ui::Language::kEnglish).c_str());
+  assertOneOf(text(kMorning + 4 * kDay, false), eventForms(false, false, false, "Geburtstag Oma"));
+  assertOneOf(text(kMidnight + 3 * kDay + 20 * 3600, true),
+              eventForms(false, true, false, "Geburtstag Oma"));
+  assertOneOf(br::eventText(week, display, kMidnight + 20 * 3600, true, ui::Language::kEnglish),
+              eventForms(true, true, true, "Kino mit Lena", "18:30"));
   // The settings of the column apply: words left out, no all-day events.
   cal::DisplayConfig without = display;
   without.exclude = {"STANDUP"};  // stored in capitals
-  TEST_ASSERT_EQUAL_STRING(
-      "Um\u00a012:30 Mittagessen mit Jonas.",
-      br::eventText(week, without, kMorning, false, ui::Language::kGerman).c_str());
+  assertOneOf(br::eventText(week, without, kMorning, false, ui::Language::kGerman),
+              eventForms(true, false, false, "Mittagessen mit Jonas", "12:30"));
   without.all_day = false;
   TEST_ASSERT_EQUAL_STRING(
       "", br::eventText(week, without, kMorning + 4 * kDay, false, ui::Language::kGerman).c_str());
 
-  // An event of several days is named on its first day only; a long title
-  // has a shorter form.
+  // An event of several days is named on its first day only.
   cal::Occurrences trip(1);
   trip[0].all_day = true;
   trip[0].first_day = cal::localDay(kMorning) - 1;
@@ -1722,17 +1798,8 @@ void test_event_sentence() {
   trip[0].summary = "Urlaub";
   TEST_ASSERT_EQUAL_STRING(
       "", br::eventText(trip, display, kMorning, false, ui::Language::kGerman).c_str());
-  TEST_ASSERT_EQUAL_STRING(
-      "Heute: Urlaub.",
-      br::eventText(trip, display, kMorning - kDay, false, ui::Language::kGerman).c_str());
-  cal::Occurrences talk(1);
-  talk[0].start = kMorning + 3600;
-  talk[0].end = kMorning + 2 * 3600;
-  talk[0].first_day = talk[0].last_day = cal::localDay(kMorning);
-  talk[0].summary = "Jahresgespräch mit der Abteilungsleitung über die Planung";
-  std::string shorter;
-  br::eventText(talk, display, kMorning, false, ui::Language::kGerman, &shorter);
-  TEST_ASSERT_EQUAL_STRING("Um\u00a008:42 Jahresgespr\u2026", shorter.c_str());
+  assertOneOf(br::eventText(trip, display, kMorning - kDay, false, ui::Language::kGerman),
+              eventForms(false, false, false, "Urlaub"));
 
   // In the band: last part, after the weather; off with the switch.
   widgets::DrawContext context;
@@ -1748,6 +1815,78 @@ void test_event_sentence() {
                            sentence.find("Um\u00a008:30 Team-Standup."));
   data.event_sentence = false;
   TEST_ASSERT_EQUAL_size_t(std::string::npos, br::bandSentence(context, data).find("Team-Standup"));
+}
+
+void test_event_wordings() {
+  // Every wording once (2026-11-16, V1): the choice moves on by one every
+  // day, so three days in a row give all three; each has a shorter form
+  // with the title cut to 260 px; German and English.
+  const std::string title = "Jahresgespräch mit der Abteilungsleitung über die Planung";
+  const cal::DisplayConfig display;
+  for (int english = 0; english < 2; english++) {
+    const ui::Language lang = english ? ui::Language::kEnglish : ui::Language::kGerman;
+    const std::string cut = "Jahresgespr\u2026";
+    for (int timed = 0; timed < 2; timed++) {
+      for (int tomorrow = 0; tomorrow < 2; tomorrow++) {
+        std::vector<std::string> seen, shorter_seen;
+        for (int day = 0; day < 3; day++) {
+          const int64_t midnight = kMidnight + day * kDay;
+          // Now: 07:42, or 20:00 for tomorrow's event.
+          const int64_t now = midnight + (tomorrow ? 20 * 3600 : 7 * 3600 + 42 * 60);
+          const int64_t event_day = midnight + (tomorrow ? kDay : 0);
+          cal::Occurrences e(1);
+          e[0].summary = title;
+          e[0].all_day = !timed;
+          e[0].first_day = e[0].last_day = cal::localDay(event_day + 12 * 3600);
+          e[0].start = timed ? event_day + 9 * 3600 + 15 * 60 : event_day;
+          e[0].end = timed ? e[0].start + 3600 : event_day + kDay;
+          std::string shorter;
+          seen.push_back(br::eventText(e, display, now, tomorrow, lang, &shorter));
+          shorter_seen.push_back(shorter);
+        }
+        std::vector<std::string> want = eventForms(timed, tomorrow, english, title, "09:15");
+        std::vector<std::string> want_short = eventForms(timed, tomorrow, english, cut, "09:15");
+        for (size_t i = 0; i < 3; i++) {
+          assertOneOf(seen[i], want);
+          // The shorter form belongs to the same wording.
+          const size_t index = std::find(want.begin(), want.end(), seen[i]) - want.begin();
+          TEST_ASSERT_EQUAL_STRING(want_short[index].c_str(), shorter_seen[i].c_str());
+        }
+        std::sort(seen.begin(), seen.end());
+        std::sort(want.begin(), want.end());
+        TEST_ASSERT_TRUE_MESSAGE(seen == want, want[0].c_str());
+      }
+    }
+  }
+  // English: the title first ("Kino mit Lena at 18:30.").
+  cal::Occurrences cinema(1);
+  cinema[0].summary = "Kino mit Lena";
+  cinema[0].start = kMidnight + 18 * 3600 + 30 * 60;
+  cinema[0].end = cinema[0].start + 7200;
+  cinema[0].first_day = cinema[0].last_day = cal::localDay(kMorning);
+  bool title_first = false;
+  for (int day = 0; day < 3; day++) {
+    cinema[0].start = kMidnight + day * kDay + 18 * 3600 + 30 * 60;
+    cinema[0].end = cinema[0].start + 7200;
+    cinema[0].first_day = cinema[0].last_day = cal::localDay(kMorning + day * kDay);
+    title_first |= br::eventText(cinema, display, kMorning + day * kDay, false,
+                                 ui::Language::kEnglish) == "Kino mit Lena at 18:30.";
+  }
+  TEST_ASSERT_TRUE(title_first);
+}
+
+void test_wordings_change_every_day() {
+  // The weather sentence too (2026-11-16: with three wordings the same one
+  // was chosen every day): the same sunny morning one day later.
+  const wx::Forecast sunny =
+      forecast(course(7, 14), rainFrom(0, 0), Condition::kClear, Condition::kClear);
+  wx::Forecast next = sunny;
+  for (wx::Hour& h : next.hours) h.time += kDay;
+  for (wx::Day& d : next.days) d.time += kDay;
+  next.current.time += kDay;
+  const std::string a = br::weatherSentence(sunny, kMorning, ui::Language::kGerman);
+  const std::string b = br::weatherSentence(next, kMorning + kDay, ui::Language::kGerman);
+  TEST_ASSERT_TRUE_MESSAGE(a != b, a.c_str());
 }
 
 void test_preview_band_switches() {
@@ -1839,6 +1978,8 @@ int main() {
   RUN_TEST(test_symbol_and_sentence_agree);
   RUN_TEST(test_band_picture_by_daylight);
   RUN_TEST(test_event_sentence);
+  RUN_TEST(test_event_wordings);
+  RUN_TEST(test_wordings_change_every_day);
   RUN_TEST(test_preview_band_switches);
   RUN_TEST(test_picture_follows_the_weather_of_now);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
@@ -1850,6 +1991,7 @@ int main() {
   RUN_TEST(test_tomorrow_follows_the_daily_code);
   RUN_TEST(test_chart_never_meets_the_rain_bars);
   RUN_TEST(test_chart_full_day);
+  RUN_TEST(test_day_parts);
   RUN_TEST(test_chart_curve_is_smoothed);
   RUN_TEST(test_rain_bar_heights);
   RUN_TEST(test_rain_bars_between_the_hour_marks);
