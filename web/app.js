@@ -65,6 +65,9 @@ const TEXTS = {
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regionalbus", typeZ: "Regionalzug",
     timeFormat: "Abfahrtszeit als",
     mvgIncidents: "Störungsmeldungen unter der Haltestelle anzeigen",
+    bandMvg: "Ausfälle im Satz des Bands nennen",
+    bandWeather: "Wetter im Satz des Bands nennen",
+    bandWeatherHint: "Das Wetterbild rechts im Band bleibt. Steht das Wetter auf keinem Platz und ist der Haken aus, wird es nicht abgerufen, und das Band zeigt dort einen Platzhalter.",
     clock: "Uhrzeit",
     minutes: "Minuten",
     mvgUnofficial: "Inoffizielle MVG-Schnittstelle; sie kann sich jederzeit ändern.",
@@ -256,6 +259,9 @@ const TEXTS = {
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regional bus", typeZ: "Regional train",
     timeFormat: "Departure time as",
     mvgIncidents: "Show disruption messages under the station",
+    bandMvg: "Mention cancellations in the band sentence",
+    bandWeather: "Mention the weather in the band sentence",
+    bandWeatherHint: "The weather picture on the right of the band stays. If the weather is in no column and this box is off, it is not fetched and the band shows a placeholder there.",
     clock: "Clock time",
     minutes: "Minutes",
     mvgUnofficial: "Unofficial MVG interface; it may change at any time.",
@@ -640,7 +646,34 @@ setInterval(async () => {
 
 const sec = (name) => (config.widgets && config.widgets[name]) || {};
 
+// The switch "widgets.<id>.band" at the top of a widget's page, only for
+// widgets that tell they have something for the band (default: on).
+function fillBand() {
+  document.querySelectorAll("[data-band]").forEach((row) => {
+    const id = row.dataset.band, info = widgetInfo(id);
+    row.hidden = !(info && info.band);
+    const box = row.querySelector("input");
+    if (box) box.checked = sec(id).band !== false;
+  });
+  updateBandHint();
+}
+// The note on the weather switch is only for when it is off.
+function updateBandHint() {
+  const hint = document.querySelector('p[data-band="weather"]'), info = widgetInfo("weather");
+  if (hint) hint.hidden = !(info && info.band) || $("bandWeather").checked;
+}
+$("bandWeather").addEventListener("change", updateBandHint);
+function collectBand(c) {
+  document.querySelectorAll("[data-band] input").forEach((box) => {
+    const id = box.closest("[data-band]").dataset.band, info = widgetInfo(id);
+    if (!info || !info.band) return;  // nothing to switch: the entry stays as it is
+    const section = c.widgets[id] = c.widgets[id] || {};
+    if (box.checked) delete section.band; else section.band = false;
+  });
+}
+
 function fillForm() {
+  fillBand();
   fillMvg();
   fillWeather();
   fillCalendar();
@@ -1644,6 +1677,8 @@ function buildConfig() {
   };
   c.version = 1;
   c.widgets = c.widgets || {};
+
+  collectBand(c);
 
   // Departures
   const m = c.widgets.mvg = c.widgets.mvg || {};

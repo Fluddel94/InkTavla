@@ -67,9 +67,18 @@ SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>&
 
 // Data of the band; nullptr for a source without fresh data (or none).
 struct BandData {
+  // The forecast gives the picture; whether it is also in the sentence is
+  // up to weather_sentence ("widgets.weather.band").
   const weather::Forecast* forecast = nullptr;
+  bool weather_sentence = true;
+  // The weather is not on the screen at all (not fetched, or no location
+  // set): a placeholder takes the place of picture and temperature.
+  bool weather_missing = false;
   std::string as_of;  // time of the last weather data ("" if unknown)
+  // The departures give the cancellations of the sentence only if
+  // departures_sentence is set ("widgets.mvg.band").
   const std::vector<mvg::Section>* departures = nullptr;
+  bool departures_sentence = true;
   // Sources whose updates have failed for a while (stale or no data).
   std::vector<FailedSource> failed;
 };
@@ -84,15 +93,22 @@ void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context);
 // Draws the band (see above) into a canvas of 800 x 205.
 void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& data);
 
+// What the widgets add to the sentence ("widgets.<id>.band"). The notes on
+// failed updates do not depend on it.
+struct BandOptions {
+  bool weather_sentence = true;
+  bool departures_sentence = true;
+};
+
 class BandView : public View {
  public:
   // Any source may be nullptr (widget not on the screen or not available):
   // then its parts are left out. Without weather only the greeting and the
-  // other parts.
+  // other parts, and a placeholder instead of the picture.
   // The calendar is only watched for failed updates.
   BandView(const weather::WeatherSource* weather, const mvg::MvgSource* departures,
-           const DataSource* calendar = nullptr)
-      : weather_(weather), departures_(departures), calendar_(calendar) {}
+           const DataSource* calendar = nullptr, BandOptions options = {})
+      : weather_(weather), departures_(departures), calendar_(calendar), options_(options) {}
 
   std::vector<const DataSource*> sources() const override;
   bool handlesStates() const override { return true; }
@@ -103,6 +119,7 @@ class BandView : public View {
   const weather::WeatherSource* weather_;
   const mvg::MvgSource* departures_;
   const DataSource* calendar_;
+  BandOptions options_;
 };
 
 }  // namespace widgets::briefing

@@ -59,6 +59,13 @@ class Builder {
 
   std::vector<std::unique_ptr<DataSource>>& sources() { return sources_; }
 
+  // Reports problems of the widget's settings without creating its source.
+  void checkSettings(const WidgetType& type) {
+    if (contains(checked_, type.id)) return;
+    checked_.push_back(type.id);
+    type.create_source(root_, Services{}, issues_);
+  }
+
  private:
   // One source per widget, shared by all its views; created (and its
   // settings read) on first use.
@@ -79,13 +86,6 @@ class Builder {
     }
     sources_.push_back(std::move(source));
     return sources_.back().get();
-  }
-
-  // Reports problems of the widget's settings without creating its source.
-  void checkSettings(const WidgetType& type) {
-    if (contains(checked_, type.id)) return;
-    checked_.push_back(type.id);
-    type.create_source(root_, Services{}, issues_);
   }
 
   static bool contains(const std::vector<const char*>& ids, const char* id) {
@@ -112,9 +112,16 @@ void validateConfig(JsonObjectConst root, core::ConfigIssues& issues) {
   for (size_t i = 0; i < layout.slots.size(); i++) {
     builder.viewFor(i < config.slots.size() ? config.slots[i] : "", i, layout.steps[i]);
   }
-  // The band reads these even if they are in no column (the weather).
+  // The band reads the weather even if it is in no column, as long as the
+  // widget's band switch is on; otherwise only its settings are checked.
   for (const WidgetType& type : widgetTypes()) {
-    if (type.band_alone) builder.sourceById(type.id);
+    const bool band = bandEnabled(root, type, issues);
+    if (!type.band_alone) continue;
+    if (band) {
+      builder.sourceById(type.id);
+    } else {
+      builder.checkSettings(type);
+    }
   }
 }
 
@@ -136,12 +143,27 @@ void App::configure(JsonObjectConst root, core::ConfigIssues& issues) {
     views.push_back(views_.back().get());
   }
   // The band reads the weather even if the weather column is not on the
-  // screen; the departures only if they are (nothing is fetched just for the
-  // sentence). The calendar only for the note on failed updates.
-  const auto* weather = static_cast<const weather::WeatherSource*>(builder.sourceById("weather"));
+  // screen, as long as its band switch is on (otherwise it is fetched only
+  // if the column is there); the departures only if they are on the screen
+  // (nothing is fetched just for the sentence). The calendar only for the
+  // note on failed updates.
+  briefing::BandOptions band_options;
+  const weather::WeatherSource* weather = nullptr;
+  for (const WidgetType& type : widgetTypes()) {
+    const bool band = bandEnabled(root, type, issues);
+    if (std::strcmp(type.id, "weather") == 0) {
+      band_options.weather_sentence = band;
+      weather = static_cast<const weather::WeatherSource*>(band ? builder.sourceById(type.id)
+                                                                : builder.existingSource(type.id));
+      if (!band) builder.checkSettings(type);
+    } else if (std::strcmp(type.id, "mvg") == 0) {
+      band_options.departures_sentence = band;
+    }
+  }
   const auto* departures = static_cast<const mvg::MvgSource*>(builder.existingSource("mvg"));
   const DataSource* calendar = builder.existingSource("calendar");
-  views_.push_back(std::make_unique<briefing::BandView>(weather, departures, calendar));
+  views_.push_back(
+      std::make_unique<briefing::BandView>(weather, departures, calendar, band_options));
   views[0] = views_.back().get();
   sources_ = std::move(builder.sources());
 

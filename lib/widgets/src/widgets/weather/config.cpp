@@ -28,7 +28,7 @@ bool readCoordinate(JsonObjectConst section, const char* key, double min, double
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
-  core::reportUnknownKeys(section, {"latitude", "longitude", "name"}, kPath, issues);
+  core::reportUnknownKeys(section, {"latitude", "longitude", "name", "band"}, kPath, issues);
   const bool lat = readCoordinate(section, "latitude", -90, 90, c.latitude, issues);
   const bool lon = readCoordinate(section, "longitude", -180, 180, c.longitude, issues);
   c.has_location = lat && lon;

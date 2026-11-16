@@ -36,7 +36,9 @@ The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes. It
 has a tab "Layout", one tab for every widget that is in a column (in the
 order of the columns; the weather keeps its tab without a column because
-the band shows it), "Gerät / Device" and "System". The settings of a widget
+the band shows it), "Gerät / Device" and "System". At the top of the tab of a
+widget that has something for the band (departures, weather) is a box that
+switches its part of the band sentence off. The settings of a widget
 without a column stay in the file.
 
 - **Layout:** the arrangement of the screen (band with three or with two
@@ -299,7 +301,13 @@ shorter form, and if it still does not fit, it is left out (the notices and
 a cancellation come first). Parts of sources without fresh data are left
 out. The band reads the weather section (`widgets.weather`) even if the
 weather column is not on the screen, the departures only if they are on the
-screen. The picture shows by daylight the weather of the rest of the
+screen. Two widgets have a switch `band` in their section that takes their
+part out of the sentence: `widgets.weather.band: false` leaves out the
+weather sentence (the picture stays), `widgets.mvg.band: false` the
+cancellation. The notes on failed updates do not depend on it. Without a
+weather column, `widgets.weather.band: false` also stops the weather from
+being fetched; the band then shows a dotted cloud and "–°" in place of the
+picture and the temperature (as it does when no place is set). The picture shows by daylight the weather of the rest of the
 daylight hours (the umbrella with drops for likely rain, a cloud for rain
 that is only possible), at night the weather of now.
 
@@ -335,6 +343,7 @@ time.
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
 | `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
+| `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the box at the top of the tab *Abfahrten - MVG* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
 | `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: tab *Abfahrten - MVG*. |
 
 The former setting `note` (text on the right of a title, also in sections)
@@ -473,6 +482,7 @@ sentence in the band still uses the rain probability.
 | `latitude` | −90 to 90 | none | Latitude of the place in decimal degrees, e.g. `48.137`. |
 | `longitude` | −180 to 180 | none | Longitude of the place in decimal degrees, e.g. `11.575`. |
 | `name` | text (≤ 32 bytes) | `""` | Name of the place, the title of the column (without a name: "Wetter"). |
+| `band` | `true`, `false` | `true` | Mention the weather in the sentence of the band. `false` leaves it out; the weather picture stays. Without a weather column the weather is then not fetched and the band shows a placeholder (see the band above). On the settings page: the box at the top of the tab *Wetter - Open-Meteo* ("Wetter im Satz des Bands nennen"). Only `false` is saved. |
 
 Without `latitude` and `longitude` the column shows "Standort fehlt".
 

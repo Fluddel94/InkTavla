@@ -55,6 +55,7 @@
   <!-- Departures (MVG) -->
   <section id="secMvg" data-tab="mvg">
     <h2><span data-t="departures"></span> <small>MVG</small></h2>
+    <div class="cb" data-band="mvg" hidden><input id="bandMvg" type="checkbox"><label for="bandMvg" data-t="bandMvg"></label></div>
     <span class="label" data-t="station"></span>
     <div id="mvgStation"></div>
     <label for="mvgName" data-t="displayName"></label>
@@ -78,6 +79,8 @@
   <!-- Weather -->
   <section id="secWeather" data-tab="weather">
     <h2><span data-t="weather"></span> <small>Open-Meteo</small></h2>
+    <div class="cb" data-band="weather" hidden><input id="bandWeather" type="checkbox"><label for="bandWeather" data-t="bandWeather"></label></div>
+    <p class="hint" data-band="weather" hidden data-t="bandWeatherHint"></p>
     <span class="label" data-t="place"></span>
     <div id="weatherPlace"></div>
     <label for="weatherName" data-t="displayName"></label>

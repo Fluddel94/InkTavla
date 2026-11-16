@@ -59,7 +59,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   }
   core::reportUnknownKeys(section,
                           {"days", "all_day", "past", "more", "location", "wrap", "exclude",
-                           "refresh_minutes", "url", "ical", "ical_url", "address"},
+                           "refresh_minutes", "url", "ical", "ical_url", "address", "band"},
                           kPath, issues);
   DisplayConfig& d = c.display;
   JsonVariantConst days = section["days"];

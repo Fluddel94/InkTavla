@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -603,6 +604,63 @@ void test_band_plus_two_refreshes_its_halves() {
   TEST_ASSERT_FALSE(contains(areas, 553, 205));
 }
 
+// The band switch of the weather ("widgets.weather.band").
+void test_band_switch_of_the_weather() {
+  // Off and in a column: the column and the picture stay, the sentence
+  // leaves out the weather.
+  const std::string name = R"("name": "München")";
+  const std::string off = R"("name": "München", "band": false)";
+  std::string config = kBriefingConfig;
+  config.replace(config.find(name), name.size(), off);
+  Rig rig(config.c_str(), "band_off", true, kBriefingMorning);
+  rig.weather.fixture = "muenchen_20261022.json";
+  TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(1, rig.weather.requests);
+  checkPanel(rig.display, "sim_band_weather_sentence_off");
+
+  // Off and in no column: nothing is fetched, a placeholder takes the place
+  // of the picture; the settings are still checked.
+  std::string two = kBriefingConfig;
+  two.replace(two.find('{'), 1, R"({"layout": {"slots": ["mvg", "calendar"]},)");
+  const std::string two_on = two;
+  two.replace(two.find(name), name.size(), off);
+  Rig alone(two.c_str(), "band_off_alone", true, kBriefingMorning);
+  alone.weather.fixture = "muenchen_20261022.json";
+  TEST_ASSERT_EQUAL_size_t(0, alone.issues.size());
+  for (const auto& source : alone.app.sources()) {
+    TEST_ASSERT_NOT_EQUAL(0, std::strcmp("weather", source->id()));
+  }
+  alone.app.controller().setNetworkConnected(true);
+  alone.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(0, alone.weather.requests);
+  checkPanel(alone.display, "sim_band_weather_off_alone");
+
+  // On (the default) and in no column: fetched for the band, as before.
+  Rig fetched(two_on.c_str(), "band_on_alone", true, kBriefingMorning);
+  fetched.weather.fixture = "muenchen_20261022.json";
+  fetched.app.controller().setNetworkConnected(true);
+  fetched.runUntil(0);
+  TEST_ASSERT_EQUAL_INT(1, fetched.weather.requests);
+}
+
+void test_band_switch_is_checked() {
+  // Not a switch: reported by the reader of the key; a widget with nothing
+  // for the band says so.
+  Rig bad(R"({"widgets": {"mvg": {"band": "yes"}}})", "band_bad");
+  bool wrong_type = false;
+  for (const auto& i : bad.issues) wrong_type = wrong_type || i.path == "widgets.mvg.band";
+  TEST_ASSERT_TRUE(wrong_type);
+  Rig calendar(R"({"widgets": {"calendar": {"band": false}}})", "band_calendar");
+  bool nothing = false;
+  for (const auto& i : calendar.issues) {
+    nothing = nothing || (i.path == "widgets.calendar.band" &&
+                          i.message.find("nothing for the band") != std::string::npos);
+  }
+  TEST_ASSERT_TRUE(nothing);
+}
+
 void test_removed_grid_setting_is_reported() {
   // "layout.grid" from older files: a message, the display as usual.
   std::string config = kBriefingConfig;
@@ -642,6 +700,8 @@ int main() {
   RUN_TEST(test_calendar_address_wrong);
   RUN_TEST(test_briefing_layouts);
   RUN_TEST(test_band_plus_two_refreshes_its_halves);
+  RUN_TEST(test_band_switch_of_the_weather);
+  RUN_TEST(test_band_switch_is_checked);
   RUN_TEST(test_removed_grid_setting_is_reported);
   RUN_TEST(test_briefing_not_set_up);
   return UNITY_END();

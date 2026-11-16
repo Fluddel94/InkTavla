@@ -166,7 +166,7 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   // "note" was removed on 2026-10-31; an old key is ignored without an issue.
   core::reportUnknownKeys(section,
                           {"station", "name", "note", "transport_types", "lines", "direction",
-                           "sections", "time_format", "incidents"},
+                           "sections", "time_format", "incidents", "band"},
                           kPath, issues);
 
   const std::string station = core::readString(section, "station", "", 32, kPath, issues);

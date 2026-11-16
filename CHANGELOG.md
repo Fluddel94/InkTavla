@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps its tab because the band shows it). Problems the display reports
   when saving are links to the tab of the setting.
 
+- Band switch per widget: `widgets.weather.band: false` takes the weather
+  out of the sentence of the band (the picture stays), `widgets.mvg.band:
+  false` the cancellation. The settings page has the box at the top of
+  the tab of the widget ("Wetter im Satz des Bands nennen", "Ausfälle im
+  Satz des Bands nennen"). Where the weather is neither in a column nor
+  fetched for the band (switch off), or has no place set, the band shows a
+  dotted cloud and "–°" instead of the picture and the temperature. The
+  calendar has nothing for the band; `widgets.calendar.band` is reported.
+
 ### Changed
 
 - The columns only come in three widths, the size steps S (214 px), M

@@ -69,6 +69,14 @@ struct WidgetType {
 
 const std::vector<WidgetType>& widgetTypes();
 
+// The switch "widgets.<id>.band" (true or false, default true): whether the
+// widget adds its information to the band (the departures their
+// cancellations, the weather its sentence; notes on failed updates and the
+// weather picture do not depend on it). A widget with nothing for the band
+// reports the key as an issue. Reads the key only; the widget's own section
+// is read by its create_source.
+bool bandEnabled(JsonObjectConst root, const WidgetType& type, core::ConfigIssues& issues);
+
 // The layout for the widgets of "layout.slots": two entries give band + 2,
 // everything else band + 3. In band + 3 the wide column (M) is the first
 // one from the left whose widget needs M, otherwise the first column.

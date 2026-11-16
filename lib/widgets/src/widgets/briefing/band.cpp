@@ -36,6 +36,17 @@ int inkCentre(const ui::Icon& icon) {
   return right < 0 ? icon.width / 2 : (left + right + 1) / 2;
 }
 
+// The picture of the weather as a dotted outline (5 px grid, 3 px dots).
+void drawDottedIcon(ui::Canvas& canvas, int x, int y, const ui::Icon& icon) {
+  const int stride = (icon.width + 7) / 8;
+  for (int row = 0; row < icon.height; row++) {
+    for (int col = 0; col < icon.width; col++) {
+      if (!(icon.bits[row * stride + col / 8] & (0x80 >> (col % 8)))) continue;
+      if (col % 5 < 3 && row % 5 < 3) canvas.setPixel(x + col, y + row, Color::kBlack);
+    }
+  }
+}
+
 }  // namespace
 
 const ui::Font& headerFont() { return ui::fonts::kRobotoCondensedBold20; }
@@ -115,8 +126,8 @@ SentenceInput sentenceInput(const DrawContext& context, const BandData& data) {
   in.language = context.language;
   in.online = context.network_connected;
   in.as_of = data.as_of;
-  in.forecast = data.forecast;
-  in.departures = data.departures;
+  in.forecast = data.weather_sentence ? data.forecast : nullptr;
+  in.departures = data.departures_sentence ? data.departures : nullptr;
   in.failed = data.failed;
   return in;
 }
@@ -163,6 +174,16 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
   const int step = layout.small ? 40 : 44;
   for (size_t i = 0; i < layout.lines.size(); i++) {
     ui::drawText(canvas, font, kSentenceX, first + step * static_cast<int>(i), layout.lines[i]);
+  }
+
+  // Placeholder for the picture and the temperature: no weather.
+  if (data.forecast == nullptr && data.weather_missing) {
+    const ui::Icon& picture = ui::bandIcon(ui::WeatherIcon::kCloudy);
+    drawDottedIcon(canvas, kPictureX, kPictureY, picture);
+    const ui::Font& font = ui::fonts::kFraunces38;
+    const std::string none = "\u2013\u00b0";
+    const int width = ui::textWidth(font, none);
+    ui::drawText(canvas, font, kPictureX + inkCentre(picture) - width / 2, kNowBaseline, none);
   }
 
   // Weather picture with the temperature of now.
@@ -230,6 +251,9 @@ void BandView::draw(ui::Canvas& canvas, const DrawContext& context) {
   }
   if (fresh(weather_)) data.forecast = &weather_->forecast();
   if (fresh(departures_)) data.departures = &departures_->sections();
+  data.weather_sentence = options_.weather_sentence;
+  data.departures_sentence = options_.departures_sentence;
+  data.weather_missing = weather_ == nullptr || !weather_->isSetUp();
   drawBand(canvas, context, data);
 }
 

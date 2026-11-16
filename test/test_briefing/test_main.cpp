@@ -1657,6 +1657,46 @@ void test_tomorrow_follows_the_daily_code() {
                            text(night_rain, evening).c_str());
 }
 
+void test_preview_band_switches() {
+  // The band switches of the widgets: the weather without its sentence
+  // (the picture stays), the departures without their cancellations, and a
+  // placeholder where the weather is not there at all.
+  ui::Bitmap bitmap(800, 3 * 205 + 2 * 10);
+  bitmap.clear(ui::Color::kWhite);
+  const wx::Forecast wet =
+      forecast(course(7, 14), rainFrom(14, 80), Condition::kRain, Condition::kRain);
+  std::vector<widgets::mvg::Section> sections(1);
+  sections[0].departures = {departure("S2", "Dachau", kMorning + 12 * 60, true)};
+  widgets::DrawContext context;
+  context.network_connected = true;
+  context.now_s = kMorning;
+
+  br::BandData no_sentence;  // weather switch off: greeting, cancellation, picture
+  no_sentence.forecast = &wet;
+  no_sentence.weather_sentence = false;
+  no_sentence.departures = &sections;
+  ui::BitmapCanvas first(bitmap, 0, 0, 800, 205);
+  br::drawBand(first, context, no_sentence);
+  const std::string with_cancellation = br::bandSentence(context, no_sentence);
+  TEST_ASSERT_NOT_NULL(std::strstr(with_cancellation.c_str(), "S2"));
+  TEST_ASSERT_NULL(std::strstr(with_cancellation.c_str(), "Regen"));
+
+  br::BandData no_cancellations = no_sentence;  // departures switch off: weather only
+  no_cancellations.weather_sentence = true;
+  no_cancellations.departures_sentence = false;
+  ui::BitmapCanvas second(bitmap, 0, 215, 800, 205);
+  br::drawBand(second, context, no_cancellations);
+  TEST_ASSERT_NULL(std::strstr(br::bandSentence(context, no_cancellations).c_str(), "S2"));
+  TEST_ASSERT_NOT_NULL(std::strstr(br::bandSentence(context, no_cancellations).c_str(), "Regen"));
+
+  br::BandData missing;  // no weather on the screen: the placeholder
+  missing.weather_missing = true;
+  ui::BitmapCanvas third(bitmap, 0, 430, 800, 205);
+  br::drawBand(third, context, missing);
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen.", br::bandSentence(context, missing).c_str());
+  check(bitmap, "briefing_band_switches");
+}
+
 void test_preview_band_topics() {
   ui::Bitmap bitmap(800, 3 * 205 + 2 * 10);
   bitmap.clear(ui::Color::kWhite);
@@ -1705,6 +1745,7 @@ int main() {
   RUN_TEST(test_day_symbol);
   RUN_TEST(test_symbol_and_sentence_agree);
   RUN_TEST(test_band_picture_by_daylight);
+  RUN_TEST(test_preview_band_switches);
   RUN_TEST(test_picture_follows_the_weather_of_now);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
   RUN_TEST(test_sentence_parts);

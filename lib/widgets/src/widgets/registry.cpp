@@ -76,6 +76,18 @@ const WidgetType* findWidgetType(std::string_view id) {
   return nullptr;
 }
 
+bool bandEnabled(JsonObjectConst root, const WidgetType& type, core::ConfigIssues& issues) {
+  const JsonObjectConst section = root["widgets"][type.id].as<JsonObjectConst>();
+  if (section.isNull() || section["band"].isNull()) return true;
+  const std::string path = std::string("widgets.") + type.id;
+  if (!type.band) {
+    issues.push_back(
+        {core::configPath(path, "band"), "this widget has nothing for the band; ignored"});
+    return true;
+  }
+  return core::readBool(section, "band", true, path, issues);
+}
+
 ui::LayoutOptions layoutOptions(const std::vector<std::string>& slots, bool dividers) {
   ui::LayoutOptions options;
   options.dividers = dividers;
