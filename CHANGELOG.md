@@ -41,6 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Settings page rebuilt as an overview with pages instead of tabs: the
+  overview lists "Layout und Darstellung", the widgets, the device pages
+  (Wi-Fi, firmware, backup, time, restart and reset) and "System"; every
+  row opens its own page (address `#/mvg`, `#/wifi` …, so the back button
+  and reloading work). Switches instead of tick boxes (the line lists keep
+  their boxes), larger fields and buttons (at least 44 px to tap), time
+  zone and time server on a page of their own instead of under
+  "Erweitert", the save bar on every page, and the marks "n Fehler" on the
+  overview instead of red tabs. New look in light and dark with the new
+  logo, also as the icon of the browser tab. Settings, `config.json` and
+  the device interface are unchanged.
+- `tools/mock_device.py` serves the settings page with made-up data to try
+  it in a browser without the display.
+
 - The event in the sentence of the band has three wordings for each case
   (today or tomorrow, with a time or all day), chosen by the date and the
   time of day; English puts the title first ("Kino mit Lena at 18:30.").

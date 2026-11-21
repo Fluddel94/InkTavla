@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>InkTavla</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -2 22 22'%3E%3Cstyle%3Epath%7Bfill:%23111315%7D@media(prefers-color-scheme:dark)%7Bpath%7Bfill:%23e8eaec%7D%7D%3C/style%3E%3Cpath fill-rule='evenodd' d='M0 0h20v18H0zM2 2v5h16V2zM11 9v7h7V9z'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,223 +15,266 @@
 
 <!-- Login with the code from the display. -->
 <form id="login" class="login" hidden>
-  <h1>InkTavla</h1>
+  <h1 class="brand"></h1>
   <p class="hint" data-t="loginHint"></p>
   <input id="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" aria-label="Code">
   <p id="loginError" class="err" hidden></p>
-  <div class="actions" style="justify-content:center"><button class="primary" id="loginButton" type="submit" data-t="login"></button></div>
+  <button class="primary wide" id="loginButton" type="submit" data-t="login"></button>
   <p class="hint" data-t="loginQr"></p>
 </form>
 
 <!-- Page closed (time up, closed on the display or too many wrong codes). -->
 <div id="closed" class="login" hidden>
-  <h1>InkTavla</h1>
+  <h1 class="brand"></h1>
   <p class="hint" data-t="closedHint"></p>
 </div>
 
 <!-- Restarting after saving. -->
 <div id="restarting" class="login" hidden>
-  <h1>InkTavla</h1>
+  <h1 class="brand"></h1>
   <p class="hint"><span class="spin"></span><span id="restartText"></span></p>
 </div>
 
+<!-- One page is shown at a time (the overview or one of its pages, chosen by
+     the address: #/, #/mvg, #/wifi ...). All pages stay in the document, so
+     the forms keep their entries when the page changes. The heading of each
+     page (back link, title, origin) is added by app.js from data-title and
+     data-from. -->
 <main id="main" hidden>
-  <header class="top">
-    <h1>InkTavla</h1>
-    <div class="open"><span id="openUntil"></span><button class="quiet" id="closeButton" type="button" data-t="close"></button></div>
-  </header>
-  <p class="hint" data-t="saveHint"></p>
 
-  <div id="issues" class="issues" hidden></div>
+  <!-- Overview -->
+  <section id="secHome" class="page" data-page="">
+    <header class="top">
+      <h1 class="brand"></h1>
+      <div class="open"><span id="openUntil"></span><button class="pillbtn" id="closeButton" type="button" data-t="close"></button></div>
+    </header>
+    <div id="issues" class="issues" hidden></div>
+    <div id="home"></div>
+    <p class="hint foot" data-t="saveHint"></p>
+  </section>
 
-  <nav id="tabs" class="tabs" role="tablist">
-    <button type="button" role="tab" data-tab="layout" data-t="tabLayout"></button>
-    <button type="button" role="tab" data-tab="mvg" data-t="tabMvg"></button>
-    <button type="button" role="tab" data-tab="weather" data-t="tabWeather"></button>
-    <button type="button" role="tab" data-tab="calendar" data-t="tabCalendar"></button>
-    <button type="button" role="tab" data-tab="device" data-t="tabDevice"></button>
-    <button type="button" role="tab" data-tab="system" data-t="tabSystem"></button>
-  </nav>
+  <!-- Layout and display -->
+  <section id="secLayout" class="page" data-page="layout" data-title="p_layout" data-from="g_display">
+    <h2 data-t="arrangement"></h2>
+    <div class="layouts" id="layouts"></div>
+    <h2 data-t="yourDisplay"></h2>
+    <div class="card">
+      <div class="sketch" id="sketch"></div>
+      <p class="hint" id="assignmentHint"></p>
+    </div>
+    <h2 data-t="display"></h2>
+    <div class="card">
+      <div class="row">
+        <div><label for="language" data-t="language"></label>
+          <select id="language"><option value="de">Deutsch</option><option value="en">English</option></select></div>
+        <div><label for="fullRefresh" data-t="fullRefresh"></label>
+          <select id="fullRefresh"></select></div>
+      </div>
+      <p class="hint" data-t="fullRefreshHint"></p>
+      <div class="sw"><label for="dividers" data-t="dividers"></label><input id="dividers" type="checkbox" role="switch"></div>
+    </div>
+  </section>
 
   <!-- Departures (MVG) -->
-  <section id="secMvg" data-tab="mvg">
-    <h2><span data-t="departures"></span> <small>MVG</small></h2>
-    <div class="cb" data-band="mvg" hidden><input id="bandMvg" type="checkbox"><label for="bandMvg" data-t="bandMvg"></label></div>
-    <span class="label" data-t="station"></span>
-    <div id="mvgStation"></div>
-    <label for="mvgName" data-t="displayName"></label>
-    <input id="mvgName" type="text" maxlength="64">
-    <span class="label" data-t="layout"></span>
-    <div class="seg" id="mvgMode">
-      <button type="button" data-v="list" data-t="modeList"></button>
-      <button type="button" data-v="dir" data-t="modeDir"></button>
-      <button type="button" data-v="two" data-t="modeTwo"></button>
+  <section id="secMvg" class="page" data-page="mvg" data-title="widgetMvg" data-from="MVG">
+    <div class="card" data-band="mvg" hidden>
+      <div class="sw"><label for="bandMvg" data-t="bandMvg"></label><input id="bandMvg" type="checkbox" role="switch"></div>
     </div>
-    <div id="mvgModeBody"></div>
-    <span class="label" data-t="timeFormat"></span>
-    <div class="seg" id="mvgTime">
-      <button type="button" data-v="clock"><span data-t="clock"></span><small>14:32 +3</small></button>
-      <button type="button" data-v="minutes"><span data-t="minutes"></span><small>4 min</small></button>
+    <h2 data-t="station"></h2>
+    <div class="card">
+      <div id="mvgStation"></div>
+      <label for="mvgName" data-t="displayName"></label>
+      <input id="mvgName" type="text" maxlength="64">
     </div>
-    <div class="cb"><input id="mvgIncidents" type="checkbox"><label for="mvgIncidents" data-t="mvgIncidents"></label></div>
-    <p class="hint" data-t="mvgUnofficial"></p>
+    <h2 data-t="layout"></h2>
+    <div class="card">
+      <div class="seg" id="mvgMode">
+        <button type="button" data-v="list" data-t="modeList"></button>
+        <button type="button" data-v="dir" data-t="modeDir"></button>
+        <button type="button" data-v="two" data-t="modeTwo"></button>
+      </div>
+      <div id="mvgModeBody"></div>
+    </div>
+    <h2 data-t="calShow"></h2>
+    <div class="card">
+      <span class="label" data-t="timeFormat"></span>
+      <div class="seg" id="mvgTime">
+        <button type="button" data-v="clock"><span data-t="clock"></span><small>14:32 +3</small></button>
+        <button type="button" data-v="minutes"><span data-t="minutes"></span><small>4 min</small></button>
+      </div>
+      <div class="sw"><label for="mvgIncidents" data-t="mvgIncidents"></label><input id="mvgIncidents" type="checkbox" role="switch"></div>
+    </div>
+    <p class="hint foot" data-t="mvgUnofficial"></p>
   </section>
 
   <!-- Weather -->
-  <section id="secWeather" data-tab="weather">
-    <h2><span data-t="weather"></span> <small>Open-Meteo</small></h2>
-    <div class="cb" data-band="weather" hidden><input id="bandWeather" type="checkbox"><label for="bandWeather" data-t="bandWeather"></label></div>
-    <p class="hint" data-band="weather" hidden data-t="bandWeatherHint"></p>
-    <span class="label" data-t="place"></span>
-    <div id="weatherPlace"></div>
-    <label for="weatherName" data-t="displayName"></label>
-    <input id="weatherName" type="text" maxlength="32">
-    <details>
-      <summary data-t="advanced"></summary>
-      <div class="row">
-        <div><label for="weatherLat" data-t="latitude"></label><input id="weatherLat" type="text" inputmode="decimal"></div>
-        <div><label for="weatherLon" data-t="longitude"></label><input id="weatherLon" type="text" inputmode="decimal"></div>
-      </div>
-      <p id="weatherCoordError" class="err" hidden></p>
-    </details>
-    <p class="hint">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p>
+  <section id="secWeather" class="page" data-page="weather" data-title="widgetWeather" data-from="Open-Meteo">
+    <div class="card" data-band="weather" hidden>
+      <div class="sw"><label for="bandWeather" data-t="bandWeather"></label><input id="bandWeather" type="checkbox" role="switch"></div>
+      <p class="hint" data-band="weather" hidden data-t="bandWeatherHint"></p>
+    </div>
+    <h2 data-t="place"></h2>
+    <div class="card">
+      <div id="weatherPlace"></div>
+      <label for="weatherName" data-t="displayName"></label>
+      <input id="weatherName" type="text" maxlength="32">
+      <details>
+        <summary data-t="advanced"></summary>
+        <div class="row">
+          <div><label for="weatherLat" data-t="latitude"></label><input id="weatherLat" type="text" inputmode="decimal"></div>
+          <div><label for="weatherLon" data-t="longitude"></label><input id="weatherLon" type="text" inputmode="decimal"></div>
+        </div>
+        <p id="weatherCoordError" class="err" hidden></p>
+      </details>
+    </div>
+    <p class="hint foot">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></p>
   </section>
 
   <!-- Calendar -->
-  <section id="secCalendar" data-tab="calendar">
-    <h2><span data-t="calendar"></span> <span class="pill" id="calendarState"></span></h2>
-    <div class="cb" data-band="calendar" hidden><input id="bandCalendar" type="checkbox"><label for="bandCalendar" data-t="bandCalendar"></label></div>
-    <p class="hint" data-t="calendarHint"></p>
-    <label for="calendarUrl" data-t="calendarNew"></label>
-    <input id="calendarUrl" type="password" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…">
-    <p id="calendarError" class="err" hidden></p>
-    <div class="actions"><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
-    <h3 data-t="calShow"></h3>
-    <label for="calDays" data-t="calDays"></label>
-    <select id="calDays"></select>
-    <div class="cb"><input id="calAllDay" type="checkbox"><label for="calAllDay" data-t="calAllDay"></label></div>
-    <div class="cb"><input id="calPast" type="checkbox"><label for="calPast" data-t="calPast"></label></div>
-    <div class="cb"><input id="calLocation" type="checkbox"><label for="calLocation" data-t="calLocation"></label></div>
-    <div class="cb"><input id="calMore" type="checkbox"><label for="calMore" data-t="calMore"></label></div>
-    <div class="cb"><input id="calWrap" type="checkbox"><label for="calWrap" data-t="calWrap"></label></div>
-    <p class="hint" data-t="calSpaceHint"></p>
-    <h3 data-t="calFilter"></h3>
-    <label for="calExclude" data-t="calExclude"></label>
-    <input id="calExclude" type="text" maxlength="400">
-    <p id="calExcludeError" class="err" hidden></p>
-    <p class="hint" data-t="calExcludeHint"></p>
-    <h3 data-t="calFetch"></h3>
-    <label for="calRefresh" data-t="calRefresh"></label>
-    <select id="calRefresh"></select>
-    <p class="hint" data-t="calRefreshHint"></p>
+  <section id="secCalendar" class="page" data-page="calendar" data-title="widgetCalendar" data-from="Google">
+    <div class="card" data-band="calendar" hidden>
+      <div class="sw"><label for="bandCalendar" data-t="bandCalendar"></label><input id="bandCalendar" type="checkbox" role="switch"></div>
+    </div>
+    <h2 data-t="calendarAddress"></h2>
+    <div class="card">
+      <div class="labelrow"><label for="calendarUrl" data-t="calendarNew"></label><span class="pill" id="calendarState"></span></div>
+      <input id="calendarUrl" type="password" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…">
+      <p id="calendarError" class="err" hidden></p>
+      <p class="hint" data-t="calendarHint"></p>
+      <div class="actions"><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
+    </div>
+    <h2 data-t="calShow"></h2>
+    <div class="card">
+      <label for="calDays" data-t="calDays"></label>
+      <select id="calDays"></select>
+      <div class="sw"><label for="calAllDay" data-t="calAllDay"></label><input id="calAllDay" type="checkbox" role="switch"></div>
+      <div class="sw"><label for="calPast" data-t="calPast"></label><input id="calPast" type="checkbox" role="switch"></div>
+      <div class="sw"><label for="calLocation" data-t="calLocation"></label><input id="calLocation" type="checkbox" role="switch"></div>
+      <div class="sw"><label for="calMore" data-t="calMore"></label><input id="calMore" type="checkbox" role="switch"></div>
+      <div class="sw"><label for="calWrap" data-t="calWrap"></label><input id="calWrap" type="checkbox" role="switch"></div>
+      <p class="hint" data-t="calSpaceHint"></p>
+    </div>
+    <h2 data-t="calFilter"></h2>
+    <div class="card">
+      <label for="calExclude" data-t="calExclude"></label>
+      <input id="calExclude" type="text" maxlength="400">
+      <p id="calExcludeError" class="err" hidden></p>
+      <p class="hint" data-t="calExcludeHint"></p>
+    </div>
+    <h2 data-t="calFetch"></h2>
+    <div class="card">
+      <label for="calRefresh" data-t="calRefresh"></label>
+      <select id="calRefresh"></select>
+      <p class="hint" data-t="calRefreshHint"></p>
+    </div>
   </section>
 
-  <!-- Layout: arrangement of the screen and the widgets of its columns -->
-  <section id="secLayout" data-tab="layout">
-    <h2 data-t="arrangement"></h2>
-    <div class="layouts" id="layouts"></div>
-    <h3 data-t="assignment"></h3>
-    <div class="sketch" id="sketch"></div>
-    <p class="hint" id="assignmentHint"></p>
+  <!-- Wi-Fi -->
+  <section id="secWifi" class="page" data-page="wifi" data-title="wifi" data-from="device">
+    <div class="card list"><dl class="kv" id="wifiInfo"></dl></div>
+    <div class="card">
+      <details id="wifiChange">
+        <summary data-t="wifiChange"></summary>
+        <div id="wifiNets" class="nets"></div>
+        <div class="actions"><button type="button" id="wifiScan" data-t="wifiScan"></button></div>
+        <label for="wifiSsid" data-t="wifiName"></label>
+        <input id="wifiSsid" type="text" maxlength="32" autocomplete="off">
+        <label for="wifiPassword" data-t="wifiPassword"></label>
+        <input id="wifiPassword" type="password" maxlength="64" autocomplete="off">
+        <div class="notice" data-t="wifiHow"></div>
+        <p id="wifiResult" class="err" hidden></p>
+        <div class="actions"><button class="primary" type="button" id="wifiTest" data-t="wifiTest"></button></div>
+      </details>
+    </div>
   </section>
 
-  <!-- Display -->
-  <section id="secDisplay" data-tab="layout">
-    <h2 data-t="display"></h2>
-    <div class="row">
-      <div><label for="language" data-t="language"></label>
-        <select id="language"><option value="de">Deutsch</option><option value="en">English</option></select></div>
-      <div><label for="fullRefresh" data-t="fullRefresh"></label>
-        <select id="fullRefresh"></select></div>
+  <!-- Firmware -->
+  <section id="secFirmware" class="page" data-page="firmware" data-title="firmware" data-from="device">
+    <div class="card">
+      <p id="firmwareVersion" class="lead"></p>
+      <p class="hint" data-t="updateHint"></p>
+      <div class="actions"><button type="button" id="updateCheck" data-t="updateCheck"></button></div>
+      <p id="updateResult" class="hint" hidden></p>
+      <div class="actions" id="updateOffer" hidden>
+        <button type="button" id="updateInstall" class="primary" data-t="updateInstall"></button>
+        <a id="updateNotes" class="button" target="_blank" rel="noopener noreferrer" data-t="updateNotes"></a>
+      </div>
     </div>
-    <p class="hint" data-t="fullRefreshHint"></p>
-    <div class="cb"><input id="dividers" type="checkbox"><label for="dividers" data-t="dividers"></label></div>
+    <h2 data-t="fromFile"></h2>
+    <div class="card">
+      <p class="hint" data-t="firmwareHint"></p>
+      <div class="actions">
+        <button type="button" id="firmwareButton" data-t="firmwareChoose"></button>
+        <input id="firmwareFile" type="file" accept=".bin,application/octet-stream" hidden>
+      </div>
+      <p id="firmwareResult" class="hint" hidden></p>
+    </div>
   </section>
 
-  <!-- Device: Wi-Fi first, then the rest of the device (set up and act; the state is in "System") -->
-  <section id="secWifi" data-tab="device">
-    <h2 data-t="wifi"></h2>
-    <dl class="kv" id="wifiInfo"></dl>
-    <details id="wifiChange">
-      <summary data-t="wifiChange"></summary>
-      <div id="wifiNets" class="nets"></div>
-      <div class="actions"><button type="button" id="wifiScan" data-t="wifiScan"></button></div>
-      <label for="wifiSsid" data-t="wifiName"></label>
-      <input id="wifiSsid" type="text" maxlength="32" autocomplete="off">
-      <label for="wifiPassword" data-t="wifiPassword"></label>
-      <input id="wifiPassword" type="password" maxlength="64" autocomplete="off">
-      <div class="notice" data-t="wifiHow"></div>
-      <p id="wifiResult" class="err" hidden></p>
-      <div class="actions"><button class="primary" type="button" id="wifiTest" data-t="wifiTest"></button></div>
-    </details>
+  <!-- Backup -->
+  <section id="secBackup" class="page" data-page="backup" data-title="backup" data-from="device">
+    <div class="card">
+      <p class="hint" data-t="backupHint"></p>
+      <div class="actions">
+        <a id="download" class="button" href="api/config/download" download="config.json" data-t="download"></a>
+        <button type="button" id="uploadButton" data-t="upload"></button>
+        <input id="uploadFile" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p id="uploadResult" class="hint" hidden></p>
+    </div>
   </section>
 
-  <!-- Device -->
-  <section id="secDevice" data-tab="device">
-    <h2 data-t="device"></h2>
-    <h3 data-t="backup"></h3>
-    <p class="hint" data-t="backupHint"></p>
-    <div class="actions">
-      <a id="download" class="button" href="api/config/download" download="config.json" data-t="download"></a>
-      <button type="button" id="uploadButton" data-t="upload"></button>
-      <input id="uploadFile" type="file" accept=".json,application/json" hidden>
-    </div>
-    <p id="uploadResult" class="hint" hidden></p>
-    <h3 data-t="firmwareUpdate"></h3>
-    <p id="firmwareVersion"></p>
-    <p class="hint" data-t="updateHint"></p>
-    <div class="actions">
-      <button type="button" id="updateCheck" data-t="updateCheck"></button>
-    </div>
-    <p id="updateResult" class="hint" hidden></p>
-    <div class="actions" id="updateOffer" hidden>
-      <button type="button" id="updateInstall" class="primary" data-t="updateInstall"></button>
-      <a id="updateNotes" class="button" target="_blank" rel="noopener noreferrer" data-t="updateNotes"></a>
-    </div>
-    <p class="hint" data-t="firmwareHint"></p>
-    <div class="actions">
-      <button type="button" id="firmwareButton" data-t="firmwareChoose"></button>
-      <input id="firmwareFile" type="file" accept=".bin,application/octet-stream" hidden>
-    </div>
-    <p id="firmwareResult" class="hint" hidden></p>
-    <details>
-      <summary data-t="advanced"></summary>
+  <!-- Time -->
+  <section id="secTime" class="page" data-page="time" data-title="time" data-from="device">
+    <div class="card">
       <label for="timeZone" data-t="timeZone"></label>
       <select id="timeZone"></select>
       <input id="timeZoneCustom" type="text" maxlength="64" hidden aria-label="POSIX TZ">
       <p class="hint" id="timeZoneHint" data-t="timeZoneHint" hidden></p>
       <label for="ntpServer" data-t="ntpServer"></label>
       <input id="ntpServer" type="text" maxlength="64">
-    </details>
-    <div class="actions">
-      <button type="button" id="restart" data-t="restart"></button>
-      <button type="button" class="danger" id="reset" data-t="reset"></button>
-    </div>
-    <div id="resetConfirm" class="confirm" hidden>
-      <p data-t="resetConfirm"></p>
-      <div class="actions"><button type="button" class="danger" id="resetYes" data-t="resetYes"></button><button type="button" id="resetNo" data-t="cancel"></button></div>
     </div>
   </section>
 
-  <!-- System: state of the device and its log (KEY2 shows the same on the display) -->
-  <section id="secSystem" data-tab="system" lang="en">
-    <h2 data-t="system"></h2>
-    <dl class="kv" id="sysInfo"></dl>
-    <h3 data-t="sysSources"></h3>
-    <dl class="kv" id="sysSources"></dl>
-    <h3 data-t="sysLog"></h3>
-    <p class="hint" data-t="sysLogHint"></p>
-    <div class="seg" id="sysFilter">
-      <button type="button" data-v="all" data-t="sysAll"></button>
-      <button type="button" data-v="warn" data-t="sysWarn"></button>
-      <button type="button" data-v="error" data-t="sysErrors"></button>
+  <!-- Restart and reset -->
+  <section id="secRestart" class="page" data-page="restart" data-title="p_restart" data-from="device">
+    <div class="card">
+      <h3 data-t="restartTitle"></h3>
+      <p class="hint" data-t="restartHint"></p>
+      <div class="actions"><button type="button" id="restart" data-t="restart"></button></div>
     </div>
-    <div class="actions">
-      <button type="button" id="sysRefresh" data-t="sysRefresh"></button>
-      <a class="button" href="api/log?download=1" data-t="sysDownload"></a>
+    <div class="card">
+      <h3 data-t="reset"></h3>
+      <p class="hint" data-t="resetHint"></p>
+      <div class="actions"><button type="button" class="danger" id="reset" data-t="reset"></button></div>
+      <div id="resetConfirm" class="confirm" hidden>
+        <p data-t="resetConfirm"></p>
+        <div class="actions"><button type="button" class="danger" id="resetYes" data-t="resetYes"></button><button type="button" id="resetNo" data-t="cancel"></button></div>
+      </div>
     </div>
-    <p id="sysProblem" class="err" hidden></p>
-    <div id="sysLog" class="log"></div>
+  </section>
+
+  <!-- System: state of the device and its log (KEY2 shows the same on the
+       display); always English -->
+  <section id="secSystem" class="page" data-page="system" data-title="system" data-from="g_diag" lang="en">
+    <div class="card list"><dl class="kv" id="sysInfo"></dl></div>
+    <h2 data-t="sysSources"></h2>
+    <div class="card list"><dl class="kv" id="sysSources"></dl></div>
+    <h2 data-t="sysLog"></h2>
+    <div class="card">
+      <div class="seg" id="sysFilter">
+        <button type="button" data-v="all" data-t="sysAll"></button>
+        <button type="button" data-v="warn" data-t="sysWarn"></button>
+        <button type="button" data-v="error" data-t="sysErrors"></button>
+      </div>
+      <div class="actions">
+        <button type="button" id="sysRefresh" data-t="sysRefresh"></button>
+        <a class="button" href="api/log?download=1" data-t="sysDownload"></a>
+      </div>
+      <p id="sysProblem" class="err" hidden></p>
+      <div id="sysLog" class="log"></div>
+      <p class="hint" data-t="sysLogHint"></p>
+    </div>
   </section>
 </main>
 </div>

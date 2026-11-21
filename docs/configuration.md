@@ -33,21 +33,32 @@ the same Wi-Fi as the display:
    for the rest of its time with the same code.
 
 The page closes 30 minutes after the last action on it, when you press KEY3
-again or press **Schließen** / **Close**, and after five wrong codes. It
-has a tab "Layout", one tab for every widget that is in a column (in the
-order of the columns; the weather keeps its tab without a column because
-the band shows it), "Gerät / Device" and "System". At the top of the tab of a
-widget that has something for the band (departures, weather, calendar) is a box that
-switches its part of the band sentence off. The settings of a widget
-without a column stay in the file.
+again or press **Schließen** / **Close**, and after five wrong codes.
 
-- **Layout:** the arrangement of the screen (band with three or with two
-  widgets) and, in a sketch of it, the widget of every column; below that
-  the language, the full refresh and the dotted lines between the columns.
-  Every widget is offered once; choosing one that is in another column
-  already swaps the two. With three widgets the wide column moves to where
-  the departures are.
-- **Abfahrten - MVG / Departures - MVG:** station search; the display name
+It opens with an overview: a list in the groups **Anzeige** / **Display**,
+**Widgets**, **Gerät** / **Device** and **Diagnose** / **Diagnostics**. Every
+row opens a page of its own (the address ends in `#/mvg`, `#/wifi` …, so the
+back button of the browser leads to the overview and reloading stays on
+the page); **‹ Übersicht** / **‹ Overview** leads back. The widgets listed
+are those in a column (in the order of the columns) and the weather, which
+keeps its row without a column because the band shows it. A widget without
+a symbol of its own gets a plain square. The settings of a widget without a
+column stay in the file. The bar with **Speichern und neu starten** / **Save
+and restart** is at the bottom of every page (on the overview only once
+something is changed); it saves the changes of all pages at once. A row
+whose page has an entry to correct shows **1 Fehler** / **1 error**; a
+problem the display reports when saving is listed at the top of the
+overview, with a link to its page. At the top of the page of a widget that
+has something for the band (departures, weather, calendar) is a switch that
+turns its part of the band sentence off.
+
+- **Layout und Darstellung / Layout and display:** the arrangement of the
+  screen (band + 3 or band + 2) and, in a sketch of the display, the widget
+  of every column; below that the language, the full refresh and the
+  dotted lines between the columns. Every widget is offered once; choosing
+  one that is in another column already swaps the two. With three widgets
+  the wide column moves to where the departures are.
+- **Abfahrten / Departures** (MVG): station search; the display name
   follows the chosen station (and can still be edited); one list, two
   directions or two stations; under every station buttons for the means of
   transport that serve it, then for every line and direction whether and
@@ -65,24 +76,29 @@ without a column stay in the file.
   The example destinations come from the departures of the next 12 hours;
   the names of two directions are suggested as "Zentrum" / "Auswärts"
   ("Centre" / "Outbound" in English).
-- **Wetter - Open Meteo / Weather - Open Meteo:** place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
+- **Wetter / Weather** (Open-Meteo): place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
   display name, coordinates under **Erweitert** / **Advanced**.
-- **Kalender - Google / Calendar - Google:** replace or remove the private iCal address (the
+- **Kalender / Calendar** (Google): replace or remove the private iCal address (the
   page only shows whether one is set), and the settings of the column under
   **Anzeige** / **Display**, **Filter** and **Abruf** / **Updates**.
-- **Gerät / Device** (set up and act, in the language of the page): the
-  current Wi-Fi network (name, signal, address) and **WLAN wechseln** /
-  **Change Wi-Fi**, which tests a new network and saves it only if the
-  display can connect (otherwise it goes back to the old one); download and
-  load `config.json` (a backup; secrets are never in it), **Firmware
-  aktualisieren** / **Update firmware** with the installed version (see
-  below), time zone and time server, restart, and **Einstellungen
-  zurücksetzen** / **Reset settings** (all settings to their defaults and
-  the calendar address deleted; Wi-Fi stays, so the display can still be
-  reached; the page then opens again by itself after the restart).
+- **WLAN / Wi-Fi:** the current network (name, signal, address) and **WLAN
+  wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
+  if the display can connect (otherwise it goes back to the old one).
+- **Firmware:** the installed version and the update (see below).
+- **Sicherung / Backup:** download and load `config.json` (secrets are never
+  in it).
+- **Zeit / Time:** time zone (also as a POSIX text) and time server.
+- **Neustart und Zurücksetzen / Restart and reset:** restart, and
+  **Einstellungen zurücksetzen** / **Reset settings** (all settings to their
+  defaults and the calendar address deleted; Wi-Fi stays, so the display
+  can still be reached; the page then opens again by itself after the
+  restart).
 - **System** (state and diagnosis, always English): uptime, restart, Wi-Fi
   and its drops, memory, the data sources with their fails, and the system
   log (see [system-log.md](system-log.md)).
+
+To try the page without the display: `python tools/mock_device.py` serves it
+with made-up data at `http://localhost:8080/?code=123456`.
 
 ### Updating the firmware on the settings page
 
@@ -354,8 +370,8 @@ time.
 | `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
 | `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`; in a column of step L `14:32 +3 min`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
-| `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the box at the top of the tab *Abfahrten - MVG* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
-| `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: tab *Abfahrten - MVG*. |
+| `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Abfahrten* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
+| `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: page *Abfahrten*. |
 
 The former setting `note` (text on the right of a title, also in sections)
 was removed; an old `note` in `config.json` is ignored without a message.
@@ -496,7 +512,7 @@ sentence in the band still uses the rain probability.
 | `latitude` | −90 to 90 | none | Latitude of the place in decimal degrees, e.g. `48.137`. |
 | `longitude` | −180 to 180 | none | Longitude of the place in decimal degrees, e.g. `11.575`. |
 | `name` | text (≤ 32 bytes) | `""` | Name of the place, the title of the column (without a name: "Wetter"). |
-| `band` | `true`, `false` | `true` | Mention the weather in the sentence of the band. `false` leaves it out; the weather picture stays. Without a weather column the weather is then not fetched and the band shows a placeholder (see the band above). On the settings page: the box at the top of the tab *Wetter - Open-Meteo* ("Wetter im Satz des Bands nennen"). Only `false` is saved. |
+| `band` | `true`, `false` | `true` | Mention the weather in the sentence of the band. `false` leaves it out; the weather picture stays. Without a weather column the weather is then not fetched and the band shows a placeholder (see the band above). On the settings page: the switch at the top of the page *Wetter* ("Wetter im Satz des Bands nennen"). Only `false` is saved. |
 
 Without `latitude` and `longitude` the column shows "Standort fehlt".
 
@@ -558,7 +574,7 @@ them the column looks as described above.
 | `more` | `true`, `false` | `false` | If not all events of today or of the next day fit, "+ 2 weitere Termine" in small letters below them, right-aligned. Past events that give way are not counted. |
 | `wrap` | `true`, `false` | `true` | Long titles wrap once onto a second line where there is room. `false`: always one line, shortened with "…". |
 | `exclude` | list of words | `[]` | Events whose title contains one of the words are left out, e.g. `["Geburtstag"]`. Upper and lower case do not matter, part of the title is enough. At most 10 words of at most 32 bytes. |
-| `band` | `true`, `false` | `true` | Mention the next event in the sentence of the band (see the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the box at the top of the tab *Kalender* ("Nächsten Termin im Satz des Bands nennen"). Only `false` is saved. |
+| `band` | `true`, `false` | `true` | Mention the next event in the sentence of the band (see the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Kalender* ("Nächsten Termin im Satz des Bands nennen"). Only `false` is saved. |
 | `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched; changes appear with the next fetch. Every request loads the whole calendar file and blocks the device for a few seconds. |
 
 How the column uses its room: today first gets as many events as fit in one

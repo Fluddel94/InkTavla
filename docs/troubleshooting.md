@@ -5,7 +5,7 @@ Problems when flashing the firmware or setting up the display.
 ## Find out what the display does
 
 The system log tells why data is missing, why the Wi-Fi drops or why the
-display restarted: press KEY2 on the display, or open the tab "System" on
+display restarted: press KEY2 on the display, or open the page "System" on
 the settings page and download the log. See [system-log.md](system-log.md).
 
 ## The board keeps connecting and disconnecting after erasing the flash

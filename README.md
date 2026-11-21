@@ -84,7 +84,7 @@ The display controller (`core/display_controller.h`) runs the device:
   against ghosting.
 - It notes failed and recovered updates in the system log
   (`core/syslog.h`) and sums up the updates of every source once an hour;
-  the system page (KEY2) and the tab "System" of the settings page show the
+  the system page (KEY2) and the page "System" of the settings page show the
   log and the state of the device ([docs/system-log.md](docs/system-log.md)).
 
 ### Buttons

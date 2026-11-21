@@ -17,8 +17,18 @@ const TEXTS = {
     close: "Schließen",
     openUntil: "Offen bis",
     saveHint: "Änderungen gelten nach dem Speichern; das Display startet dann neu.",
-    departures: "Abfahrten",
-    tabLayout: "Layout", tabMvg: "Abfahrten - MVG", tabWeather: "Wetter - Open Meteo", tabCalendar: "Kalender - Google", tabDevice: "Gerät",
+    // Overview and the heads of its pages
+    overview: "Übersicht", g_display: "Anzeige", g_widgets: "Widgets", g_device: "Gerät", g_diag: "Diagnose",
+    p_layout: "Layout und Darstellung", p_restart: "Neustart und Zurücksetzen", firmware: "Firmware", time: "Zeit",
+    s_layout: "Aufteilung, Widgets der Plätze, Sprache", s_mvg: "MVG · Haltestelle, Linien, Anzeige",
+    s_weather: "Open-Meteo · Ort", s_calendar: "Google · Adresse, Anzeige, Filter", s_wifi: "Verbindung, WLAN wechseln",
+    s_firmware: "Version, Updates, Datei hochladen", s_backup: "Einstellungen als config.json",
+    s_time: "Zeitzone, Zeitserver", s_restart: "Display neu starten, Standardwerte",
+    s_system: "Zustand der Quellen, Systemlog (englisch)", s_none: "Ohne Einstellungen",
+    nErrors: "{n} Fehler", oneError: "1 Fehler",
+    yourDisplay: "Dein Display", calendarAddress: "Kalender-Adresse", fromFile: "Aus einer Datei",
+    restartTitle: "Display neu starten", restartHint: "Die Einstellungen bleiben. Die Seite lädt sich danach von selbst neu.",
+    resetHint: "Stellt die Standardwerte her und löscht die Kalender-Adresse. Das WLAN bleibt.",
     transportModes: "Verkehrsmittel an dieser Haltestelle",
     transportHint: "Ein Knopf wählt alle Linien des Verkehrsmittels ab und blendet sie aus; erneut gedrückt sind alle wieder gewählt. Einzelne Linien lassen sich danach in den Listen ändern.",
     transportHintDir: "Ein Knopf blendet alle Linien des Verkehrsmittels aus; erneut gedrückt gilt wieder die vorherige Zuordnung.",
@@ -107,8 +117,7 @@ const TEXTS = {
     calRefreshHint: "Änderungen im Kalender erscheinen beim nächsten Abruf. Jeder Abruf lädt die ganze Kalenderdatei und hält die Anzeige einige Sekunden an.",
     display: "Anzeige",
     arrangement: "Aufteilung",
-    assignment: "Zuordnung",
-    nWidgets: "{n} Widgets",
+    nWidgets: "Band + {n}",
     band: "Band",
     slotN: "Platz {n}",
     swapWith: "{name} (tauscht mit Platz {n})",
@@ -200,7 +209,7 @@ const TEXTS = {
     pathFile: "Datei", pathMvg: "Abfahrten", pathWeather: "Wetter", pathCalendar: "Kalender",
     pathLayout: "Layout", pathDisplay: "Anzeige", pathLanguage: "Sprache", pathTimeZone: "Zeitzone", pathNtp: "Zeitserver",
     pathCalendarUrl: "Kalender-Adresse",
-    tabSystem: "System",  // the tab itself is English (TEXTS.en, see "System" below)
+    system: "System",  // the page itself is English (TEXTS.en, see "System" below)
   },
   en: {
     loading: "Loading …",
@@ -212,8 +221,17 @@ const TEXTS = {
     close: "Close",
     openUntil: "Open until",
     saveHint: "Changes apply after saving; the display then restarts.",
-    departures: "Departures",
-    tabLayout: "Layout", tabMvg: "Departures - MVG", tabWeather: "Weather - Open Meteo", tabCalendar: "Calendar - Google", tabDevice: "Device",
+    overview: "Overview", g_display: "Display", g_widgets: "Widgets", g_device: "Device", g_diag: "Diagnostics",
+    p_layout: "Layout and display", p_restart: "Restart and reset", firmware: "Firmware", time: "Time",
+    s_layout: "Arrangement, widgets of the places, language", s_mvg: "MVG · stop, lines, display",
+    s_weather: "Open-Meteo · place", s_calendar: "Google · address, display, filter", s_wifi: "Connection, change Wi-Fi",
+    s_firmware: "Version, updates, upload a file", s_backup: "Settings as config.json",
+    s_time: "Time zone, time server", s_restart: "Restart the display, default settings",
+    s_system: "State of the sources, system log", s_none: "No settings",
+    nErrors: "{n} errors", oneError: "1 error",
+    yourDisplay: "Your display", calendarAddress: "Calendar address", fromFile: "From a file",
+    restartTitle: "Restart the display", restartHint: "The settings stay. The page then reloads by itself.",
+    resetHint: "Restores the default settings and deletes the calendar address. The Wi-Fi stays.",
     transportModes: "Modes of transport at this station",
     transportHint: "A button clears and hides all lines of that mode; pressed again, they are all selected again. Single lines can then be changed in the lists.",
     transportHintDir: "A button hides all lines of that mode; pressed again, the previous assignment applies again.",
@@ -302,8 +320,7 @@ const TEXTS = {
     calRefreshHint: "Changes in the calendar appear with the next fetch. Every fetch loads the whole calendar file and holds the display for a few seconds.",
     display: "Display",
     arrangement: "Arrangement",
-    assignment: "Widgets",
-    nWidgets: "{n} widgets",
+    nWidgets: "Band + {n}",
     band: "Band",
     slotN: "Slot {n}",
     swapWith: "{name} (swaps with slot {n})",
@@ -395,7 +412,7 @@ const TEXTS = {
     pathFile: "File", pathMvg: "Departures", pathWeather: "Weather", pathCalendar: "Calendar",
     pathLayout: "Layout", pathDisplay: "Display", pathLanguage: "Language", pathTimeZone: "Time zone", pathNtp: "Time server",
     pathCalendarUrl: "Calendar address",
-    tabSystem: "System", system: "System", sysSources: "Data sources", sysLog: "Log",
+    system: "System", sysSources: "Data sources", sysLog: "Log",
     sysLogHint: "Newest entries first. It holds fixed texts and numbers only – no addresses, Wi-Fi names or calendar titles – and can be shared to get help. Warnings and errors survive a restart; after a power cut it starts again. On the display, KEY2 shows the same.",
     sysAll: "All", sysWarn: "Warnings + errors", sysErrors: "Errors only", sysRefresh: "Refresh",
     sysDownload: "Download (.txt)", sysFirmware: "Firmware", sysUptime: "Uptime",
@@ -455,9 +472,53 @@ function el(tag, attrs, ...children) {
   }
   return e;
 }
+// Line symbols: 24 grid, stroke 1.75, round ends (drawn in currentColor by
+// style.css, svg.i). A widget without a symbol of its own gets "blank", a
+// plain square without meaning.
+const ICONS = {
+  train: '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 14.5h.01M15 14.5h.01M8 17l-2 4M16 17l2 4"/>',
+  cloud: '<path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 2A3.5 3.5 0 0 0 7 18z"/>',
+  cal: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>',
+  layout: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 10v9M15 10v9"/>',
+  wifi: '<path d="M5 12.5a10 10 0 0 1 14 0M8 15.5a6 6 0 0 1 8 0M12 19h.01"/>',
+  pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  right: '<path d="M9 6l6 6-6 6"/>',
+  left: '<path d="M15 6l-6 6 6 6"/>',
+  dl: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+  file: '<path d="M7 3h7l4 4v14H7zM14 3v4h4"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  power: '<path d="M12 3v8M7 6.5a7.5 7.5 0 1 0 10 0"/>',
+  blank: '<rect x="4" y="4" width="16" height="16" rx="3"/><rect x="10" y="10" width="4" height="4" rx="1"/>',
+};
+function icon(name, cls) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("class", "i" + (cls ? " " + cls : ""));
+  s.setAttribute("aria-hidden", "true");
+  s.innerHTML = ICONS[name] || ICONS.blank;
+  return s;
+}
+// Word mark: the logo of the display (band on top, two columns, the lower
+// left one filled; proportions as drawLogo() in widgets/briefing/start.cpp
+// for the cap height of the word, lines at least 2 px) and "InkTavla".
+function brand(h) {
+  const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  s.setAttribute("viewBox", "0 0 20 18");
+  s.setAttribute("aria-hidden", "true");
+  s.innerHTML = '<path fill-rule="evenodd" d="M0 0h20v18H0zM2 2v5h16V2zM11 9v7h7V9z"/>';
+  h.replaceChildren(s, "InkTavla");
+}
+document.querySelectorAll(".brand").forEach(brand);
+// Head of every page but the overview: back link, title and origin.
+document.querySelectorAll("main .page[data-title]").forEach((p) => {
+  p.prepend(el("header", { class: "ph" },
+    el("a", { class: "back", href: "#/", onclick: back }, icon("left"), el("span", { "data-t": "overview" })),
+    el("div", {}, el("h1", { tabindex: "-1", "data-t": p.dataset.title }), el("small", { "data-t": p.dataset.from }))));
+});
+
 function applyTexts() {
   document.documentElement.lang = lang;
-  // The tab "System" is always English (see te() below).
+  // The page "System" is always English (see te() below).
   document.querySelectorAll("[data-t]").forEach((e) => {
     e.textContent = e.closest("#secSystem") ? te(e.dataset.t) : t(e.dataset.t);
   });
@@ -465,6 +526,7 @@ function applyTexts() {
 function show(id) {
   for (const v of ["loading", "login", "closed", "restarting", "main"]) $(v).hidden = v !== id;
   $("bar").hidden = id !== "main";
+  if (id === "main" && page !== null) updateBar();
 }
 function segSet(seg, value) {
   seg.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === value)));
@@ -561,6 +623,7 @@ function setDirty(on) {
   bar.className = "bar" + (on ? " dirty" : "");
   $("barText").textContent = on ? t("unsaved") : t("noChanges");
   $("save").disabled = !on || saving;
+  updateBar();
 }
 function pageClosed() {
   if ($("restarting").hidden === false) return;
@@ -574,7 +637,7 @@ async function start() {
   const params = new URLSearchParams(location.search);
   const code = params.get("code");
   if (code) {
-    history.replaceState(null, "", location.pathname);
+    history.replaceState(null, "", location.pathname + location.hash);
     try { await api("api/login", { method: "POST", json: { code } }); } catch (e) { /* login form */ }
   }
   await loadState();
@@ -603,10 +666,9 @@ async function loadState() {
   closesAt = Date.now() + S.closes_in_s * 1000;
   config = S.config && typeof S.config === "object" ? S.config : {};
   fillForm();
-  updateTabs();
-  selectTab(initialTab());
   show("main");
   setDirty(false);
+  route();
   showOpenUntil();
 }
 
@@ -1348,7 +1410,7 @@ function renderLayout() {
       slotIds = withWidget(i, select.value);
       layoutChanged();
     } }, options);
-    return [select, el("small", {}, S.steps[step] + " px")];
+    return [icon(PAGE_ICONS[slotIds[i]]), select, el("small", {}, S.steps[step] + " px")];
   }));
   const layout = S.layouts.find((l) => l.steps.length === slotIds.length);
   const wide = layout && layout.wide ? S.widgets.filter((w) => w.min === layout.wide).map((w) => widgetName(w.id)) : [];
@@ -1369,7 +1431,6 @@ function chooseLayout(n) {
 }
 function layoutChanged() {
   renderLayout();
-  updateTabs();
   setDirty(true);
 }
 function widgetName(id) {
@@ -1904,58 +1965,102 @@ $("sysFilter").addEventListener("click", (e) => {
 });
 $("sysRefresh").addEventListener("click", loadSystem);
 
-// --- Tabs ----------------------------------------------------------------------------
+// --- Pages ---------------------------------------------------------------------------
+// The overview lists the pages; the address chooses the page shown (#/,
+// #/mvg, #/wifi ...), so the browser's back button leads to the overview and
+// reloading stays on the page. All pages stay in the document.
 
-// "Layout", then the widgets of the columns in their order, then "Device"
-// and "System". A widget that is in no column has no tab - except one the
-// band shows anyway (the weather) and one with an entry to correct.
-const FIXED_TABS = ["layout", "device", "system"];
-function tabButton(name) {
-  return [...document.querySelectorAll("#tabs button")].find((b) => b.dataset.tab === name);
+let page = null;           // name of the page shown ("" = overview)
+let fromOverview = false;  // the page was opened from the overview (back = history.back())
+let pageErrors = {};       // page -> number of entries to correct
+const pageEl = (name) => document.querySelector('main .page[data-page="' + name + '"]');
+function hashPage() {
+  const m = /^#\/([a-z0-9_]*)$/.exec(location.hash);
+  return m && pageEl(m[1]) ? m[1] : "";
 }
-function updateTabs() {
-  const shown = [];
-  for (const id of slotIds) if (!shown.includes(id) && tabButton(id)) shown.push(id);
-  for (const w of S.widgets) if (w.band_alone && !shown.includes(w.id) && tabButton(w.id)) shown.push(w.id);
-  for (const id of shown) $("tabs").insertBefore(tabButton(id), tabButton("device"));
-  document.querySelectorAll("#tabs button").forEach((b) => {
-    b.hidden = !FIXED_TABS.includes(b.dataset.tab) && !shown.includes(b.dataset.tab) && !b.classList.contains("bad");
-  });
-}
-function selectTab(name) {
-  const button = tabButton(name);
-  if (!button || button.hidden) name = "layout";
-  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
-  document.querySelectorAll("main section[data-tab]").forEach((s) => { s.hidden = s.dataset.tab !== name; });
-  try { sessionStorage.setItem("inktavlaTab", name); } catch (e) { /* not available */ }
+function route() {
+  const name = hashPage();
+  fromOverview = page === "" && name !== "";
+  page = name;
+  document.querySelectorAll("main .page").forEach((p) => { p.hidden = p.dataset.page !== name; });
+  if (!name) renderHome();
   if (name === "system") loadSystem();
+  updateBar();
+  window.scrollTo(0, 0);
+  const title = pageEl(name).querySelector("h1");
+  title.tabIndex = -1;
+  title.focus({ preventScroll: true });
 }
-$("tabs").addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (b) selectTab(b.dataset.tab);
-});
-function initialTab() {
-  try { return sessionStorage.getItem("inktavlaTab") || "layout"; } catch (e) { return "layout"; }
+window.addEventListener("hashchange", () => { if (S) route(); });
+function go(name) {
+  if (hashPage() === name && page === name) route();
+  else location.hash = "#/" + name;
 }
-function markTabs(bad) {
-  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("bad", bad.has(b.dataset.tab)));
-  updateTabs();
+// "‹ Übersicht": back in the history if the overview came before (so the
+// back button does not lead into the page again).
+function back(e) {
+  if (!fromOverview) return;
+  e.preventDefault();
+  history.back();
 }
-function markTabErrors(errors) {
-  const bad = new Set();
+
+// Rows of the overview. The widgets come from S.widgets: those of the places
+// in their order, then one the band shows anyway (the weather) and one with
+// an entry to correct.
+const HOME = [["g_display", ["layout"]], ["g_widgets", null],
+  ["g_device", ["wifi", "firmware", "backup", "time", "restart"]], ["g_diag", ["system"]]];
+const PAGE_ICONS = { layout: "layout", mvg: "train", weather: "cloud", calendar: "cal", wifi: "wifi",
+  firmware: "dl", backup: "file", time: "clock", restart: "power", system: "pulse" };
+function homeWidgets() {
+  const shown = [];
+  for (const id of slotIds) if (!shown.includes(id)) shown.push(id);
+  for (const w of S.widgets) if ((w.band_alone || pageErrors[w.id]) && !shown.includes(w.id)) shown.push(w.id);
+  return shown;
+}
+function homeRow(name, title) {
+  const n = pageErrors[name] || 0;
+  const own = !!pageEl(name);
+  return el("a", { class: "item", href: own ? "#/" + name : null, "aria-disabled": own ? null : "true" },
+    icon(PAGE_ICONS[name]),
+    el("span", {}, el("b", {}, title), el("small", {}, t(own ? "s_" + name : "s_none"))),
+    n ? el("span", { class: "mark" }, n === 1 ? t("oneError") : t("nErrors", { n })) : null,
+    own ? icon("right", "go") : null);
+}
+function renderHome() {
+  $("home").replaceChildren(...HOME.flatMap(([group, names]) => {
+    const rows = names ? names.map((n) => homeRow(n, t(n === "layout" || n === "restart" ? "p_" + n : n)))
+      : homeWidgets().map((id) => homeRow(id, widgetName(id)));
+    return rows.length ? [el("h2", {}, t(group)), el("div", { class: "card list" }, rows)] : [];
+  }));
+}
+
+// The save bar is on every page; on the overview only when there is
+// something to say (changes, a failed save).
+function updateBar() {
+  const bar = $("bar");
+  bar.hidden = $("main").hidden || (page === "" && bar.className === "bar");
+}
+
+// Pages with entries to correct get a mark "n Fehler" on the overview.
+function markPages(counts) {
+  pageErrors = counts;
+  if (page === "") renderHome();
+}
+function markPageErrors(errors) {
+  const counts = {};
   for (const [id] of errors) {
-    const s = $(id) && $(id).closest("section[data-tab]");
-    if (s) bad.add(s.dataset.tab);
+    const p = $(id) && $(id).closest("[data-page]");
+    if (p) counts[p.dataset.page] = (counts[p.dataset.page] || 0) + 1;
   }
-  markTabs(bad);
-  return bad;
+  markPages(counts);
+  return counts;
 }
-// Tab of a setting the display reports.
-function tabOfPath(path) {
+// Page of a setting the display reports.
+function pageOfPath(path) {
   const widget = /^widgets\.([a-z0-9_]+)/.exec(path);
-  if (widget) return widget[1];
+  if (widget) return pageEl(widget[1]) ? widget[1] : "layout";
   if (path.startsWith("secrets.calendar_url")) return "calendar";
-  if (/^(time_zone|ntp_server)/.test(path)) return "device";
+  if (/^(time_zone|ntp_server)/.test(path)) return "time";
   return "layout";
 }
 
@@ -1976,15 +2081,16 @@ function showFieldErrors(errors) {
       target.after(el("p", { class: "err fielderr" }, msg));
     }
   }
-  markTabErrors(errors);
+  markPageErrors(errors);
   if (errors.length) {
+    // The page of the first entry opens and shows it.
     const first = $(errors[0][0]);
     if (first) {
-      const own = first.closest("section[data-tab]");
-      if (own) selectTab(own.dataset.tab);
+      const own = first.closest("[data-page]");
+      if (own && own.dataset.page !== page) go(own.dataset.page);
       const details = first.closest("details");
       if (details) details.open = true;
-      first.scrollIntoView({ block: "center", behavior: "smooth" });
+      setTimeout(() => first.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
     }
   }
 }
@@ -2005,16 +2111,17 @@ function showIssues(issues) {
   const blocking = issues.some((i) => i.blocking);
   box.replaceChildren(
     el("h2", {}, t("issuesTitle")),
-    el("p", { class: "hint" }, blocking ? t("issuesBlocking") : t("issuesHint")),
     el("ul", {}, issues.map((i) => el("li", {},
-      el("button", { type: "button", class: "link", onclick: () => { selectTab(tabOfPath(i.path)); $("tabs").scrollIntoView({ block: "start", behavior: "smooth" }); } }, pathName(i.path)),
+      el("button", { type: "button", class: "link", onclick: () => go(pageOfPath(i.path)) }, pathName(i.path)),
       el("small", {}, (i.path ? i.path + ": " : "") + i.message)))),
+    el("p", { class: "hint" }, blocking ? t("issuesBlocking") : t("issuesHint")),
     blocking ? null : el("div", { class: "actions" }, el("button", { type: "button", class: "danger", onclick: () => save(true) }, t("saveAnyway"))));
   box.hidden = false;
-  // The tabs of these settings are marked and the first one is opened.
-  markTabs(new Set(issues.map((i) => tabOfPath(i.path))));
-  if (issues.length) selectTab(tabOfPath(issues[0].path));
-  box.scrollIntoView({ block: "start", behavior: "smooth" });
+  // The box is on the overview; the pages of these settings are marked there.
+  const counts = {};
+  for (const i of issues) counts[pageOfPath(i.path)] = (counts[pageOfPath(i.path)] || 0) + 1;
+  markPages(counts);
+  go("");
 }
 
 async function save(force) {
@@ -2024,6 +2131,7 @@ async function save(force) {
   if (built.errors.length) {
     bar.className = "bar fail";
     $("barText").textContent = t("fixFirst");
+    updateBar();
     return;
   }
   const request = { config: built.config, force: !!force };
@@ -2040,6 +2148,7 @@ async function save(force) {
     $("save").disabled = false;
     bar.className = "bar fail";
     $("barText").textContent = t("saveFailed");
+    updateBar();
     if (e.status === 422 && e.body && e.body.issues) showIssues(e.body.issues);
   }
 }
