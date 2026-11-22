@@ -2006,6 +2006,154 @@ void test_preview_band_topics() {
                            br::bandSentence(context, c).c_str());
 }
 
+// --- W1: intensity, hail and wind in the band (2026-11-22) --------------------------
+
+// The forecast() helper with a WMO code and gusts in the given hours.
+void setHours(wx::Forecast& f, int first, int last, int code, int gust) {
+  for (wx::Hour& h : f.hours) {
+    core::LocalTime t;
+    core::toLocalTime(h.time, t);
+    if (h.time < kMidnight + kDay && t.hour >= first && t.hour <= last) {
+      if (code >= 0) h.code = static_cast<int16_t>(code);
+      if (gust >= 0) h.gust = static_cast<int16_t>(gust);
+    }
+  }
+}
+
+constexpr int64_t kSnowDay = 1770678000;  // 2026-02-10 00:00 CET, rules_snow_storm.json
+
+// Bands with wind (W1): the saved snow storm in the morning, rain with
+// gale-force gusts at noon, a dry stormy morning, and the evening before the
+// hurricane-force gusts.
+void test_preview_bands_wind() {
+  ui::Bitmap bitmap(800, 4 * 205 + 3 * 10);
+  bitmap.clear(ui::Color::kWhite);
+  const wx::Forecast saved = savedForecast("rules_snow_storm.json");
+  wx::Forecast wet = forecast(course(8, 12), rainFrom(13, 85), Condition::kRain, Condition::kRain);
+  setHours(wet, 13, 23, 63, 80);
+  wx::Forecast dry = forecast(course(5, 9), {0}, Condition::kOvercast, Condition::kOvercast);
+  setHours(dry, 10, 16, -1, 75);
+  const struct {
+    const wx::Forecast* forecast;
+    int64_t now;
+  } cases[] = {{&saved, kSnowDay + 7 * 3600 + 10 * 60},
+               {&wet, kMidnight + 12 * 3600 + 5 * 60},
+               {&dry, kMorning},
+               {&saved, kSnowDay + 21 * 3600}};
+  for (int i = 0; i < 4; i++) {
+    widgets::DrawContext context;
+    context.now_s = cases[i].now;
+    context.language = ui::Language::kGerman;
+    context.network_connected = true;
+    ui::BitmapCanvas canvas(bitmap, 0, i * 215, 800, 205);
+    br::BandData data;
+    data.forecast = cases[i].forecast;
+    br::drawBand(canvas, context, data);
+  }
+  check(bitmap, "briefing_bands_wind");
+}
+
+void test_band_picture_intensity_hail_wind() {
+  using W = ui::WeatherIcon;
+  const auto temps = course(7, 14);
+  const auto picture = [](const wx::Forecast& f, int64_t now = kMorning) {
+    return static_cast<int>(br::summarize(f, now).picture);
+  };
+  // Rain from 16 h: the strongest code of the likely hours.
+  wx::Forecast rain = forecast(temps, rainFrom(16, 80), Condition::kRain);
+  setHours(rain, 16, 23, 61, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kRainLight), picture(rain));
+  setHours(rain, 18, 18, 65, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kRainHeavy), picture(rain));
+  // Only possible (below 70 %) heavy rain does not count.
+  wx::Forecast mixed = forecast(temps, rainFrom(16, 80), Condition::kRain);
+  setHours(mixed, 16, 23, 61, -1);
+  mixed.hours[12].code = 65;
+  mixed.hours[12].rain_probability = 50;
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kRainLight), picture(mixed));
+  // Snow: light (71) as the flake, heavy (75) with three flakes.
+  wx::Forecast snow = forecast(course(-4, 1), rainFrom(15, 75), Condition::kSnow, Condition::kSnow);
+  setHours(snow, 15, 23, 71, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSnow), picture(snow));
+  setHours(snow, 20, 20, 75, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSnowHeavy), picture(snow));
+  // Thunderstorm with hail.
+  wx::Forecast storm = forecast(temps, rainFrom(14, 80), Condition::kThunder);
+  setHours(storm, 14, 23, 95, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kThunder), picture(storm));
+  setHours(storm, 15, 15, 96, -1);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kThunderHail), picture(storm));
+  // Gale-force gusts (65 km/h) ahead: the windsock for a dry day, with
+  // driven rain instead of the umbrella, the flake with wind lines; a
+  // thunderstorm stays.
+  wx::Forecast dry = forecast(temps, {0}, Condition::kOvercast, Condition::kClear);
+  setHours(dry, 0, 23, -1, 64);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSun), picture(dry));
+  setHours(dry, 15, 15, -1, 65);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kWindSock), picture(dry));
+  // Gusts that are over (before now) do not count.
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSun), picture(dry, kMidnight + 16 * 3600));
+  setHours(rain, 12, 12, -1, 80);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kStormRain), picture(rain));
+  setHours(snow, 12, 12, -1, 80);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSnowWind), picture(snow));
+  setHours(storm, 12, 12, -1, 80);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kThunderHail), picture(storm));
+  // Rain only possible with a storm: the windsock.
+  wx::Forecast maybe = forecast(temps, rainFrom(14, 50), Condition::kRain, Condition::kRain);
+  setHours(maybe, 12, 12, -1, 70);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kWindSock), picture(maybe));
+  // The saved snow storm: snow from 6 h, gusts of 75 km/h from 17 h.
+  const wx::Forecast saved = savedForecast("rules_snow_storm.json");
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kSnowWind), picture(saved, kSnowDay + 7 * 3600));
+}
+
+void test_wind_sentence() {
+  const auto temps = course(7, 14);
+  // Below 50 km/h: nothing; from 50 only in the full form.
+  wx::Forecast f = forecast(temps, {0}, Condition::kOvercast, Condition::kOvercast);
+  setHours(f, 0, 23, -1, 49);
+  TEST_ASSERT_TRUE(text(f, kMorning).find("Böen") == std::string::npos);
+  setHours(f, 13, 13, -1, 50);
+  std::string shorter;
+  const std::string windy = br::weatherSentence(f, kMorning, ui::Language::kGerman, &shorter);
+  const std::string end = " Dazu windig mit kräftigen Böen.";
+  TEST_ASSERT_TRUE(windy.size() > end.size());
+  TEST_ASSERT_EQUAL_STRING(end.c_str(), windy.substr(windy.size() - end.size()).c_str());
+  TEST_ASSERT_TRUE(shorter.empty() || shorter.find("Böen") == std::string::npos);
+  // From 65: stormy, also in the shorter form; from 105 the warning.
+  setHours(f, 13, 13, -1, 70);
+  const std::string stormy = br::weatherSentence(f, kMorning, ui::Language::kGerman, &shorter);
+  TEST_ASSERT_TRUE(stormy.find(" Stürmisch, Sturmböen möglich.") != std::string::npos);
+  TEST_ASSERT_TRUE(shorter.empty() || shorter.find("Sturmböen") != std::string::npos);
+  setHours(f, 13, 13, -1, 105);
+  TEST_ASSERT_TRUE(text(f, kMorning).find("Achtung, orkanartige Böen.") != std::string::npos);
+  TEST_ASSERT_TRUE(
+      text(f, kMorning, ui::Language::kEnglish).find("Beware of hurricane-force gusts.") !=
+      std::string::npos);
+  // Rain and storm: a hood instead of the umbrella.
+  wx::Forecast wet = forecast(temps, rainFrom(16, 80), Condition::kRain);
+  TEST_ASSERT_TRUE(text(wet, kMorning).find("– Schirm mit.") != std::string::npos);
+  setHours(wet, 17, 17, -1, 80);
+  const std::string hood = text(wet, kMorning);
+  TEST_ASSERT_TRUE(hood.find("– Kapuze statt Schirm.") != std::string::npos);
+  TEST_ASSERT_TRUE(hood.find("Schirm mit") == std::string::npos);
+  TEST_ASSERT_TRUE(text(wet, kMorning, ui::Language::kEnglish).find("a hood, not an umbrella") !=
+                   std::string::npos);
+  // Evening: the gusts of tomorrow (6 to 22 h), not those left today.
+  const wx::Forecast saved = savedForecast("rules_snow_storm.json");
+  const std::string evening = text(saved, kSnowDay + 21 * 3600);
+  TEST_ASSERT_TRUE_MESSAGE(evening.find("Morgen orkanartige Böen möglich.") != std::string::npos,
+                           evening.c_str());
+  // The morning of the saved storm: snow, gusts of 75 km/h from 17 h.
+  const std::string morning = text(saved, kSnowDay + 7 * 3600);
+  TEST_ASSERT_TRUE_MESSAGE(morning.find("Stürmisch, Sturmböen möglich.") != std::string::npos,
+                           morning.c_str());
+  TEST_ASSERT_EQUAL_STRING("", br::windText(49, false, ui::Language::kGerman).c_str());
+  TEST_ASSERT_EQUAL_STRING("Morgen stürmisch, Sturmböen möglich.",
+                           br::windText(65, true, ui::Language::kGerman).c_str());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_greeting_by_time_of_day);
@@ -2021,6 +2169,9 @@ int main() {
   RUN_TEST(test_wordings_change_every_day);
   RUN_TEST(test_preview_band_switches);
   RUN_TEST(test_picture_follows_the_weather_of_now);
+  RUN_TEST(test_band_picture_intensity_hail_wind);
+  RUN_TEST(test_wind_sentence);
+  RUN_TEST(test_preview_bands_wind);
   RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
   RUN_TEST(test_sentence_parts);
   RUN_TEST(test_cancellations);

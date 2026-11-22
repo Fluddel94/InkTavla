@@ -16,6 +16,7 @@ void drawIcon(Canvas& canvas, int x, int y, const Icon& icon, Color color) {
 }
 
 const Icon& weatherIcon(WeatherIcon kind, int size) {
+  if (kind == WeatherIcon::kSnowHeavy) kind = WeatherIcon::kSnow;  // same drawing
   const WeatherIconEntry* best = &kWeatherIcons[0];
   for (size_t i = 0; i < kWeatherIconCount; i++) {
     const WeatherIconEntry& e = kWeatherIcons[i];
@@ -28,10 +29,16 @@ const Icon& weatherIcon(WeatherIcon kind, int size) {
 }
 
 const Icon& bandIcon(WeatherIcon kind) {
+  for (size_t i = 0; i < kBandIconCount; i++) {
+    if (kBandIcons[i].kind == kind) return kBandIcons[i].icon;
+  }
   switch (kind) {
-    case WeatherIcon::kRainLight:
-    case WeatherIcon::kRainHeavy:
+    case WeatherIcon::kSnowLight:
+      kind = WeatherIcon::kSnow;
+      break;
     case WeatherIcon::kShowers:
+    case WeatherIcon::kShowersLight:
+    case WeatherIcon::kShowersModerate:
     case WeatherIcon::kFreezingRain:
       kind = WeatherIcon::kRain;
       break;

@@ -36,6 +36,17 @@ enum class WeatherIcon {
   kRainHeavy,     // three strokes
   kShowers,       // sun, cloud and rain
   kFreezingRain,  // rain and a snow star (also sleet)
+  // W1 (2026-11-22). kSnow (three stars) is also the heavy snow of the
+  // columns; kSnowHeavy differs from it only in the band (three flakes).
+  kSnowLight,        // one star; in the band the flake of kSnow
+  kSnowHeavy,        // columns: as kSnow
+  kShowersLight,     // sun, cloud, one stroke (80); kShowers is 82
+  kShowersModerate,  // two strokes (81)
+  kThunderHail,      // bolt and hail grains (96, 99)
+  // Only in the band, from the storm threshold (W1).
+  kWindSock,
+  kStormRain,  // windsock with driven rain
+  kSnowWind,   // snowflake with wind lines
 };
 
 // Weather symbol in one of the generated sizes (44 and 30 px); other sizes give the
@@ -43,8 +54,8 @@ enum class WeatherIcon {
 const Icon& weatherIcon(WeatherIcon kind, int size);
 
 // Large weather picture for the band, kBandIconWidth x kBandIconHeight, drawn
-// in this size. Rain is an umbrella with drops (also for the rain symbols
-// of the forecast days).
+// in this size. Rain is an umbrella with two, four or six drops (light,
+// moderate, heavy; showers and freezing rain as moderate rain).
 inline constexpr int kBandIconWidth = 156;
 inline constexpr int kBandIconHeight = 132;
 const Icon& bandIcon(WeatherIcon kind);

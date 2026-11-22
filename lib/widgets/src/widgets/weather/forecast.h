@@ -31,11 +31,30 @@ enum class Condition {
 
 Condition conditionFromWmo(int code);
 ui::WeatherIcon conditionIcon(Condition condition, bool day);
-// Symbol of a forecast day from the daily WMO code (2026-10-29): rain by
-// intensity (drizzle and slight rain 1 stroke, moderate 2, heavy 3),
-// showers with the sun, freezing drizzle/rain with a snow star; other codes
+// Symbol of a forecast day from the daily WMO code (2026-10-29, W1
+// 2026-11-22): rain by intensity (drizzle and slight rain 1 stroke, moderate
+// 2, heavy 3), showers with the sun by intensity (80/81/82: 1/2/3 strokes),
+// freezing drizzle/rain with a snow star, snow light (71/73/77/85, one star)
+// or heavy (75/86, three stars), thunderstorm with hail (96/99); other codes
 // as conditionIcon() by day. Unknown codes (-1) fall back to `condition`.
 ui::WeatherIcon dayIcon(int code, Condition condition);
+
+// Intensity of a precipitation code (W1): 1 slight, 2 moderate, 3 heavy, 0
+// for other codes. Drizzle counts as slight, dense freezing drizzle/rain
+// (57/67) as moderate; snow is 1 (71/73/77/85) or 3 (75/86).
+int precipitationStrength(int code);
+bool isSnowCode(int code);      // 71-77, 85, 86
+bool isFreezingCode(int code);  // 56, 57, 66, 67
+bool isHailCode(int code);      // 96, 99
+
+// --- Wind (W1, 2026-11-22) ----------------------------------------------------
+// Gusts in km/h at 10 m, as the German weather service (DWD) warns: from 50
+// "Windböen" (level 1), from 65 "Sturmböen" (level 2), from 105
+// "orkanartige Böen" (level 3). Below kWindyGustKmh nothing is shown; from
+// kStormGustKmh the band picture becomes the windsock.
+inline constexpr int kWindyGustKmh = 50;
+inline constexpr int kStormGustKmh = 65;
+inline constexpr int kHurricaneGustKmh = 105;
 
 struct Current {
   int64_t time = 0;  // Unix seconds
@@ -54,6 +73,9 @@ struct Hour {
   float precipitation = 0;
   // Sunshine of the preceding hour in seconds (0-3600), -1 if unknown.
   float sunshine = -1;
+  // Strongest gust of the preceding hour in km/h, rounded; -1 if unknown.
+  int16_t gust = -1;
+  int16_t code = -1;  // WMO code of the hour, -1 if unknown
   Condition condition = Condition::kUnknown;
   bool day = true;
 };
@@ -121,5 +143,16 @@ std::vector<const Hour*> daylightHours(const Forecast& forecast, int64_t day_tim
 // The symbol of a day by the rules above; the daily code if fewer than
 // kMinDayHours hours are in the forecast.
 Condition dayCondition(const Forecast& forecast, const Day& day);
+
+// Symbol (by day) of a span of hours, the parts of tomorrow on step L (W1):
+// spanCondition() decides the kind; a thunderstorm with hail in one of the
+// hours shows the hail; rain and snow show the intensity and kind (rain,
+// showers, freezing) of the strongest code among the wet hours; freezing
+// rain in a wet hour, or rain and snow mixed (the smaller share at least a
+// third of the wet hours), shows rain with a snow star (sleet).
+ui::WeatherIcon spanIcon(const std::vector<const Hour*>& hours);
+
+// Strongest gust of the hours in km/h, -1 if none is known.
+int maxGust(const std::vector<const Hour*>& hours);
 
 }  // namespace widgets::weather

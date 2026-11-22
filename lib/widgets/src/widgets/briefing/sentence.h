@@ -51,6 +51,14 @@ namespace widgets::briefing {
 
 inline constexpr int kMaybeRainPercent = 30;
 inline constexpr int kRainPercent = 70;
+// Wind (W1, 2026-11-22): a sentence from weather::kWindyGustKmh ("Dazu windig
+// mit kräftigen Böen.", only in the full form), from kStormGustKmh
+// ("Stürmisch, Sturmböen möglich.", "– Kapuze statt Schirm." instead of
+// "– Schirm mit.") and from kHurricaneGustKmh ("Achtung, orkanartige
+// Böen."); gusts of the hours ahead today, in the evening of tomorrow from
+// kWindFirstHour to kWindLastHour. No speeds (Tobias).
+inline constexpr int kWindFirstHour = 6;
+inline constexpr int kWindLastHour = 22;
 inline constexpr int kHotDegrees = 30;
 // Difference of tomorrow's high to today's that is mentioned in the evening.
 inline constexpr int kTemperatureJumpDegrees = 8;
@@ -89,7 +97,9 @@ const char* greetingText(Greeting greeting, ui::Language language);
 // What the picture of the band shows: by daylight the weather of the rest
 // of the daylight hours, at night the weather of now; the umbrella
 // (snowflake, thunderstorm) for likely rain in the hours ahead today, a
-// cloud for rain that is only possible.
+// cloud for rain that is only possible. Since W1 with intensity and hail,
+// and from gusts of weather::kStormGustKmh the wind pictures (see
+// summarize()).
 struct WeatherSummary {
   bool valid = false;  // today's values are in the forecast
   int current = 0;     // temperature now (rounded)
@@ -98,6 +108,9 @@ struct WeatherSummary {
 
 // Today's weather from the forecast as of now_s (local time of the device).
 WeatherSummary summarize(const weather::Forecast& forecast, int64_t now_s);
+
+// The wind sentence for gusts in km/h ("" below weather::kWindyGustKmh).
+std::string windText(int gust, bool tomorrow, ui::Language language);
 
 // "8°" (temperature of now) below the picture.
 std::string nowText(const WeatherSummary& summary, ui::Language language);

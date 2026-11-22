@@ -783,12 +783,43 @@ WeatherSummary summarize(const Forecast& forecast, int64_t now_s) {
   // hours still ahead today; otherwise by daylight the weather of the rest of
   // the daylight hours, at night the weather of now (the moon for clear
   // skies). The sentence uses the same two rules.
+  //
+  // W1 (2026-11-22): the umbrella with two, four or six drops and light or
+  // heavy snow by the strongest code of the likely hours, the thunderstorm
+  // with hail if one of them has hail. From gusts of kStormGustKmh in the
+  // hours ahead today: the windsock instead of a dry sky, the windsock with
+  // driven rain instead of the umbrella, the snowflake with wind lines; a
+  // thunderstorm stays.
+  const std::vector<const Hour*> ahead = weather::hoursOfDay(forecast, now_s, now.hour, 23);
+  const bool storm = weather::maxGust(ahead) >= weather::kStormGustKmh;
   Condition c = bandCondition(forecast, now_s, now.hour, *today);
   const RainSpell r = rainAhead(forecast, now_s, now.hour, c);
   if (r.level == Wet::kLikely) {
-    s.picture = r.kind == Kind::kSnow      ? ui::WeatherIcon::kSnow
-                : r.kind == Kind::kThunder ? ui::WeatherIcon::kThunder
-                                           : ui::WeatherIcon::kRain;
+    int strength = 0;
+    bool hail = false;
+    for (const Hour* h : ahead) {
+      if (h->rain_probability < kRainPercent) continue;
+      hail = hail || weather::isHailCode(h->code);
+      if (weather::isSnowCode(h->code) == (r.kind == Kind::kSnow)) {
+        strength = std::max(strength, weather::precipitationStrength(h->code));
+      }
+    }
+    if (r.kind == Kind::kThunder) {
+      s.picture = hail ? ui::WeatherIcon::kThunderHail : ui::WeatherIcon::kThunder;
+    } else if (r.kind == Kind::kSnow) {
+      s.picture = storm           ? ui::WeatherIcon::kSnowWind
+                  : strength == 3 ? ui::WeatherIcon::kSnowHeavy
+                                  : ui::WeatherIcon::kSnow;
+    } else {
+      s.picture = storm           ? ui::WeatherIcon::kStormRain
+                  : strength == 1 ? ui::WeatherIcon::kRainLight
+                  : strength == 3 ? ui::WeatherIcon::kRainHeavy
+                                  : ui::WeatherIcon::kRain;
+    }
+    return s;
+  }
+  if (storm) {
+    s.picture = ui::WeatherIcon::kWindSock;
     return s;
   }
   // No umbrella while rain is only possible or over: a cloud.
@@ -804,12 +835,49 @@ std::string nowText(const WeatherSummary& summary, ui::Language /*language*/) {
   return std::to_string(summary.current) + "°";
 }
 
+std::string windText(int gust, bool tomorrow, ui::Language language) {
+  const bool de = language == ui::Language::kGerman;
+  if (gust >= weather::kHurricaneGustKmh) {
+    return tomorrow ? (de ? "Morgen orkanartige Böen möglich." : "Hurricane-force gusts tomorrow.")
+                    : (de ? "Achtung, orkanartige Böen." : "Beware of hurricane-force gusts.");
+  }
+  if (gust >= weather::kStormGustKmh) {
+    return tomorrow ? (de ? "Morgen stürmisch, Sturmböen möglich."
+                          : "Stormy tomorrow, gale-force gusts possible.")
+                    : (de ? "Stürmisch, Sturmböen möglich." : "Stormy, gale-force gusts possible.");
+  }
+  if (gust >= weather::kWindyGustKmh) {
+    return tomorrow ? (de ? "Morgen windig mit kräftigen Böen." : "Windy tomorrow, strong gusts.")
+                    : (de ? "Dazu windig mit kräftigen Böen." : "Windy, with strong gusts.");
+  }
+  return "";
+}
+
+namespace {
+
+void replaceAll(std::string& text, const std::string& from, const std::string& to) {
+  for (size_t at = text.find(from); at != std::string::npos; at = text.find(from, at + to.size())) {
+    text.replace(at, from.size(), to);
+  }
+}
+
+// From the storm threshold an umbrella is of little use (W1).
+void hoodInsteadOfUmbrella(std::string& text) {
+  replaceAll(text, "– Schirm mit.", "– Kapuze statt Schirm.");
+  replaceAll(text, "– Schirm einpacken.", "– Kapuze statt Schirm.");
+  replaceAll(text, "– take an umbrella.", "– a hood, not an umbrella.");
+  replaceAll(text, "– pack an umbrella.", "– a hood, not an umbrella.");
+}
+
+}  // namespace
+
 std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Language language,
                             std::string* shorter) {
   core::LocalTime now;
   std::string full, short_form;
   if (core::isValidUnixTime(now_s) && core::toLocalTime(now_s, now)) {
-    switch (weatherPeriod(forecast, now_s)) {
+    const Greeting period = weatherPeriod(forecast, now_s);
+    switch (period) {
       case Greeting::kMorning:
         morning(forecast, now_s, now, language, full, short_form);
         break;
@@ -819,6 +887,32 @@ std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Languag
       case Greeting::kEvening:
         tomorrow(forecast, now_s, language, full, short_form);
         break;
+    }
+    // Wind (W1): the gusts of the hours ahead today, in the evening those of
+    // tomorrow from kWindFirstHour to kWindLastHour. From kStormGustKmh also
+    // in the shorter form, below only in the full one.
+    const bool for_tomorrow = period == Greeting::kEvening;
+    const weather::Day* day = dayAt(forecast, now_s, for_tomorrow ? 1 : 0);
+    if (!full.empty() && day != nullptr) {
+      const int gust =
+          weather::maxGust(for_tomorrow ? weather::hoursOfDay(forecast, day->time + 12 * 3600,
+                                                              kWindFirstHour, kWindLastHour)
+                                        : weather::hoursOfDay(forecast, now_s, now.hour, 23));
+      const std::string wind = windText(gust, for_tomorrow, language);
+      if (gust >= weather::kStormGustKmh) {
+        hoodInsteadOfUmbrella(full);
+        hoodInsteadOfUmbrella(short_form);
+      }
+      if (!wind.empty()) {
+        // Right after the weather, before the temperature clause that the
+        // shorter form leaves out ("… Schirm. Stürmisch, … Am Abend 11°.").
+        if (full.compare(0, short_form.size(), short_form) == 0 && full != short_form) {
+          full.insert(short_form.size(), " " + wind);
+        } else {
+          full += " " + wind;
+        }
+        if (gust >= weather::kStormGustKmh) short_form += " " + wind;
+      }
     }
   }
   if (shorter != nullptr) *shorter = short_form == full ? "" : short_form;

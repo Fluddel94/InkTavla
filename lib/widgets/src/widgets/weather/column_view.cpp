@@ -159,7 +159,7 @@ void drawPart(ui::Canvas& c, const DayPart& p, int cx) {
     return;
   }
   ui::drawIcon(c, cx - kDayPartIconSize / 2, kDaysTop + 50,
-               ui::weatherIcon(conditionIcon(p.condition, true), kDayPartIconSize));
+               ui::weatherIcon(p.icon, kDayPartIconSize));
   char t[12];
   std::snprintf(t, sizeof(t), "%d°", p.temperature);
   ui::drawText(c, ui::fonts::kRobotoCondensedBold17, cx, baseline, t, Color::kBlack,
@@ -390,6 +390,7 @@ std::vector<DayPart> dayParts(const Forecast& forecast, int64_t day_time) {
     if (static_cast<int>(hours.size()) >= kDayPartMinHours) {
       p.known = true;
       p.condition = spanCondition(hours);
+      p.icon = spanIcon(hours);
       double sum = 0;
       bool middle = false;
       for (const Hour* hour : hours) {

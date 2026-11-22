@@ -327,6 +327,20 @@ Tag" until 18:00, then "Guten Abend"), then
    date and the time of day pick one, so it does not change with every
    refresh.
 
+   Wind (gusts from Open-Meteo, as the warning levels of the German
+   weather service, without speeds): from 50 km/h "Dazu windig mit
+   kräftigen Böen." (only if there is room), from 65 km/h "Stürmisch,
+   Sturmböen möglich." and "Kapuze statt Schirm" instead of "Schirm mit",
+   from 105 km/h "Achtung, orkanartige Böen."; today the hours still
+   ahead, in the evening tomorrow 06:00 to 22:00 ("Morgen stürmisch, …").
+
+   The band picture: the umbrella with two, four or six drops by the
+   intensity of the likely rain (snow as one flake or three, a
+   thunderstorm with hail grains); from gusts of 65 km/h in the hours
+   still ahead today a windsock instead of a dry sky, a windsock with
+   driven rain instead of the umbrella and a snowflake with wind lines for
+   snow (a thunderstorm stays).
+
 4. the next event of the calendar (if the calendar is on the screen): until
    the evening (the hour from which the weather sentence talks about
    tomorrow) the next event of today that has not begun yet, "Um 09:30

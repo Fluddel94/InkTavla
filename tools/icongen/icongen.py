@@ -39,14 +39,34 @@ WEATHER = [
     ("kSnow", "snow"),
     ("kThunder", "thunder"),
 ]
-# Only for the days of the weather column (44 px; 2026-10-29): rain by
-# intensity (light 1 stroke, kRain 2, heavy 3), showers with the sun,
-# freezing rain (also sleet). The band keeps the umbrella for all of them.
+# Only for the weather column (days 44 px, parts of tomorrow 30 px;
+# 2026-10-29): rain by intensity (light 1 stroke, kRain 2, heavy 3), showers
+# with the sun, freezing rain (also sleet). The band shows the umbrella for
+# rain (by intensity, see BAND_EXTRA).
 DAY_ONLY = [
     ("kRainLight", "rain_light"),
     ("kRainHeavy", "rain_heavy"),
     ("kShowers", "showers"),
     ("kFreezingRain", "freezing"),
+    # W1 (2026-11-22): light snow (one star; kSnow with three stars is the
+    # heavy snow), showers by intensity, thunderstorm with hail.
+    ("kSnowLight", "snow_light"),
+    ("kShowersLight", "showers_light"),
+    ("kShowersModerate", "showers_moderate"),
+    ("kThunderHail", "thunder_hail"),
+]
+# Band pictures beyond WEATHER (W1, 2026-11-22): the umbrella with two or six
+# drops for light or heavy rain, heavy snow, thunderstorm with hail; wind
+# from the storm threshold: windsock, windsock with driven rain, snowflake
+# with wind lines.
+BAND_EXTRA = [
+    ("kRainLight", "rain_light"),
+    ("kRainHeavy", "rain_heavy"),
+    ("kSnowHeavy", "snow_heavy"),
+    ("kThunderHail", "thunder_hail"),
+    ("kWindSock", "wind_sock"),
+    ("kStormRain", "storm_rain"),
+    ("kSnowWind", "snow_wind"),
 ]
 # Sizes: (pixel size, stroke); 30 px for the parts of tomorrow on step L
 # (2026-11-16). The symbols fill their square (the drawing
@@ -165,8 +185,9 @@ def weather(kind, size, stroke):
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
             strokes(d, n, {"rain_light": (0.52,), "rain": (0.42, 0.62),
                            "rain_heavy": (0.32, 0.52, 0.72)}[kind], st)
-        elif kind == "showers":
-            # Sun behind the cloud (rays only where they show), rain below.
+        elif kind in ("showers", "showers_light", "showers_moderate"):
+            # Sun behind the cloud (rays only where they show), rain below:
+            # one, two or three strokes (W1: codes 80, 81, 82).
             cx, cy, r = n * 0.33, n * 0.30, n * 0.11
             d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
             for i in range(3, 8):
@@ -174,7 +195,9 @@ def weather(kind, size, stroke):
                 rline(d, (cx + math.cos(a) * r * 1.75, cy + math.sin(a) * r * 1.75),
                       (cx + math.cos(a) * r * 2.75, cy + math.sin(a) * r * 2.75), st)
             cloud(d, n * 0.22, n * 0.70, n * 0.76, st, gap=st * 1.3)
-            for x in (0.44, 0.62, 0.80):
+            xs = {"showers_light": (0.62,), "showers_moderate": (0.52, 0.72),
+                  "showers": (0.44, 0.62, 0.80)}[kind]
+            for x in xs:
                 rline(d, (n * x, n * 0.80), (n * (x - 0.06), n * 0.94), st)
         elif kind == "freezing":
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
@@ -184,6 +207,18 @@ def weather(kind, size, stroke):
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
             for x, y in ((0.28, 0.82), (0.52, 0.86), (0.76, 0.82)):
                 star(d, n * x, n * y, n * 0.085, st * 0.75)
+        elif kind == "snow_light":
+            cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
+            star(d, n * 0.52, n * 0.84, n * 0.095, st * 0.75)
+        elif kind == "thunder_hail":
+            # The bolt moved to the left, three hail grains on the right.
+            cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
+            d.polygon([(n * 0.46, n * 0.60), (n * 0.30, n * 0.80), (n * 0.42, n * 0.80),
+                       (n * 0.34, n * 0.98), (n * 0.56, n * 0.72), (n * 0.44, n * 0.72),
+                       (n * 0.52, n * 0.60)], fill=255)
+            r = n * 0.055
+            for x, y in ((0.70, 0.78), (0.84, 0.84), (0.72, 0.94)):
+                d.ellipse((n * x - r, n * y - r, n * x + r, n * y + r), fill=255)
         elif kind == "thunder":
             cloud(d, n * 0.06, n * 0.62, n * 0.88, st)
             d.polygon([(n * 0.56, n * 0.60), (n * 0.40, n * 0.80), (n * 0.52, n * 0.80),
@@ -255,13 +290,89 @@ def snowflake(size, stroke):
     return mask(size, painter)
 
 
+def band_mask(painter):
+    """Band-sized drawing at SS times the size, turned into 1 bit."""
+    m = Image.new("L", (BAND_W * SS, BAND_H * SS), 0)
+    painter(ImageDraw.Draw(m), SS)
+    m = m.resize((BAND_W, BAND_H), Image.LANCZOS)
+    return m.point(lambda v: 255 if v >= 120 else 0).convert("1")
+
+
+def windsock(d, k, x0, y0, length, mouth, end, droop, st):
+    """Windsock on a pole with a foot: mouth at (x0, y0), five stripes,
+    alternately filled and outlined, the end drooping."""
+    rline(d, (x0 * k, (y0 - mouth * 0.15) * k), (x0 * k, 118 * k), st * k)
+    rline(d, ((x0 - 12) * k, 118 * k), ((x0 + 12) * k, 118 * k), st * k)
+
+    def edge(t):
+        x = x0 + 4 + t * length
+        h = mouth + (end - mouth) * t
+        cy = y0 + mouth / 2 + droop * t * t
+        return x, cy - h / 2, cy + h / 2
+
+    for i in range(5):
+        xa, ta, ba = edge(i / 5)
+        xb, tb, bb = edge((i + 1) / 5)
+        poly = [(xa * k, ta * k), (xb * k, tb * k), (xb * k, bb * k), (xa * k, ba * k)]
+        if i % 2 == 0:
+            d.polygon(poly, fill=255)
+        else:
+            d.line(poly + [poly[0]], fill=255, width=int(st * 0.8 * k), joint="curve")
+
+
+def wind_curls(d, k, lines, st):
+    """Wind lines (x0, x1, y, curl): curl -1 ends at the left in a swirl
+    turning up, +1 turning down, 0 is a plain line."""
+    for x0, x1, y, curl in lines:
+        r = 12
+        rline(d, ((x0 + r if curl else x0) * k, y * k), (x1 * k, y * k), st * k)
+        if curl:
+            cx, cy = x0 + r, y + curl * r
+            box = ((cx - r) * k, (cy - r) * k, (cx + r) * k, (cy + r) * k)
+            d.arc(box, 90, 360, fill=255, width=int(st * k)) if curl < 0 else \
+                d.arc(box, 0, 270, fill=255, width=int(st * k))
+
+
+def driven_rain(d, k, starts, st, length):
+    """Rain strokes slanted by the wind."""
+    for x, y in starts:
+        rline(d, (x * k, y * k), ((x - length * 0.6) * k, (y + length) * k), st * k)
+
+
+def band_wind(kind):
+    """Wind pictures of the band (W1): windsock, windsock with driven rain,
+    snowflake with wind lines."""
+    def painter(d, k):
+        if kind == "wind_sock":
+            windsock(d, k, 20, 16, 124, 58, 18, 26, 7)
+        elif kind == "storm_rain":
+            windsock(d, k, 18, 6, 122, 46, 16, 12, 7)
+            driven_rain(d, k, ((60, 70), (94, 70), (128, 70), (88, 100), (122, 100)), 6, 18)
+        elif kind == "snow_wind":
+            flake = snowflake(90, BAND_STROKE * 0.8)
+            d.bitmap((66 * k, 22 * k), flake.convert("L").resize((90 * k, 90 * k)), fill=255)
+            wind_curls(d, k, ((4, 60, 42, -1), (14, 56, 67, 0), (4, 60, 92, 1)), 7)
+    return band_mask(painter)
+
+
 def band(kind):
     """Weather picture for the band (BAND_W x BAND_H, 1 bit)."""
     img = Image.new("1", (BAND_W, BAND_H), 0)
-    if kind == "rain":
+    drops = {"rain": ((30, 2), (58, 12), (86, 0), (114, 10)),
+             "rain_light": ((48, 6), (94, 4)),
+             "rain_heavy": ((10, 6), (32, 0), (54, 10), (76, 2), (98, 10), (120, 0))}
+    if kind in drops:
         img.paste(1, ((BAND_W - 104) // 2, BAND_H - 104), umbrella(104))
-        for x, y in ((30, 2), (58, 12), (86, 0), (114, 10)):
+        for x, y in drops[kind]:
             img.paste(1, (x, y), drop(18))
+        return img
+    if kind in ("wind_sock", "storm_rain", "snow_wind"):
+        return band_wind(kind)
+    if kind == "snow_heavy":
+        # A large flake and two small ones.
+        img.paste(1, (BAND_W - 96 - 6, BAND_H - 96 - 2), snowflake(96, BAND_STROKE * 0.75))
+        for x, y, size in ((4, 6, 44), (6, 70, 34)):
+            img.paste(1, (x, y), snowflake(size, 3.2))
         return img
     if kind == "snow":
         symbol = snowflake(BAND_SYMBOL - 8, BAND_STROKE * 0.85)
@@ -342,7 +453,7 @@ def main():
     lines += array("kCalendar15", calendar_icon(15)) + [""]
     lines += array("kPin16", pin(16)) + [""]
     band_table = []
-    for enum, kind in WEATHER:
+    for enum, kind in WEATHER + BAND_EXTRA:
         name = f"kBand{kind.title().replace('_', '')}"
         lines += array(name, band(kind)) + [""]
         band_table.append((enum, name))

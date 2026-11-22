@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- More weather symbols: light and heavy snow (one or three stars; 71/73/77/85
+  and 75/86), showers by intensity (80/81/82: one to three strokes) and a
+  thunderstorm with hail (96/99) in the weather column. The parts of
+  tomorrow on step L show the intensity and kind of their strongest wet hour,
+  and rain with a snow star when rain and snow are mixed (sleet).
+- Band picture by intensity: the umbrella with two, four or six drops, heavy
+  snow with three flakes, a thunderstorm with hail grains.
+- Wind in the band: the weather widget fetches the hourly gusts
+  (`wind_gusts_10m`). From 50 km/h the sentence says "Dazu windig mit
+  kräftigen Böen.", from 65 km/h "Stürmisch, Sturmböen möglich." with
+  "Kapuze statt Schirm" instead of "Schirm mit" and the picture becomes a
+  windsock (with driven rain instead of the umbrella, a snowflake with wind
+  lines for snow), from 105 km/h "Achtung, orkanartige Böen.". No speeds
+  are shown.
+
 - Layout with two widgets: `layout.slots` with two entries shows two columns
   of 367 px below the band instead of three.
 - With three widgets the wide column (280 px) is where the departures are,

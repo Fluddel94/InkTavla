@@ -107,7 +107,8 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width,
 
 // Parts of tomorrow on step L (2026-11-16, V1, variant C of the probe):
 // morning, midday and evening from the hourly values (spanCondition(), the
-// symbol always by day as for the days); the temperature of the middle hour,
+// symbol always by day as for the days; since W1 with intensity, hail and
+// sleet by spanIcon()); the temperature of the middle hour,
 // or the mean of the part if that hour is missing. Drawn under the weekday of
 // tomorrow, each part with its hours ("6–10") and a 30 px symbol; a solid line
 // separates them from the two whole days after, which are wider.
@@ -121,6 +122,7 @@ inline constexpr int kDayPartIconSize = 30;
 struct DayPart {
   bool known = false;
   Condition condition = Condition::kUnknown;
+  ui::WeatherIcon icon = ui::WeatherIcon::kCloudy;
   int temperature = 0;
 };
 // The three parts of the local day of day_time.

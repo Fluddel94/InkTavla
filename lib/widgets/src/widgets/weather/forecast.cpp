@@ -88,20 +88,66 @@ ui::WeatherIcon dayIcon(int code, Condition condition) {
       return ui::WeatherIcon::kRain;
     case 65:
       return ui::WeatherIcon::kRainHeavy;
-    case 80:
-    case 81:
-    case 82:
-      return ui::WeatherIcon::kShowers;
     case 56:
     case 57:
     case 66:
     case 67:
       return ui::WeatherIcon::kFreezingRain;
+    case 80:
+      return ui::WeatherIcon::kShowersLight;
+    case 81:
+      return ui::WeatherIcon::kShowersModerate;
+    case 82:
+      return ui::WeatherIcon::kShowers;
+    case 71:
+    case 73:
+    case 77:
+    case 85:
+      return ui::WeatherIcon::kSnowLight;
+    case 75:
+    case 86:
+      return ui::WeatherIcon::kSnowHeavy;
+    case 96:
+    case 99:
+      return ui::WeatherIcon::kThunderHail;
     default:
       break;
   }
   return conditionIcon(code < 0 ? condition : conditionFromWmo(code), true);
 }
+
+int precipitationStrength(int code) {
+  switch (code) {
+    case 51:
+    case 53:
+    case 55:
+    case 56:
+    case 61:
+    case 66:
+    case 80:
+    case 71:
+    case 73:
+    case 77:
+    case 85:
+      return 1;
+    case 57:
+    case 63:
+    case 67:
+    case 81:
+      return 2;
+    case 65:
+    case 82:
+    case 75:
+    case 86:
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+bool isSnowCode(int code) { return (code >= 71 && code <= 77) || code == 85 || code == 86; }
+bool isFreezingCode(int code) { return code == 56 || code == 57 || code == 66 || code == 67; }
+bool isHailCode(int code) { return code == 96 || code == 99; }
 
 JsonDocument forecastFilter() {
   JsonDocument filter;
@@ -109,7 +155,7 @@ JsonDocument forecastFilter() {
     filter["current"][key] = true;
   }
   for (const char* key : {"time", "temperature_2m", "precipitation_probability", "precipitation",
-                          "sunshine_duration", "weather_code", "is_day"}) {
+                          "sunshine_duration", "wind_gusts_10m", "weather_code", "is_day"}) {
     filter["hourly"][key] = true;
   }
   for (const char* key : {"time", "weather_code", "temperature_2m_max", "temperature_2m_min"}) {
@@ -136,6 +182,7 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
   JsonArrayConst rain = hourly["precipitation_probability"];
   JsonArrayConst amount = hourly["precipitation"];        // optional
   JsonArrayConst sunshine = hourly["sunshine_duration"];  // optional
+  JsonArrayConst gusts = hourly["wind_gusts_10m"];        // optional
   JsonArrayConst codes = hourly["weather_code"];
   JsonArrayConst is_day = hourly["is_day"];
   if (times.isNull() || temps.size() != times.size() || codes.size() != times.size()) return false;
@@ -148,7 +195,11 @@ bool parseForecast(JsonDocument& doc, Forecast& f) {
     // Missing or null counts as dry; the models never give less than 0.
     h.precipitation = i < amount.size() ? std::max(0.0f, amount[i] | 0.0f) : 0.0f;
     h.sunshine = i < sunshine.size() && sunshine[i].is<float>() ? sunshine[i].as<float>() : -1;
-    h.condition = conditionFromWmo(codes[i] | -1);
+    h.gust = i < gusts.size() && gusts[i].is<float>()
+                 ? static_cast<int16_t>(std::lround(std::max(0.0f, gusts[i].as<float>())))
+                 : -1;
+    h.code = static_cast<int16_t>(codes[i] | -1);
+    h.condition = conditionFromWmo(h.code);
     h.day = i < is_day.size() ? (is_day[i] | 1) != 0 : true;
     result.hours.push_back(h);
   }
@@ -263,6 +314,42 @@ Condition dayCondition(const Forecast& forecast, const Day& day) {
   const std::vector<const Hour*> hours = daylightHours(forecast, day.time + 12 * 3600);
   if (static_cast<int>(hours.size()) < kMinDayHours) return day.condition;
   return spanCondition(hours);
+}
+
+ui::WeatherIcon spanIcon(const std::vector<const Hour*>& hours) {
+  const Condition c = spanCondition(hours);
+  if (c == Condition::kThunder) {
+    for (const Hour* h : hours) {
+      if (isHailCode(h->code)) return ui::WeatherIcon::kThunderHail;
+    }
+    return ui::WeatherIcon::kThunder;
+  }
+  if (c != Condition::kRain && c != Condition::kSnow) return conditionIcon(c, true);
+  int rain = 0, snow = 0, best = -1, best_strength = 0;
+  bool freezing = false;
+  for (const Hour* h : hours) {
+    if (h->precipitation < kRainHourMm - 0.001f) continue;
+    const int strength = precipitationStrength(h->code);
+    if (strength == 0) continue;  // wet by the amount only (e.g. code 3)
+    const bool is_snow = isSnowCode(h->code);
+    (is_snow ? snow : rain)++;
+    freezing = freezing || isFreezingCode(h->code);
+    if (is_snow == (c == Condition::kSnow) && strength > best_strength) {
+      best = h->code;
+      best_strength = strength;
+    }
+  }
+  if (freezing || (rain > 0 && snow > 0 && std::min(rain, snow) * 3 >= rain + snow)) {
+    return ui::WeatherIcon::kFreezingRain;
+  }
+  if (best < 0) return conditionIcon(c, true);
+  return dayIcon(best, c);
+}
+
+int maxGust(const std::vector<const Hour*>& hours) {
+  int gust = -1;
+  for (const Hour* h : hours) gust = std::max(gust, static_cast<int>(h->gust));
+  return gust;
 }
 
 }  // namespace widgets::weather

@@ -11,6 +11,7 @@
 #include "core/time.h"
 #include "ui/icons.h"
 #include "widgets/weather/api.h"
+#include "widgets/weather/column_view.h"
 #include "widgets/weather/config.h"
 #include "widgets/weather/forecast.h"
 
@@ -84,7 +85,7 @@ void test_url() {
       "https://api.open-meteo.com/v1/forecast?latitude=48.1374&longitude=-11.5000"
       "&current=temperature_2m,weather_code,is_day"
       "&hourly=temperature_2m,precipitation_probability,precipitation,sunshine_duration,"
-      "weather_code,is_day"
+      "wind_gusts_10m,weather_code,is_day"
       "&daily=weather_code,temperature_2m_max,temperature_2m_min"
       "&timezone=auto&timeformat=unixtime&forecast_days=6",
       widgets::weather::forecastUrl(c).c_str());
@@ -151,17 +152,35 @@ void test_conditions() {
 
 void test_day_icons_by_code() {
   // Forecast days (2026-10-29): rain by intensity, showers with the sun,
-  // freezing drizzle and rain; other codes as the condition by day.
+  // freezing drizzle and rain; other codes as the condition by day. W1:
+  // showers and snow by intensity, thunderstorm with hail.
   using widgets::weather::dayIcon;
   using W = ui::WeatherIcon;
   const struct {
     int code;
     W icon;
-  } cases[] = {{51, W::kRainLight}, {55, W::kRainLight},    {61, W::kRainLight},
-               {63, W::kRain},      {65, W::kRainHeavy},    {80, W::kShowers},
-               {82, W::kShowers},   {56, W::kFreezingRain}, {67, W::kFreezingRain},
-               {0, W::kSun},        {3, W::kCloudy},        {73, W::kSnow},
-               {95, W::kThunder},   {45, W::kFog}};
+  } cases[] = {{51, W::kRainLight},
+               {55, W::kRainLight},
+               {61, W::kRainLight},
+               {63, W::kRain},
+               {65, W::kRainHeavy},
+               {80, W::kShowersLight},
+               {81, W::kShowersModerate},
+               {82, W::kShowers},
+               {56, W::kFreezingRain},
+               {67, W::kFreezingRain},
+               {0, W::kSun},
+               {3, W::kCloudy},
+               {71, W::kSnowLight},
+               {73, W::kSnowLight},
+               {77, W::kSnowLight},
+               {85, W::kSnowLight},
+               {75, W::kSnowHeavy},
+               {86, W::kSnowHeavy},
+               {95, W::kThunder},
+               {96, W::kThunderHail},
+               {99, W::kThunderHail},
+               {45, W::kFog}};
   for (const auto& c : cases) {
     TEST_ASSERT_TRUE_MESSAGE(dayIcon(c.code, Condition::kUnknown) == c.icon,
                              std::to_string(c.code).c_str());
@@ -172,10 +191,19 @@ void test_day_icons_by_code() {
   // The code is kept from the response.
   const Forecast f = load();
   for (const auto& d : f.days) TEST_ASSERT_TRUE(d.code >= 0);
-  // The band keeps the umbrella for every rain symbol of the days.
-  for (W w : {W::kRainLight, W::kRainHeavy, W::kShowers, W::kFreezingRain}) {
+  // The band: showers and freezing rain as the umbrella of moderate rain,
+  // light and heavy rain with their own pictures, light snow as the flake.
+  for (W w : {W::kShowers, W::kShowersLight, W::kShowersModerate, W::kFreezingRain}) {
     TEST_ASSERT_EQUAL_PTR(ui::bandIcon(W::kRain).bits, ui::bandIcon(w).bits);
   }
+  TEST_ASSERT_TRUE(ui::bandIcon(W::kRainLight).bits != ui::bandIcon(W::kRain).bits);
+  TEST_ASSERT_TRUE(ui::bandIcon(W::kRainHeavy).bits != ui::bandIcon(W::kRain).bits);
+  TEST_ASSERT_EQUAL_PTR(ui::bandIcon(W::kSnow).bits, ui::bandIcon(W::kSnowLight).bits);
+  TEST_ASSERT_TRUE(ui::bandIcon(W::kSnowHeavy).bits != ui::bandIcon(W::kSnow).bits);
+  // Heavy snow in the columns is the symbol with three stars.
+  TEST_ASSERT_EQUAL_PTR(ui::weatherIcon(W::kSnow, 30).bits,
+                        ui::weatherIcon(W::kSnowHeavy, 30).bits);
+  TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(W::kSnowLight, 30).width);
 }
 
 void test_temperature() {
@@ -331,6 +359,75 @@ void test_daylight_hours_from_an_hour() {
   TEST_ASSERT_EQUAL_size_t(0, widgets::weather::daylightHours(f, kMidnight + 12 * 3600, 17).size());
 }
 
+// --- W1: intensity, hail, sleet, wind (2026-11-22) --------------------------------
+
+// Hand-made response: 10 Feb 2026 light snow 6-10 h, heavy snow 11-15 h, rain
+// and snow mixed 16-20 h with gusts of 75 km/h; 11 Feb showers 9-10 h and
+// gusts of 110 km/h.
+constexpr int64_t kSnowDay = 1770678000;  // 2026-02-10 00:00 CET
+
+void test_parse_gusts_and_codes() {
+  const Forecast f = load("rules_snow_storm.json");
+  TEST_ASSERT_EQUAL_size_t(48, f.hours.size());
+  TEST_ASSERT_EQUAL_INT(30, f.hours[0].gust);
+  TEST_ASSERT_EQUAL_INT(75, f.hours[17].gust);  // 74.6 rounded
+  TEST_ASSERT_EQUAL_INT(75, f.hours[11].code);
+  TEST_ASSERT_EQUAL_INT(
+      75, widgets::weather::maxGust(widgets::weather::hoursOfDay(f, kSnowDay, 0, 23)));
+  TEST_ASSERT_EQUAL_INT(
+      110, widgets::weather::maxGust(widgets::weather::hoursOfDay(f, kSnowDay + 86400, 0, 23)));
+  // Older responses without gusts: unknown.
+  const Forecast old = load();
+  TEST_ASSERT_EQUAL_INT(-1, old.hours[0].gust);
+  TEST_ASSERT_EQUAL_INT(-1, widgets::weather::maxGust({}));
+}
+
+void test_parts_with_intensity_and_sleet() {
+  using W = ui::WeatherIcon;
+  const Forecast f = load("rules_snow_storm.json");
+  const auto parts = widgets::weather::dayParts(f, kSnowDay + 12 * 3600);
+  TEST_ASSERT_EQUAL_size_t(3, parts.size());
+  TEST_ASSERT_TRUE(parts[0].icon == W::kSnowLight);     // 71/73
+  TEST_ASSERT_TRUE(parts[1].icon == W::kSnowHeavy);     // 75
+  TEST_ASSERT_TRUE(parts[2].icon == W::kFreezingRain);  // rain 3 h, snow 2 h: sleet
+  const auto next = widgets::weather::dayParts(f, kSnowDay + 86400 + 12 * 3600);
+  TEST_ASSERT_EQUAL_INT(static_cast<int>(W::kShowers), static_cast<int>(next[0].icon));
+  TEST_ASSERT_TRUE(next[1].icon == W::kCloudy);  // codes 2, 2, 3, 3, 3
+}
+
+void test_span_icon_rules() {
+  using W = ui::WeatherIcon;
+  using widgets::weather::Hour;
+  const auto icon = [](const std::vector<std::pair<int, float>>& codes) {
+    std::vector<Hour> hours;
+    for (const auto& [code, mm] : codes) {
+      Hour h;
+      h.code = static_cast<int16_t>(code);
+      h.condition = widgets::weather::conditionFromWmo(code);
+      h.precipitation = mm;
+      hours.push_back(h);
+    }
+    std::vector<const Hour*> list;
+    for (const Hour& h : hours) list.push_back(&h);
+    return widgets::weather::spanIcon(list);
+  };
+  // The strongest code of the wet hours.
+  TEST_ASSERT_TRUE(icon({{61, 0.4f}, {65, 3.0f}, {61, 0.4f}}) == W::kRainHeavy);
+  TEST_ASSERT_TRUE(icon({{53, 0.2f}, {61, 0.3f}, {61, 0.2f}}) == W::kRainLight);
+  TEST_ASSERT_TRUE(icon({{80, 0.5f}, {81, 0.9f}, {3, 0.0f}}) == W::kShowersModerate);
+  // A dry hour with a wet code does not count.
+  TEST_ASSERT_TRUE(icon({{61, 0.4f}, {63, 0.0f}, {61, 0.6f}}) == W::kRainLight);
+  // Wet by the amount only: rain without an intensity (two strokes).
+  TEST_ASSERT_TRUE(icon({{3, 0.5f}, {3, 0.5f}, {3, 0.5f}}) == W::kRain);
+  // Freezing rain in one wet hour; snow with a single rain hour stays snow.
+  TEST_ASSERT_TRUE(icon({{61, 0.4f}, {66, 0.4f}, {61, 0.4f}}) == W::kFreezingRain);
+  TEST_ASSERT_TRUE(icon({{71, 0.4f}, {73, 0.4f}, {71, 0.4f}, {61, 0.3f}}) == W::kSnowLight);
+  // Thunderstorm with hail in one hour.
+  TEST_ASSERT_TRUE(icon({{95, 1.0f}, {96, 2.0f}}) == W::kThunderHail);
+  TEST_ASSERT_TRUE(icon({{95, 1.0f}, {3, 0.0f}}) == W::kThunder);
+  TEST_ASSERT_TRUE(icon({{0, 0.0f}, {0, 0.0f}}) == W::kSun);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_config);
@@ -348,5 +445,8 @@ int main() {
   RUN_TEST(test_day_symbol_ties_and_sunshine);
   RUN_TEST(test_day_symbol_missing_hours);
   RUN_TEST(test_daylight_hours_from_an_hour);
+  RUN_TEST(test_parse_gusts_and_codes);
+  RUN_TEST(test_parts_with_intensity_and_sleet);
+  RUN_TEST(test_span_icon_rules);
   return UNITY_END();
 }

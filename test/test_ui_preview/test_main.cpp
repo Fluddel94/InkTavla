@@ -226,6 +226,41 @@ void test_briefing_symbols() {
   check(bitmap, "briefing_symbols");
 }
 
+// Weather symbols of W1 (2026-11-22): the band pictures by intensity, with
+// hail and the wind pictures from the storm threshold; light snow, showers
+// by intensity and the thunderstorm with hail in 44 and 30 px.
+void test_briefing_symbols_w1() {
+  ui::Bitmap bitmap(ui::kScreenWidth, ui::kScreenHeight);
+  bitmap.clear(ui::Color::kWhite);
+  ui::BitmapCanvas c(bitmap);
+  using W = ui::WeatherIcon;
+  struct Named {
+    W kind;
+    const char* name;
+  };
+  const Named band[] = {{W::kRainLight, "Regen schwach"}, {W::kRainHeavy, "Regen stark"},
+                        {W::kSnowHeavy, "Schnee stark"},  {W::kThunderHail, "Gewitter+Hagel"},
+                        {W::kWindSock, "Sturm"},          {W::kStormRain, "Sturm+Regen"},
+                        {W::kSnowWind, "Sturm+Schnee"}};
+  for (int i = 0; i < 7; i++) {
+    const int x = 4 + (i % 5) * 159;
+    const int y = 4 + (i / 5) * 150;
+    ui::drawIcon(c, x, y, ui::bandIcon(band[i].kind));
+    caption(c, x + ui::kBandIconWidth / 2, y + ui::kBandIconHeight + 12, band[i].name);
+  }
+  const Named small[] = {{W::kSnowLight, "Schnee schwach"}, {W::kSnowHeavy, "Schnee stark"},
+                         {W::kShowersLight, "Schauer 80"},  {W::kShowersModerate, "Schauer 81"},
+                         {W::kShowers, "Schauer 82"},       {W::kThunderHail, "Gewitter+Hagel"}};
+  for (int i = 0; i < 6; i++) {
+    const int x = 20 + i * 128;
+    ui::drawIcon(c, x, 330, ui::weatherIcon(small[i].kind, 44));
+    ui::drawIcon(c, x + 56, 337, ui::weatherIcon(small[i].kind, 30));
+    caption(c, x + 43, 396, small[i].name);
+  }
+  caption(c, 400, 430, "Spalte und Tagesabschnitte: 44 px und 30 px");
+  check(bitmap, "briefing_symbols_w1");
+}
+
 // Fonts and building blocks of the Briefing design, arranged roughly like
 // the screen (not the finished layout).
 void test_briefing_parts() {
@@ -299,6 +334,7 @@ int main() {
   RUN_TEST(test_departure_columns_from_real_data);
   RUN_TEST(test_line_symbols);
   RUN_TEST(test_briefing_symbols);
+  RUN_TEST(test_briefing_symbols_w1);
   RUN_TEST(test_briefing_parts);
   return UNITY_END();
 }
