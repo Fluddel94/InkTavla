@@ -285,7 +285,7 @@ Nothing user-specific is compiled in.
 | [Roboto Condensed](https://github.com/googlefonts/roboto-classic) (font) | 3.008 | SIL OFL 1.1 | Text on the display, converted by `tools/fontgen` |
 | [Fraunces](https://github.com/undercasetype/Fraunces) (font) | 1.000 | SIL OFL 1.1 (no Reserved Font Name) | Sentence and events of the "Briefing" layout, converted by `tools/fontgen` |
 | [Pillow](https://python-pillow.org/) | 12.3.0 | MIT-CMU | Font generator only, not part of the firmware |
-| [esptool](https://github.com/espressif/esptool) | 5.4.0 (pioarduino) | GPL-2.0-or-later | Merges `firmware-full.bin` during the build; a build tool, not part of the firmware |
+| [esptool](https://github.com/espressif/esptool) | 5.6.0 (pioarduino) | GPL-2.0-or-later | Merges `firmware-full.bin` during the build; a build tool, not part of the firmware |
 | [ESP Web Tools](https://github.com/esphome/esp-web-tools) | 10.4.0 | Apache-2.0 | Web installer page only (bundles esptool-js, Lit, Material Web, tslib), downloaded from npm when the site is built, not part of the firmware or the repository |
 
 MVV line symbols (S-Bahn, U-Bahn): from Wikimedia Commons ("München S1.svg"

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Development: platform pioarduino 55.03.313 (Arduino-ESP32 3.3.13, ESP-IDF
+  5.5.6, toolchain GCC 14.4.0, esptool 5.6.0) instead of 55.03.312-1. On a
+  new PC the VS Code extension installs PlatformIO Core 6.2.0.post1, which
+  55.03.312-1 refused ("not compatible with PlatformIO Core
+  v6.2.0-post.1"); 55.03.313 accepts every Core from 6.2.0 on.
+
 ## [0.4.0] - 2026-11-22
 
 The display can now show two or three widgets in columns of three fixed

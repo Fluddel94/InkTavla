@@ -5,7 +5,7 @@
 // Services on the internet are always requested over HTTPS and the
 // certificate is checked against the certificate bundle of the ESP32 core
 // (the Mozilla root certificates that ESP-IDF builds into mbedTLS, enabled
-// in the precompiled framework of pioarduino 55.03.312-1 with
+// in the precompiled framework of pioarduino 55.03.313 with
 // CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL). Any server with a
 // certificate from a common CA works, and a change of CA does not break it.
 //
