@@ -701,6 +701,9 @@ async function loadState() {
   applyTexts();
   closesAt = Date.now() + S.closes_in_s * 1000;
   config = S.config && typeof S.config === "object" ? S.config : {};
+  // The card "Zustand" first: the display answers one request after the
+  // other, and the forms ask for slow things (the lines of a station).
+  loadStatus();
   fillForm();
   show("main");
   setDirty(false);
@@ -2224,9 +2227,10 @@ function refreshHome() {
 
 // Card "Zustand" on top of the overview (in the language of the page,
 // unlike the tab "System"): Wi-Fi, version, running time and the state of
-// the sources, from GET /api/system. Asked for when the page loads and on
-// every change of page (route()), never in a rhythm and not after an entry;
-// looking is no action (the time limit stays).
+// the sources, from GET /api/system. Asked for when the page loads (before
+// anything else, see loadState()) and on every change of page (route()),
+// never in a rhythm and not after an entry; looking is no action (the time
+// limit stays).
 let status = null, statusLoading = false;
 async function loadStatus() {
   if (statusLoading) return;
@@ -2235,7 +2239,7 @@ async function loadStatus() {
     status = await api("api/system", { passive: true });
   } catch (e) { /* the card keeps what it has */ }
   statusLoading = false;
-  renderStatus();
+  if (!$("main").hidden) renderStatus();
 }
 function ago(unix) {
   const m = Math.max(0, Math.floor((Date.now() / 1000 - unix) / 60));
