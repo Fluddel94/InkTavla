@@ -7,113 +7,107 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+## [0.4.0] - 2026-11-22
 
-- More weather symbols: light and heavy snow (one or three stars; 71/73/77/85
-  and 75/86), showers by intensity (80/81/82: one to three strokes) and a
-  thunderstorm with hail (96/99) in the weather column. The parts of
-  tomorrow on step L show the intensity and kind of their strongest wet hour,
-  and rain with a snow star when rain and snow are mixed (sleet).
-- Band picture by intensity: the umbrella with two, four or six drops, heavy
-  snow with three flakes, a thunderstorm with hail grains.
-- Wind in the band: the weather widget fetches the hourly gusts
-  (`wind_gusts_10m`). From 50 km/h the sentence says "Dazu windig mit
-  kräftigen Böen.", from 65 km/h "Stürmisch, Sturmböen möglich." with
-  "Kapuze statt Schirm" instead of "Schirm mit" and the picture becomes a
-  windsock (with driven rain instead of the umbrella, a snowflake with wind
-  lines for snow), from 105 km/h "Achtung, orkanartige Böen.". No speeds
-  are shown.
+The display can now show two or three widgets in columns of three fixed
+widths, and every widget can be taken out of the band sentence. The band
+names the next event again, the weather has more symbols and warns of
+strong wind, and the wide columns show more. The settings page is rebuilt
+as an overview with pages and tells the state of the display at a glance.
+
+### Added
 
 - Layout with two widgets: `layout.slots` with two entries shows two columns
   of 367 px below the band instead of three.
 - With three widgets the wide column (280 px) is where the departures are,
   so they can be in the middle or on the right, too.
-- Settings page: the first tab is now "Layout". It offers the two layouts
-  as small sketches and shows the chosen one true to scale with a list of
-  widgets in every column; choosing a widget that is in another column
-  swaps the two. Only widgets that are in a column have a tab (the weather
-  keeps its tab because the band shows it). Problems the display reports
-  when saving are links to the tab of the setting.
-
 - Band switch per widget: `widgets.weather.band: false` takes the weather
   out of the sentence of the band (the picture stays), `widgets.mvg.band:
-  false` the cancellation. The settings page has the box at the top of
-  the tab of the widget ("Wetter im Satz des Bands nennen", "Ausfälle im
-  Satz des Bands nennen"). Where the weather is neither in a column nor
+  false` the cancellations. Where the weather is neither in a column nor
   fetched for the band (switch off), or has no place set, the band shows a
   dotted cloud and "–°" instead of the picture and the temperature.
 - The band sentence names the next event of the calendar again, as its
   last part: "Um 09:30 Zahnarzt.", "Heute: Geburtstag Oma.", from the
-  evening the first event of tomorrow ("Morgen um 08:00 Zahnarzt."). It is
-  the first part to give way when the sentence is too long. Switch:
-  `widgets.calendar.band` ("Nächsten Termin im Satz des Bands nennen").
+  evening the first event of tomorrow ("Morgen um 08:00 Zahnarzt."). Each
+  case (today or tomorrow, with a time or all day) has three wordings,
+  chosen by the date and the time of day; English puts the title first
+  ("Kino mit Lena at 18:30."). It is the first part to give way when the
+  sentence is too long. Switch: `widgets.calendar.band`.
+- Wind in the band: the weather widget fetches the hourly gusts
+  (`wind_gusts_10m`). From 50 km/h the sentence says "Dazu windig mit
+  kräftigen Böen.", from 65 km/h "Stürmisch, Sturmböen möglich." with
+  "Kapuze statt Schirm" instead of "Schirm mit", and the picture becomes a
+  windsock (with driven rain instead of the umbrella, a snowflake with wind
+  lines for snow); from 105 km/h "Achtung, orkanartige Böen.". No speeds
+  are shown.
+- Band picture by intensity: the umbrella with two, four or six drops, heavy
+  snow with three flakes, a thunderstorm with hail grains.
+- More weather symbols in the weather column: light and heavy snow (one or
+  three stars; codes 71/73/77/85 and 75/86), showers by intensity (80/81/82:
+  one to three strokes) and a thunderstorm with hail (96/99). Rain and snow
+  mixed (sleet) is rain with a snow star.
 - More content in the columns of 367 px (band + 2): the weather chart shows
   the whole day from 0 to 24 o'clock with labels every four hours; below
-  it the next day in three parts (6–10, 11–15 and 16–20 o'clock, each with a
-  symbol and a temperature) and the two days after it; the calendar shows the end time of the events of
-  today and the next day ("10:00–11:30"); the departures show the delay
-  with its unit ("+3 min").
-
+  it the next day in three parts (6–10, 11–15 and 16–20 o'clock, each with
+  the symbol of its strongest wet hour and a temperature) and the two days
+  after it; the calendar shows the end time of the events of today and the
+  next day ("10:00–11:30"); the departures show the delay with its unit
+  ("+3 min").
+- Settings page, "Layout und Darstellung": the two layouts as small
+  sketches, the chosen one true to scale; tapping a place in the sketch
+  chooses it, below it are the widget for that place (choosing a widget
+  that is on another place swaps the two) and a link to its settings. The
+  band in the sketch shows an example (date and time of the phone, a
+  sentence that follows the band switches, weather picture or
+  placeholder).
+- Settings page: switches for the band on the page of every widget
+  ("Wetter im Satz des Bands nennen", "Ausfälle im Satz des Bands nennen",
+  "Nächsten Termin im Satz des Bands nennen").
 - Settings page: a card at the top of the overview tells the Wi-Fi, the
   signal, the version, the running time and the state of every source
-  (dot and time of the last update); asked for on loading and on every
-  change of page, without extending the time limit.
+  (dot and time of the last update); asked for first on loading and on
+  every change of page, without extending the time limit.
 - Settings page: **Adresse testen** on the page *Kalender* has the display
   request the address typed in (or the saved one) and say how many events
   lie in the next 7 days or why it fails (new route `POST
   /api/calendar/test`; the address is never sent back or logged; the
   display stops after 30 s).
-- Settings page: the band in the sketch of the display shows an example
-  (date and time of the phone, a sentence that follows the band switches,
-  weather picture or placeholder) instead of the word "Band".
-
-### Changed
-
-- Settings page rebuilt as an overview with pages instead of tabs: the
-  overview lists "Layout und Darstellung", the widgets, the device pages
-  (Wi-Fi, firmware, backup, time, restart and reset) and "System"; every
-  row opens its own page (address `#/mvg`, `#/wifi` …, so the back button
-  and reloading work). Switches instead of tick boxes (the line lists keep
-  their boxes), larger fields and buttons (at least 44 px to tap), time
-  zone and time server on a page of their own instead of under
-  "Erweitert", the save bar on every page, and the marks "n Fehler" on the
-  overview instead of red tabs. New look in light and dark with the new
-  logo, also as the icon of the browser tab. Settings, `config.json` and
-  the device interface are unchanged.
 - `tools/mock_device.py` serves the settings page with made-up data to try
   it in a browser without the display.
-- Settings page, overview: the second line of every row tells the current
-  entries (layout and widgets, station and display, place, calendar address
-  set or not, Wi-Fi, version, time zone and time server), worked out from
-  the forms as they are now. Marks, at most one per row: "n Fehler", then
-  "Einrichten" (departures without a station, weather without a place,
-  calendar without an address), then "geändert" (differs from the settings
-  as loaded).
-- Settings page, "Layout und Darstellung": tapping a place in the sketch
-  of the display chooses it; below it are the widget for that place and a
-  link to the settings of that widget.
-- Settings page in a wide window (from 860 px): two columns, the overview
-  on the left (stays put, the open page is marked) and the page on the
-  right, with the save bar at the foot of the right column. Borders of
-  fields and buttons have more contrast.
 
-- The event in the sentence of the band has three wordings for each case
-  (today or tomorrow, with a time or all day), chosen by the date and the
-  time of day; English puts the title first ("Kino mit Lena at 18:30.").
-- The wordings of the weather sentence now change from day to day (with
-  three wordings the same one was chosen every day).
-- New logo on the start screen: a band across the top and two columns
-  below it, the lower left one black (instead of the 2 × 2 grid).
-- Calendar column: the lines of the rest of the week show the time on the
-  right again; the titles start at the same position as the titles of today
-  and the next day.
-- The weather is fetched for six days instead of four (about 5.8 instead of
-  4.2 KB).
+### Changed
 
 - The columns only come in three widths, the size steps S (214 px), M
   (280 px) and L (367 px). Every widget names the smallest step it is made
   for (departures M, calendar and weather S) and fits every wider column;
   the message of a widget that does not fit names the widths.
+- The wordings of the weather sentence now change from day to day (with
+  three wordings the same one was chosen every day).
+- Calendar column: the lines of the rest of the week show the time on the
+  right instead of in front; the titles start at the same position as the
+  titles of today and the next day.
+- The weather is fetched for six days instead of four (about 5.8 instead of
+  4.2 KB).
+- New logo on the start screen: a band across the top and two columns
+  below it, the lower left one black (instead of the 2 × 2 grid).
+- Settings page rebuilt as an overview with pages instead of tabs: the
+  overview lists "Layout und Darstellung", the widgets that are on a place
+  (and the weather, which the band shows, and every widget with an error),
+  the device pages (Wi-Fi, firmware, backup, time, restart and reset) and
+  "System"; every row opens its own page (address `#/mvg`, `#/wifi` …, so
+  the back button and reloading work). The second line of every row tells
+  the current entries, and a row has at most one mark: "n Fehler", then
+  "Einrichten" (departures without a station, weather without a place,
+  calendar without an address), then "geändert" (differs from the
+  settings as loaded). Problems the display
+  reports when saving link to the page of the setting.
+- Settings page look: switches instead of tick boxes (the line lists keep
+  their boxes), larger fields and buttons (at least 44 px to tap) with more
+  contrast, time zone and time server on a page of their own instead of
+  under "Erweitert", the save bar on every page, light and dark with the
+  new logo, also as the icon of the browser tab. From 860 px two columns:
+  the overview on the left, the open page on the right. Settings,
+  `config.json` and the device interface are unchanged.
 
 ### Removed
 
