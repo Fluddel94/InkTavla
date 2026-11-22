@@ -35,7 +35,14 @@ the same Wi-Fi as the display:
 The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes.
 
-It opens with an overview: a list in the groups **Anzeige** / **Display**,
+The page opens with a card on the state of the display: the
+Wi-Fi it is connected to, the signal, the version and how long it has been
+running, and for every source a dot (green: up to date; amber: not set up,
+waiting or outdated; red: no data or failing again and again) with the time
+of its last update. The card is asked for when the page opens and on every
+change of page, not in a rhythm; looking does not extend the time limit.
+
+Below it is the overview: a list in the groups **Anzeige** / **Display**,
 **Widgets**, **Gerät** / **Device** and **Diagnose** / **Diagnostics**. Every
 row opens a page of its own (the address ends in `#/mvg`, `#/wifi` …, so the
 back button of the browser leads to the overview and reloading stays on
@@ -60,7 +67,10 @@ has something for the band (departures, weather, calendar) is a switch that
 turns its part of the band sentence off.
 
 - **Layout und Darstellung / Layout and display:** the arrangement of the
-  screen (band + 3 or band + 2) and a sketch of the display: tap a place to
+  screen (band + 3 or band + 2) and a sketch of the display (the band shows
+  an example with the date and time of the phone; its sentence follows the
+  band switches of the widgets, and the weather picture becomes the
+  placeholder where the display would show it): tap a place to
   choose it, then pick its widget below the sketch (with a link to that
   widget's settings); below that the language, the full refresh and the
   dotted lines between the columns. Every widget is offered once; choosing
@@ -617,6 +627,15 @@ device's protected storage, like the Wi-Fi password.
    `webcal://`), saves it and restarts. `info` then shows
    `calendar_url=set`.
 3. To remove it: `python tools/inktavla_config.py calendar-url --clear --port COM5`.
+
+On the settings page the address is entered on the page *Kalender*.
+**Adresse testen** / **Test address** has the display request the address
+in the field (without saving it), or the saved one if the field is empty,
+and say whether it works and how many events lie in the next 7 days
+(without the word filter), or why not: address rejected, no iCal file, not
+reachable, longer than 30 s, or the clock not set yet. The test counts as
+an action (it extends the time limit) and holds the page for a few seconds;
+the address is neither sent back nor logged.
 
 There is no command to read the address back, and the device never prints
 it (not even in error messages). If it may have been seen by someone else,

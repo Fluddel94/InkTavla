@@ -36,6 +36,9 @@
 //   GET  /api/log             the system log as text (core/syslog.h);
 //                             ?download=1 as a file
 //   GET  /api/<widget>/...    setup help of the widgets (SettingsRoute)
+//   POST /api/<widget>/...    same with a JSON body, e.g. POST
+//                             /api/calendar/test {"url"} (an address is a
+//                             secret: never in the URL of a request)
 //
 // After saving, the session is kept in memory that survives the restart,
 // so the page opens again for the rest of its time with the same code.
@@ -58,10 +61,12 @@ namespace core {
 
 // A request of a widget's setup help, e.g. GET /api/mvg/stations?q=...
 // handler gets the query arguments and returns the JSON reply; false: the
-// service could not be reached (502).
+// service could not be reached (502). A POST route gets the text members
+// of its JSON body instead (secrets must not be part of a URL).
 struct SettingsRoute {
   std::string path;
   std::function<bool(const std::map<std::string, std::string>& args, std::string& json)> handler;
+  bool post = false;
 };
 
 struct SettingsServerOptions {

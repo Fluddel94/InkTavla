@@ -11,7 +11,12 @@
 #include "widgets/weather/column_view.h"
 
 #if defined(ARDUINO)
+#include <ctime>
+
 #include "core/http.h"
+#include "core/secrets.h"
+#include "core/syslog.h"
+#include "widgets/calendar/address_test.h"
 #include "widgets/calendar/api.h"
 #include "widgets/mvg/api.h"
 #include "widgets/mvg/setup.h"
@@ -222,6 +227,36 @@ std::vector<core::SettingsRoute> settingsRoutes() {
          json = weather::placesJson(doc.as<JsonObjectConst>());
          return true;
        }});
+  // "Adresse testen": the address typed in (not saved), else the saved one.
+  // Never sent back and never logged (it is a secret).
+  routes.push_back({"calendar/test",
+                    [](const auto& args, std::string& json) {
+                      std::string url = argument(args, "url");
+                      if (url.empty()) {
+                        core::NvsSecretStore secrets;
+                        secrets.read(core::kSecretCalendarUrl, url);
+                      }
+                      std::string reason;
+                      if (url.empty() ||
+                          !core::checkSecret(core::kSecretCalendarUrl, url, reason)) {
+                        json = url.empty() ? R"({"ok":false,"error":"no_address"})"
+                                           : R"({"ok":false,"error":"invalid"})";
+                        return true;
+                      }
+                      calendar::UrlSource source(url);
+                      const calendar::AddressTest test =
+                          calendar::testAddress(source, static_cast<int64_t>(time(nullptr)));
+                      if (test.outcome == calendar::TestOutcome::kOk) {
+                        core::logInfo("calendar", "address test: works, %u events in %d days",
+                                      static_cast<unsigned>(test.events), calendar::kTestDays);
+                      } else {
+                        core::logWarning("calendar", "address test failed: %s",
+                                         calendar::testOutcomeName(test.outcome));
+                      }
+                      json = calendar::addressTestJson(test);
+                      return true;
+                    },
+                    true});
   return routes;
 }
 

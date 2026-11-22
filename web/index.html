@@ -49,6 +49,7 @@
       <div class="open"><span id="openUntil"></span><button class="pillbtn" id="closeButton" type="button" data-t="close"></button></div>
     </header>
     <div id="issues" class="issues" hidden></div>
+    <div id="status"></div>
     <div id="home"></div>
     <p class="hint foot" data-t="saveHint"></p>
   </section>
@@ -144,7 +145,8 @@
       <input id="calendarUrl" type="password" autocomplete="off" placeholder="https://calendar.google.com/calendar/ical/…">
       <p id="calendarError" class="err" hidden></p>
       <p class="hint" data-t="calendarHint"></p>
-      <div class="actions"><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
+      <div class="actions"><button id="calendarTest" type="button" data-t="calendarTest"></button><button class="danger" id="calendarRemove" type="button" data-t="calendarRemove"></button></div>
+      <p id="calendarTestResult" role="status" hidden></p>
     </div>
     <h2 data-t="calShow"></h2>
     <div class="card">

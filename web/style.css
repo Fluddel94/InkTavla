@@ -186,6 +186,7 @@ button.busy::before { content: ""; display: inline-block; width: 12px; height: 1
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pair label { margin-top: 14px; }
 .err { color: var(--bad); font-size: 13.5px; font-weight: 600; margin: 6px 0 0; }
+.okmsg { color: var(--ok); font-size: 13.5px; font-weight: 600; margin: 6px 0 0; }
 .warnmsg { color: var(--warn); font-size: 13.5px; font-weight: 600; margin: 6px 0 0; }
 .pill { flex: none; display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
 .pill.off { background: var(--warn-soft); color: var(--warn); }
@@ -211,7 +212,16 @@ button.busy::before { content: ""; display: inline-block; width: 12px; height: 1
 .mini .cols { flex: 275 0 0; display: flex; gap: 3px; }
 .mini .col { border: 1.5px solid var(--ink); border-radius: 2px; }
 .sketch { border: 8px solid var(--bezel); border-radius: 10px; background: #e9e8e3; color: #15181c; }
-.sketch .band { flex: 205 0 0; display: flex; align-items: center; padding: 0 3%; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #4d545b; border-bottom: 2px solid #15181c; margin: 0 2%; }
+/* The band: sizes relative to the width (cqw), like 800 px on the display. */
+.sketch { container-type: inline-size; }
+.sketch .band { flex: 205 0 0; min-height: 0; display: flex; gap: 3cqw; padding-top: 2.2cqw; margin: 0 2.5cqw; border-bottom: max(1px, .25cqw) solid #15181c; overflow: hidden; }
+.sketch .band > div:first-child { flex: 1; min-width: 0; }
+.sketch .band small { display: block; font-size: max(7px, 1.8cqw); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; text-align: left; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1.1cqw; color: #15181c; }
+.sketch .band p { margin: 0; font: 5cqw/1.22 Georgia, "Times New Roman", serif; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sketch .bw { width: 15cqw; display: flex; flex-direction: column; align-items: center; padding-top: 3cqw; font: 4.2cqw/1 Georgia, serif; }
+.sketch .bw svg { width: 12cqw; height: 12cqw; stroke-width: 2; }
+.sketch .band.none svg { stroke-dasharray: 1.5 1.5; }
+.sketch .band.none span { font-family: system-ui, sans-serif; }
 .sketch .cols { flex: 275 0 0; display: flex; min-height: 0; padding: 2% 0; }
 .sketch .col + .col { border-left: 1px dotted #15181c; }
 .sketch .col { min-width: 0; display: flex; padding: 0 1.2%; }
@@ -220,7 +230,7 @@ button.busy::before { content: ""; display: inline-block; width: 12px; height: 1
 .sketch button.slot[aria-pressed=true] { border: 2px solid #0d5c63; background: #e3f0f0; }
 .sketch button.slot b { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sketch svg { width: 20px; height: 20px; }
-@media (max-width: 480px) { .sketch button.slot { font-size: 13px; } .sketch .band { font-size: 11px; } }
+@media (max-width: 480px) { .sketch button.slot { font-size: 13px; } }
 .sketch small { color: #4d545b; font-size: 12px; text-align: center; white-space: nowrap; }
 .sketch + .hint { margin-top: 10px; }
 #slotPick label { margin-top: 12px; }
@@ -309,3 +319,17 @@ body.wide a.item[aria-current=page] .mark.changed { background: var(--panel); }
    12 px margins; columns 380 + 28 + 640 px, centred, 16 px window margin). */
 body.wide .bar { left: max(436px, calc(50% - 104px)); right: auto; width: min(616px, calc(100% - 464px)); border: 1px solid var(--line); border-bottom: 0; border-radius: 14px 14px 0 0; box-shadow: 0 -2px 10px rgba(0, 0, 0, .06); }
 body.wide .bar > div { max-width: none; }
+
+/* Card "Zustand" on top of the overview. */
+#status .card { margin-top: 4px; padding: 0; }
+.status .top { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.status .top > span { min-width: 0; }
+.status b { display: block; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.status small { display: block; font-size: 13px; color: var(--muted); }
+.status .src { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); border-top: 1px solid var(--line); }
+.status .src > div { padding: 10px 14px; min-width: 0; }
+.status .src > div + div { border-left: 1px solid var(--line); }
+.status .src b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--bad); }

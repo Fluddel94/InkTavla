@@ -15,7 +15,13 @@ Switches for checks (GET, answer "ok"):
     /_mock/blocking    same, with a blocking problem
     /_mock/extra       adds a made-up widget "quote" without a symbol or page
                        of its own (in place 2)
+    /_mock/failing     sources in trouble: departures failing, weather without data
     /_mock/reset       back to the start state
+
+"Adresse testen" (POST /api/calendar/test) answers from the address typed
+in: one containing "reject", "html", "offline" or "slow" gives that error,
+any other one works (12 events); without an address the saved one is
+tested (3 events).
 
 Python standard library only. Used by hand and by Playwright checks; it is
 not part of the firmware.
@@ -76,7 +82,7 @@ state = {}
 def reset():
     state.clear()
     state.update(config=copy.deepcopy(CONFIG), calendar=False, logged_in=False, closed=False,
-                 issues=None, extra=False, touched=time.time())
+                 issues=None, extra=False, failing=False, touched=time.time())
 
 
 reset()
@@ -129,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
             elif what == "extra":
                 state["extra"] = True
                 state["config"]["layout"]["slots"] = ["mvg", "quote", "weather"]
+            elif what == "failing":
+                state["failing"] = True
             elif what == "reset":
                 reset()
             return self.send(200, "ok", "text/plain")
@@ -157,6 +165,31 @@ class Handler(BaseHTTPRequestHandler):
             return
         if route == "ping":
             return self.send(200, {"closes_in_s": self.closes_in()})
+        # Looking is no action (like on the display): the time limit stays.
+        if route == "system":
+            up = int(time.time() - STARTED) + 3 * 86400
+            report = {
+                "device": {"firmware": "0.4.0-dev", "uptime_s": up, "restart_reason": "power on", "boot": 1,
+                           "wifi_connected": True, "rssi": -58, "time_valid": True, "heap_free": 180000,
+                           "heap_min_free": 150000, "heap_largest": 90000, "psram_free": 7000000,
+                           "psram_size": 8388608},
+                "wifi": {"drops": 0, "drops_24h": 0},
+                "log": {"warnings": 1, "errors": 0},
+                "sources": [
+                    {"name": "mvg", "state": "ok", "last_success": int(time.time()) - 60, "duration_ms": 900,
+                     "successes": 400, "failures": 1, "fails": 1, "fails_24h": 1,
+                     "last_failure": int(time.time()) - 3000, "problem": "timeout"},
+                    {"name": "weather", "state": "ok", "last_success": int(time.time()) - 700, "duration_ms": 600,
+                     "successes": 30, "failures": 0},
+                    {"name": "calendar", "state": "ok" if state["calendar"] else "not set up",
+                     "last_success": int(time.time()) - 300, "successes": 0, "failures": 0}]}
+            if state["failing"]:
+                mvg, weather = report["sources"][0], report["sources"][1]
+                mvg.update(failures_in_row=3, last_failure=int(time.time()) - 30)
+                weather.update(state="no data", last_success=0)
+            return self.send(200, report)
+        if route == "log":
+            return self.send(200, LOG, "text/plain")
         state["touched"] = time.time()
         if route == "mvg/stations":
             return self.send(200, [{"id": "de:09162:2", "name": "Marienplatz", "place": "München", "types": "SUB"},
@@ -181,24 +214,6 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"status": "up_to_date", "installed": "0.4.0-dev", "latest": "0.3.0"})
         if route == "update/status":
             return self.send(200, {"state": "idle"})
-        if route == "system":
-            up = int(time.time() - STARTED) + 3 * 86400
-            return self.send(200, {
-                "device": {"firmware": "0.4.0-dev", "uptime_s": up, "restart_reason": "power on", "boot": 1,
-                           "wifi_connected": True, "rssi": -58, "time_valid": True, "heap_free": 180000,
-                           "heap_min_free": 150000, "heap_largest": 90000, "psram_free": 7000000,
-                           "psram_size": 8388608},
-                "wifi": {"drops": 0, "drops_24h": 0},
-                "log": {"warnings": 1, "errors": 0},
-                "sources": [
-                    {"name": "mvg", "state": "ok", "last_success": int(time.time()) - 60, "duration_ms": 900,
-                     "successes": 400, "failures": 1, "fails": 1, "fails_24h": 1,
-                     "last_failure": int(time.time()) - 3000, "problem": "timeout"},
-                    {"name": "weather", "state": "ok", "last_success": int(time.time()) - 700, "duration_ms": 600,
-                     "successes": 30, "failures": 0},
-                    {"name": "calendar", "state": "not set up", "successes": 0, "failures": 0}]})
-        if route == "log":
-            return self.send(200, LOG, "text/plain")
         return self.send(404, {"error": "unknown route"})
 
     def do_POST(self):
@@ -235,6 +250,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True})
         if p == "/api/wifi":
             return self.send(200, {"ok": True})
+        if p == "/api/calendar/test":
+            url = (body or {}).get("url") or ""
+            time.sleep(0.8)
+            if not url:
+                answer = {"ok": True, "events": 3, "days": 7} if state["calendar"] else {"ok": False, "error": "no_address"}
+            elif not url.lower().startswith(("https://", "webcal://")):
+                answer = {"ok": False, "error": "invalid"}
+            else:
+                error = next((e for w, e in (("reject", "address"), ("html", "not_ical"), ("offline", "network"),
+                                             ("slow", "timeout")) if w in url), None)
+                answer = {"ok": False, "error": error} if error else {"ok": True, "events": 12, "days": 7}
+            return self.send(200, answer)
         if p == "/api/update/install":
             return self.send(200, {"ok": True})
         if p == "/api/firmware":

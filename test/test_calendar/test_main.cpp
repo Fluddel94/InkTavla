@@ -17,6 +17,7 @@
 #include "ui/bitmap.h"
 #include "ui/emoji.h"
 #include "widgets/app.h"
+#include "widgets/calendar/address_test.h"
 #include "widgets/calendar/agenda.h"
 #include "widgets/calendar/column_view.h"
 #include "widgets/calendar/config.h"
@@ -795,6 +796,69 @@ void test_fetch_errors() {
   TEST_ASSERT_TRUE(data.problem(de).message.empty());
 }
 
+// "Adresse testen" (POST /api/calendar/test).
+class TimeoutSource : public FixtureSource {
+ public:
+  bool fetchCalendar(cal::Parser&) override {
+    requests++;
+    return false;
+  }
+  cal::FetchError lastError() const override { return cal::FetchError::kTimeout; }
+};
+
+void test_address_test() {
+  FailingSource source;
+  // Without the time the days are unknown: no request.
+  cal::AddressTest test = cal::testAddress(source, 1000);
+  TEST_ASSERT_TRUE(test.outcome == cal::TestOutcome::kNoTime);
+  TEST_ASSERT_EQUAL_INT(0, source.requests);
+  TEST_ASSERT_EQUAL_STRING(R"({"ok":false,"error":"no_time"})", cal::addressTestJson(test).c_str());
+
+  // Works: the occurrences of today and the next 6 days.
+  test = cal::testAddress(source, kNow);
+  TEST_ASSERT_TRUE(test.outcome == cal::TestOutcome::kOk);
+  const int64_t today = cal::localDay(kNow);
+  cal::Parser parser(cal::deviceToUtc(today * cal::kSecondsPerDay),
+                     cal::deviceToUtc((today + 7) * cal::kSecondsPerDay));
+  parser.feed(source.text);
+  parser.finish();
+  const size_t expected = cal::expandEvents(parser, today, today + 6).size();
+  TEST_ASSERT_GREATER_THAN(0, expected);
+  TEST_ASSERT_EQUAL_UINT(expected, test.events);
+  TEST_ASSERT_EQUAL_STRING(
+      ("{\"ok\":true,\"events\":" + std::to_string(expected) + ",\"days\":7}").c_str(),
+      cal::addressTestJson(test).c_str());
+  // Fewer days than the widget fetches (days + kExtraDays): fewer events.
+  cal::Config week;
+  week.display.days = 7;
+  cal::CalendarSource data(source, week);
+  TEST_ASSERT_TRUE(data.fetch(kNow));
+  TEST_ASSERT_LESS_OR_EQUAL_UINT(data.occurrences().size(), test.events);
+
+  // Rejected, unreachable, no iCal file, cut off, too slow.
+  source.status = 404;
+  TEST_ASSERT_EQUAL_STRING(R"({"ok":false,"error":"address"})",
+                           cal::addressTestJson(cal::testAddress(source, kNow)).c_str());
+  source.status = 503;
+  TEST_ASSERT_EQUAL_STRING(R"({"ok":false,"error":"network"})",
+                           cal::addressTestJson(cal::testAddress(source, kNow)).c_str());
+  source.status = 200;
+  source.text = readFile("test/fixtures/calendar/not_ical.html");
+  TEST_ASSERT_EQUAL_STRING(R"({"ok":false,"error":"not_ical"})",
+                           cal::addressTestJson(cal::testAddress(source, kNow)).c_str());
+  source.text = readFile("test/fixtures/calendar/week.ics");
+  source.text.resize(source.text.size() / 2);
+  TEST_ASSERT_TRUE(cal::testAddress(source, kNow).outcome == cal::TestOutcome::kNetwork);
+  TimeoutSource slow;
+  TEST_ASSERT_EQUAL_STRING(R"({"ok":false,"error":"timeout"})",
+                           cal::addressTestJson(cal::testAddress(slow, kNow)).c_str());
+  // The widget shows a timeout like a network problem.
+  cal::CalendarSource slow_data(slow);
+  TEST_ASSERT_FALSE(slow_data.fetch(kNow));
+  TEST_ASSERT_EQUAL_STRING("Kalender nicht erreichbar",
+                           slow_data.problem(ui::Language::kGerman).message.c_str());
+}
+
 void test_widget() {
   FixtureSource source;
   cal::CalendarSource data(source);
@@ -866,5 +930,6 @@ int main(int, char**) {
   RUN_TEST(test_widget);
   RUN_TEST(test_not_a_calendar);
   RUN_TEST(test_fetch_errors);
+  RUN_TEST(test_address_test);
   return UNITY_END();
 }

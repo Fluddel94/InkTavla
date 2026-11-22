@@ -602,8 +602,20 @@ void handleUpdateStatus() {
 void handleRoute(const SettingsRoute& route) {
   if (!authorized()) return;
   std::map<std::string, std::string> args;
-  for (int i = 0; i < server.args(); i++) {
-    if (server.argName(i) != "plain") args[server.argName(i).c_str()] = server.arg(i).c_str();
+  if (route.post) {
+    JsonDocument body;
+    if (deserializeJson(body, server.arg("plain").c_str()) || !body.is<JsonObjectConst>()) {
+      sendError(400, "invalid request");
+      return;
+    }
+    for (JsonPairConst member : body.as<JsonObjectConst>()) {
+      if (member.value().is<const char*>())
+        args[member.key().c_str()] = member.value().as<const char*>();
+    }
+  } else {
+    for (int i = 0; i < server.args(); i++) {
+      if (server.argName(i) != "plain") args[server.argName(i).c_str()] = server.arg(i).c_str();
+    }
   }
   std::string json;
   if (!route.handler(args, json)) {
@@ -633,7 +645,7 @@ void registerRoutes() {
   server.on("/api/system", HTTP_GET, handleSystem);
   server.on("/api/log", HTTP_GET, handleLog);
   for (const SettingsRoute& r : options.routes) {
-    server.on(("/api/" + r.path).c_str(), HTTP_GET, [&r] { handleRoute(r); });
+    server.on(("/api/" + r.path).c_str(), r.post ? HTTP_POST : HTTP_GET, [&r] { handleRoute(r); });
   }
   server.onNotFound([] { sendError(404, "not found"); });
   const char* headers[] = {"Cookie"};

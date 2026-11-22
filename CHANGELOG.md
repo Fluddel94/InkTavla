@@ -39,6 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   today and the next day ("10:00–11:30"); the departures show the delay
   with its unit ("+3 min").
 
+- Settings page: a card at the top of the overview tells the Wi-Fi, the
+  signal, the version, the running time and the state of every source
+  (dot and time of the last update); asked for on loading and on every
+  change of page, without extending the time limit.
+- Settings page: **Adresse testen** on the page *Kalender* has the display
+  request the address typed in (or the saved one) and say how many events
+  lie in the next 7 days or why it fails (new route `POST
+  /api/calendar/test`; the address is never sent back or logged; the
+  display stops after 30 s).
+- Settings page: the band in the sketch of the display shows an example
+  (date and time of the phone, a sentence that follows the band switches,
+  weather picture or placeholder) instead of the word "Band".
+
 ### Changed
 
 - Settings page rebuilt as an overview with pages instead of tabs: the

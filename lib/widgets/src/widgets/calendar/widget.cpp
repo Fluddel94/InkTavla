@@ -35,6 +35,7 @@ Problem CalendarSource::problem(ui::Language language) const {
       return {ui::text(language, ui::Text::kCalendarCheckAddress),
               ui::text(language, ui::Text::kCheckOnSettingsPage), true};
     case FetchError::kNetwork:
+    case FetchError::kTimeout:
       return {ui::text(language, ui::Text::kCalendarUnreachable), "", false};
     case FetchError::kNone:
       break;

@@ -97,6 +97,22 @@ const TEXTS = {
     calendarHint: "Private iCal-Adresse, z. B. aus Google Kalender („Privatadresse im iCal-Format“). Sie wird nie angezeigt und lässt sich nicht auslesen, nur ersetzen oder entfernen.",
     calendarNew: "Neue Adresse",
     calendarRemove: "Adresse entfernen",
+    calendarTest: "Adresse testen",
+    testOk: "Die Adresse funktioniert: {n} Termine in den nächsten {days} Tagen.",
+    testOne: "Die Adresse funktioniert: 1 Termin in den nächsten {days} Tagen.",
+    testNone: "Die Adresse funktioniert, in den nächsten {days} Tagen stehen keine Termine.",
+    test_address: "Der Kalender lehnt die Adresse ab. Kopiere die Privatadresse im iCal-Format neu.",
+    test_not_ical: "Unter dieser Adresse liegt kein Kalender. Ist es die „Privatadresse im iCal-Format“?",
+    test_network: "Der Kalender war nicht erreichbar. Versuche es gleich noch einmal.",
+    test_timeout: "Der Abruf dauerte zu lange (über 30 s).",
+    test_no_time: "Das Display kennt die Uhrzeit noch nicht. Versuche es in einer Minute noch einmal.",
+    test_no_address: "Es ist keine Adresse gesetzt.",
+    testNoAnswer: "Keine Antwort vom Display.",
+    stConnected: "Verbunden mit „{ssid}“", stNoWifi: "Nicht verbunden", stSignal: "Signal {q}", stVersion: "Version {v}",
+    stUp: "läuft seit {d}", upMin: "{n} Min.", upH: "{n} Std.", upD1: "1 Tag", upD: "{n} Tagen",
+    agoNow: "gerade eben", agoMin: "vor {n} Min.", agoH: "vor {n} Std.", agoD1: "vor 1 Tag", agoD: "vor {n} Tagen",
+    stNotSetUp: "nicht eingerichtet", stNoData: "keine Daten", stWaiting: "wartet", stFailing: "Abruf gestört",
+    stStale: "veraltet, {ago}",
     calShow: "Anzeige",
     calDays: "Zeitraum",
     calDaysOne: "Heute",
@@ -119,7 +135,8 @@ const TEXTS = {
     display: "Anzeige",
     arrangement: "Aufteilung",
     nWidgets: "Band + {n}",
-    band: "Band",
+    exMorning: "Guten Morgen.", exDay: "Guten Tag.", exEvening: "Guten Abend.",
+    exWeather: "Mal Sonne, mal Wolken, bis 12°.", exCalendar: "Heute um 18:30: Kino mit Lena.",
     swapWith: "{name} (tauscht mit Platz {n})",
     assignmentHint: "Jedes Widget gibt es einmal. Wählst du eines, das schon auf einem anderen Platz steht, tauschen die beiden.",
     wideHint: "Der breite Platz liegt dort, wo ein Widget ihn braucht ({names}).",
@@ -300,6 +317,22 @@ const TEXTS = {
     calendarHint: "Private iCal address, e.g. from Google Calendar (“Secret address in iCal format”). It is never shown and cannot be read back, only replaced or removed.",
     calendarNew: "New address",
     calendarRemove: "Remove address",
+    calendarTest: "Test address",
+    testOk: "The address works: {n} events in the next {days} days.",
+    testOne: "The address works: 1 event in the next {days} days.",
+    testNone: "The address works; there are no events in the next {days} days.",
+    test_address: "The calendar rejects the address. Copy the secret address in iCal format again.",
+    test_not_ical: "There is no calendar at this address. Is it the “secret address in iCal format”?",
+    test_network: "The calendar could not be reached. Try again in a moment.",
+    test_timeout: "The request took too long (over 30 s).",
+    test_no_time: "The display does not know the time yet. Try again in a minute.",
+    test_no_address: "No address is set.",
+    testNoAnswer: "No answer from the display.",
+    stConnected: "Connected to “{ssid}”", stNoWifi: "Not connected", stSignal: "Signal {q}", stVersion: "Version {v}",
+    stUp: "running for {d}", upMin: "{n} min", upH: "{n} h", upD1: "1 day", upD: "{n} days",
+    agoNow: "just now", agoMin: "{n} min ago", agoH: "{n} h ago", agoD1: "1 day ago", agoD: "{n} days ago",
+    stNotSetUp: "not set up", stNoData: "no data", stWaiting: "waiting", stFailing: "fetch failing",
+    stStale: "outdated, {ago}",
     calShow: "Display",
     calDays: "Period",
     calDaysOne: "Today",
@@ -322,7 +355,8 @@ const TEXTS = {
     display: "Display",
     arrangement: "Arrangement",
     nWidgets: "Band + {n}",
-    band: "Band",
+    exMorning: "Good morning.", exDay: "Good afternoon.", exEvening: "Good evening.",
+    exWeather: "Sun and clouds, up to 12°.", exCalendar: "Today at 18:30: cinema with Lena.",
     swapWith: "{name} (swaps with slot {n})",
     assignmentHint: "Every widget is there once. If you choose one that is in another slot already, the two swap.",
     wideHint: "The wide slot is where a widget needs it ({names}).",
@@ -551,6 +585,7 @@ async function api(path, options) {
     init.headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(o.json);
   }
+  if (o.signal) init.signal = o.signal;
   const r = await fetch(path, init);
   const text = await r.text();
   let body = null;
@@ -1294,6 +1329,7 @@ function minutesText(m) {
 function fillCalendar() {
   calendarChange = undefined;
   $("calendarUrl").value = "";
+  calendarTestResult("");
   showCalendarState();
   const c = sec("calendar");
   const days = CAL_DAYS.includes(c.days) ? c.days : 7;
@@ -1319,16 +1355,51 @@ function showCalendarState() {
   p.textContent = t(key);
   p.className = "pill" + (key === "calendarSet" ? "" : " off");
   $("calendarRemove").hidden = !S.secrets.calendar_url || calendarChange === null;
+  $("calendarTest").hidden = !hasAddress();
 }
+// "Adresse testen": the display requests the address typed in (without
+// saving it), else the saved one. The address is never sent back.
+function calendarTestResult(text, ok) {
+  const out = $("calendarTestResult");
+  out.textContent = text || "";
+  out.className = ok ? "okmsg" : "err";
+  out.hidden = !text;
+}
+$("calendarTest").addEventListener("click", async () => {
+  const b = $("calendarTest");
+  if (b.classList.contains("busy")) return;
+  const url = calendarChange || "";
+  if (url && !/^(https|webcal):\/\//i.test(url)) return calendarTestResult(t("urlBad"));
+  busy(b, true);
+  calendarTestResult("");
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 45000);  // the display stops after 30 s
+  try {
+    const r = await api("api/calendar/test", { method: "POST", json: url ? { url } : {}, signal: stop.signal });
+    if (r && r.ok) {
+      calendarTestResult(t(r.events === 0 ? "testNone" : r.events === 1 ? "testOne" : "testOk", { n: r.events, days: r.days }), true);
+    } else {
+      const key = r && r.error === "invalid" ? "urlBad" : "test_" + (r && r.error);
+      calendarTestResult(t(TEXTS.de[key] ? key : "test_network"));
+    }
+  } catch (e) {
+    if (!(e instanceof HttpError && e.status === 401)) calendarTestResult(t("testNoAnswer"));
+  } finally {
+    clearTimeout(timer);
+    busy(b, false);
+  }
+});
 $("calendarUrl").addEventListener("input", (e) => {
   const v = e.target.value.trim();
   calendarChange = v ? v : undefined;
+  calendarTestResult("");
   showCalendarState();
   setDirty(true);
 });
 $("calendarRemove").addEventListener("click", () => {
   calendarChange = null;
   $("calendarUrl").value = "";
+  calendarTestResult("");
   showCalendarState();
   setDirty(true);
 });
@@ -1400,6 +1471,25 @@ function slotLabel(i) {
   const pos = i === 0 ? "posLeft" : i === n - 1 ? "posRight" : "posMid";
   return t("slotPos", { n: i + 1, pos: t(pos) });
 }
+// Band of the sketch: an example in the language of the display, like the
+// band of the display (date and time of this device, the sentence, the
+// weather picture). The sentence follows the switches "... im Satz des
+// Bands nennen"; without the weather in the sentence and in no column the
+// display shows a placeholder instead of the weather picture.
+function bandSketch() {
+  const l = $("language").value === "en" ? "en" : "de", x = (key) => TEXTS[l][key];
+  const loc = l === "en" ? "en-GB" : "de-DE", now = new Date(), h = now.getHours();
+  const date = now.toLocaleDateString(loc, { weekday: "long" }) + ", " + now.getDate() + (l === "en" ? " " : ". ") +
+    now.toLocaleDateString(loc, { month: "long" }) + " · " + hhmm(now);
+  const has = (id) => slotIds.includes(id), on = (id) => !!widgetInfo(id) && widgetInfo(id).band && $("band" + id.charAt(0).toUpperCase() + id.slice(1)).checked;
+  const sentence = [x(h < 11 ? "exMorning" : h < 18 ? "exDay" : "exEvening")];
+  if (on("weather")) sentence.push(x("exWeather"));
+  if (on("calendar") && has("calendar")) sentence.push(x("exCalendar"));
+  const none = !on("weather") && !has("weather");
+  return el("div", { class: "band" + (none ? " none" : ""), "aria-hidden": "true" },
+    el("div", {}, el("small", {}, date), el("p", {}, sentence.join(" "))),
+    el("div", { class: "bw" }, icon("cloud"), el("span", {}, none ? "–°" : "6°")));
+}
 function renderLayout() {
   $("layouts").replaceChildren(...S.layouts.map((l) => {
     const n = l.steps.length;
@@ -1409,7 +1499,7 @@ function renderLayout() {
   const steps = stepsFor(slotIds);
   slotChosen = Math.min(slotChosen, slotIds.length - 1);
   // The sketch: a tap on a place chooses it; its widget is chosen below.
-  $("sketch").replaceChildren(el("div", { class: "band" }, t("band")), sketchColumns(steps, (step, i) =>
+  $("sketch").replaceChildren(bandSketch(), sketchColumns(steps, (step, i) =>
     el("button", { type: "button", class: "slot", "aria-pressed": String(i === slotChosen),
       "aria-label": slotLabel(i) + ": " + widgetName(slotIds[i]), onclick: () => { slotChosen = i; renderLayout(); } },
     icon(PAGE_ICONS[slotIds[i]]), el("b", {}, widgetName(slotIds[i])), el("small", {}, S.steps[step] + " px"))));
@@ -1449,6 +1539,7 @@ function chooseLayout(n) {
   slotIds = ids;
   layoutChanged();
 }
+$("language").addEventListener("change", renderLayout);
 function layoutChanged() {
   renderLayout();
   setDirty(true);
@@ -2013,7 +2104,12 @@ function route() {
   document.querySelectorAll("main .page").forEach((p) => {
     p.hidden = p.dataset.page !== shown && !(wide() && p.dataset.page === "");
   });
-  if (!name || wide()) renderHome();
+  if (!name || wide()) {
+    renderHome();
+    renderStatus();
+    loadStatus();
+  }
+  if (shown === "layout") renderLayout();
   if (shown === "system") loadSystem();
   updateBar();
   if (!changed && wide()) return;
@@ -2124,6 +2220,57 @@ function refreshHome() {
   if (!wide()) return;
   clearTimeout(homeTimer);
   homeTimer = setTimeout(renderHome, 150);
+}
+
+// Card "Zustand" on top of the overview (in the language of the page,
+// unlike the tab "System"): Wi-Fi, version, running time and the state of
+// the sources, from GET /api/system. Asked for when the page loads and on
+// every change of page (route()), never in a rhythm and not after an entry;
+// looking is no action (the time limit stays).
+let status = null, statusLoading = false;
+async function loadStatus() {
+  if (statusLoading) return;
+  statusLoading = true;
+  try {
+    status = await api("api/system", { passive: true });
+  } catch (e) { /* the card keeps what it has */ }
+  statusLoading = false;
+  renderStatus();
+}
+function ago(unix) {
+  const m = Math.max(0, Math.floor((Date.now() / 1000 - unix) / 60));
+  if (m < 1) return t("agoNow");
+  if (m < 60) return t("agoMin", { n: m });
+  if (m < 1440) return t("agoH", { n: Math.floor(m / 60) });
+  const d = Math.floor(m / 1440);
+  return d === 1 ? t("agoD1") : t("agoD", { n: d });
+}
+function upFor(s) {
+  const m = Math.floor(s / 60);
+  if (m < 60) return t("upMin", { n: m });
+  if (m < 1440) return t("upH", { n: Math.floor(m / 60) });
+  const d = Math.floor(m / 1440);
+  return d === 1 ? t("upD1") : t("upD", { n: d });
+}
+function renderStatus() {
+  const d = (status && status.device) || {}, w = S.wifi || {};
+  const connected = status ? d.wifi_connected : !!w.ssid, rssi = d.rssi || w.rssi;
+  const line = [];
+  if (connected && rssi) line.push(t("stSignal", { q: bars(rssi)[1] }));
+  line.push(t("stVersion", { v: d.firmware || (S.device || {}).firmware || "–" }));
+  if (status) line.push(t("stUp", { d: upFor(d.uptime_s || 0) }));
+  const sources = ((status && status.sources) || []).map((src) => {
+    const failing = src.failures_in_row > 0;
+    const kind = src.state === "no data" || failing ? "bad" : src.state === "ok" ? "ok" : "warn";
+    const text = src.state === "not set up" ? t("stNotSetUp") : src.state === "no data" ? t("stNoData")
+      : src.state === "waiting" ? t("stWaiting") : failing ? t("stFailing")
+        : src.state === "stale" ? t("stStale", { ago: ago(src.last_success) }) : ago(src.last_success);
+    return el("div", {}, el("b", {}, el("i", { class: "dot " + kind }), widgetName(src.name)), el("small", {}, text));
+  });
+  $("status").replaceChildren(el("div", { class: "card status" },
+    el("div", { class: "top" }, icon("wifi"), el("span", {},
+      el("b", {}, connected ? t("stConnected", { ssid: w.ssid || "–" }) : t("stNoWifi")), el("small", {}, line.join(" · ")))),
+    sources.length ? el("div", { class: "src" }, sources) : ""));
 }
 
 // The save bar is on every page; on the overview only when there is
