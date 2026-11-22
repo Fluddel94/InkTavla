@@ -43,7 +43,14 @@ the page); **‹ Übersicht** / **‹ Overview** leads back. The widgets listed
 are those in a column (in the order of the columns) and the weather, which
 keeps its row without a column because the band shows it. A widget without
 a symbol of its own gets a plain square. The settings of a widget without a
-column stay in the file. The bar with **Speichern und neu starten** / **Save
+column stay in the file. The second line of a row tells the current
+entries of its page (for example "MVG · Marienplatz · Zwei Richtungen");
+a row shows at most one mark: **n Fehler** / **n errors**, **Einrichten** /
+**Set up** (departures without a station, weather without a place,
+calendar without an address) or **geändert** / **changed** (differs from
+the settings as loaded, not saved yet). In a window at least 860 px wide
+the overview stays on the left and the chosen page is shown on the right
+(without a page chosen, "Layout und Darstellung"). The bar with **Speichern und neu starten** / **Save
 and restart** is at the bottom of every page (on the overview only once
 something is changed); it saves the changes of all pages at once. A row
 whose page has an entry to correct shows **1 Fehler** / **1 error**; a
@@ -53,8 +60,9 @@ has something for the band (departures, weather, calendar) is a switch that
 turns its part of the band sentence off.
 
 - **Layout und Darstellung / Layout and display:** the arrangement of the
-  screen (band + 3 or band + 2) and, in a sketch of the display, the widget
-  of every column; below that the language, the full refresh and the
+  screen (band + 3 or band + 2) and a sketch of the display: tap a place to
+  choose it, then pick its widget below the sketch (with a link to that
+  widget's settings); below that the language, the full refresh and the
   dotted lines between the columns. Every widget is offered once; choosing
   one that is in another column already swaps the two. With three widgets
   the wide column moves to where the departures are.

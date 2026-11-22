@@ -20,12 +20,13 @@ const TEXTS = {
     // Overview and the heads of its pages
     overview: "Übersicht", g_display: "Anzeige", g_widgets: "Widgets", g_device: "Gerät", g_diag: "Diagnose",
     p_layout: "Layout und Darstellung", p_restart: "Neustart und Zurücksetzen", firmware: "Firmware", time: "Zeit",
-    s_layout: "Aufteilung, Widgets der Plätze, Sprache", s_mvg: "MVG · Haltestelle, Linien, Anzeige",
-    s_weather: "Open-Meteo · Ort", s_calendar: "Google · Adresse, Anzeige, Filter", s_wifi: "Verbindung, WLAN wechseln",
-    s_firmware: "Version, Updates, Datei hochladen", s_backup: "Einstellungen als config.json",
-    s_time: "Zeitzone, Zeitserver", s_restart: "Display neu starten, Standardwerte",
+    s_backup: "Einstellungen als config.json", s_restart: "Display neu starten, Standardwerte",
     s_system: "Zustand der Quellen, Systemlog (englisch)", s_none: "Ohne Einstellungen",
-    nErrors: "{n} Fehler", oneError: "1 Fehler",
+    noStation: "keine Haltestelle", noPlace: "kein Ort", versionInstalled: "Version {v} installiert",
+    nErrors: "{n} Fehler", oneError: "1 Fehler", setupMark: "Einrichten", changedMark: "geändert",
+    tapHint: "Tippe auf einen Platz und wähle darunter das Widget für diesen Platz.",
+    slotPos: "Platz {n} ({pos})", posLeft: "linke Spalte", posMid: "mittlere Spalte", posRight: "rechte Spalte",
+    openSettings: "Einstellungen von „{name}“ öffnen",
     yourDisplay: "Dein Display", calendarAddress: "Kalender-Adresse", fromFile: "Aus einer Datei",
     restartTitle: "Display neu starten", restartHint: "Die Einstellungen bleiben. Die Seite lädt sich danach von selbst neu.",
     resetHint: "Stellt die Standardwerte her und löscht die Kalender-Adresse. Das WLAN bleibt.",
@@ -119,7 +120,6 @@ const TEXTS = {
     arrangement: "Aufteilung",
     nWidgets: "Band + {n}",
     band: "Band",
-    slotN: "Platz {n}",
     swapWith: "{name} (tauscht mit Platz {n})",
     assignmentHint: "Jedes Widget gibt es einmal. Wählst du eines, das schon auf einem anderen Platz steht, tauschen die beiden.",
     wideHint: "Der breite Platz liegt dort, wo ein Widget ihn braucht ({names}).",
@@ -223,12 +223,13 @@ const TEXTS = {
     saveHint: "Changes apply after saving; the display then restarts.",
     overview: "Overview", g_display: "Display", g_widgets: "Widgets", g_device: "Device", g_diag: "Diagnostics",
     p_layout: "Layout and display", p_restart: "Restart and reset", firmware: "Firmware", time: "Time",
-    s_layout: "Arrangement, widgets of the places, language", s_mvg: "MVG · stop, lines, display",
-    s_weather: "Open-Meteo · place", s_calendar: "Google · address, display, filter", s_wifi: "Connection, change Wi-Fi",
-    s_firmware: "Version, updates, upload a file", s_backup: "Settings as config.json",
-    s_time: "Time zone, time server", s_restart: "Restart the display, default settings",
+    s_backup: "Settings as config.json", s_restart: "Restart the display, default settings",
     s_system: "State of the sources, system log", s_none: "No settings",
-    nErrors: "{n} errors", oneError: "1 error",
+    noStation: "no stop", noPlace: "no place", versionInstalled: "Version {v} installed",
+    nErrors: "{n} errors", oneError: "1 error", setupMark: "Set up", changedMark: "changed",
+    tapHint: "Tap a slot and choose its widget below.",
+    slotPos: "Slot {n} ({pos})", posLeft: "left column", posMid: "middle column", posRight: "right column",
+    openSettings: "Open the settings of “{name}”",
     yourDisplay: "Your display", calendarAddress: "Calendar address", fromFile: "From a file",
     restartTitle: "Restart the display", restartHint: "The settings stay. The page then reloads by itself.",
     resetHint: "Restores the default settings and deletes the calendar address. The Wi-Fi stays.",
@@ -322,7 +323,6 @@ const TEXTS = {
     arrangement: "Arrangement",
     nWidgets: "Band + {n}",
     band: "Band",
-    slotN: "Slot {n}",
     swapWith: "{name} (swaps with slot {n})",
     assignmentHint: "Every widget is there once. If you choose one that is in another slot already, the two swap.",
     wideHint: "The wide slot is where a widget needs it ({names}).",
@@ -624,6 +624,7 @@ function setDirty(on) {
   $("barText").textContent = on ? t("unsaved") : t("noChanges");
   $("save").disabled = !on || saving;
   updateBar();
+  if (page !== null) refreshHome();
 }
 function pageClosed() {
   if ($("restarting").hidden === false) return;
@@ -668,6 +669,7 @@ async function loadState() {
   fillForm();
   show("main");
   setDirty(false);
+  baseline = areaState();
   route();
   showOpenUntil();
 }
@@ -919,6 +921,7 @@ async function loadCatalog(id, rerender) {
     mvg.catalogs[id] = { state: "failed", lines: [] };
   }
   rerender();
+  if (!dirty && S) baseline = areaState();
 }
 
 // Lines to show: those of the catalog and those already selected.
@@ -1391,6 +1394,12 @@ function sketchColumns(steps, content) {
     return el("div", { class: "col", style: "flex:" + w + " 0 0" }, content ? content(step, i) : null);
   }));
 }
+let slotChosen = 0;  // place chosen in the sketch
+function slotLabel(i) {
+  const n = slotIds.length;
+  const pos = i === 0 ? "posLeft" : i === n - 1 ? "posRight" : "posMid";
+  return t("slotPos", { n: i + 1, pos: t(pos) });
+}
 function renderLayout() {
   $("layouts").replaceChildren(...S.layouts.map((l) => {
     const n = l.steps.length;
@@ -1398,23 +1407,34 @@ function renderLayout() {
       el("div", { class: "mini" }, el("div", { class: "band" }), sketchColumns(l.steps)), t("nWidgets", { n }));
   }));
   const steps = stepsFor(slotIds);
-  $("sketch").replaceChildren(el("div", { class: "band" }, t("band")), sketchColumns(steps, (step, i) => {
+  slotChosen = Math.min(slotChosen, slotIds.length - 1);
+  // The sketch: a tap on a place chooses it; its widget is chosen below.
+  $("sketch").replaceChildren(el("div", { class: "band" }, t("band")), sketchColumns(steps, (step, i) =>
+    el("button", { type: "button", class: "slot", "aria-pressed": String(i === slotChosen),
+      "aria-label": slotLabel(i) + ": " + widgetName(slotIds[i]), onclick: () => { slotChosen = i; renderLayout(); } },
+    icon(PAGE_ICONS[slotIds[i]]), el("b", {}, widgetName(slotIds[i])), el("small", {}, S.steps[step] + " px"))));
+  // One select per place (slot0, slot1 ...); only the chosen one is shown.
+  $("slotPick").replaceChildren(...slotIds.map((current, i) => {
     const options = S.widgets.filter((w) => allFit(withWidget(i, w.id))).map((w) => {
       const j = slotIds.indexOf(w.id);
       const name = j >= 0 && j !== i ? t("swapWith", { name: widgetName(w.id), n: j + 1 }) : widgetName(w.id);
-      return el("option", { value: w.id, selected: w.id === slotIds[i] }, name);
+      return el("option", { value: w.id, selected: w.id === current }, name);
     });
     // From a file written by hand: an unknown widget or one that does not fit.
-    if (!options.some((o) => o.selected)) options.push(el("option", { value: slotIds[i], selected: true }, widgetName(slotIds[i])));
-    const select = el("select", { id: "slot" + i, "aria-label": t("slotN", { n: i + 1 }), onchange: () => {
+    if (!options.some((o) => o.selected)) options.push(el("option", { value: current, selected: true }, widgetName(current)));
+    const select = el("select", { id: "slot" + i, onchange: () => {
       slotIds = withWidget(i, select.value);
       layoutChanged();
+      $("slot" + i).focus();
     } }, options);
-    return [icon(PAGE_ICONS[slotIds[i]]), select, el("small", {}, S.steps[step] + " px")];
+    return el("div", { hidden: i !== slotChosen }, el("label", { for: "slot" + i }, slotLabel(i)), select);
   }));
+  const chosen = slotIds[slotChosen];
+  $("slotLink").replaceChildren(pageEl(chosen)
+    ? el("a", { href: "#/" + chosen }, t("openSettings", { name: widgetName(chosen) }), icon("right")) : "");
   const layout = S.layouts.find((l) => l.steps.length === slotIds.length);
-  const wide = layout && layout.wide ? S.widgets.filter((w) => w.min === layout.wide).map((w) => widgetName(w.id)) : [];
-  $("assignmentHint").textContent = t("assignmentHint") + (wide.length ? " " + t("wideHint", { names: wide.join(", ") }) : "");
+  const needWide = layout && layout.wide ? S.widgets.filter((w) => w.min === layout.wide).map((w) => widgetName(w.id)) : [];
+  $("assignmentHint").textContent = t("assignmentHint") + (needWide.length ? " " + t("wideHint", { names: needWide.join(", ") }) : "");
 }
 // Another layout: fewer columns keep the first widgets, more columns get the
 // first widgets that are not shown yet.
@@ -1978,19 +1998,31 @@ function hashPage() {
   const m = /^#\/([a-z0-9_]*)$/.exec(location.hash);
   return m && pageEl(m[1]) ? m[1] : "";
 }
+// Wide window (style.css, same width): overview on the left, the page on
+// the right; without a page chosen, "Layout und Darstellung" is open.
+const WIDE = window.matchMedia("(min-width: 860px)");
+const wide = () => WIDE.matches;
+const shownPage = () => (wide() ? page || "layout" : page);
 function route() {
   const name = hashPage();
   fromOverview = page === "" && name !== "";
+  const changed = name !== page;
   page = name;
-  document.querySelectorAll("main .page").forEach((p) => { p.hidden = p.dataset.page !== name; });
-  if (!name) renderHome();
-  if (name === "system") loadSystem();
+  document.body.classList.toggle("wide", wide());
+  const shown = shownPage();
+  document.querySelectorAll("main .page").forEach((p) => {
+    p.hidden = p.dataset.page !== shown && !(wide() && p.dataset.page === "");
+  });
+  if (!name || wide()) renderHome();
+  if (shown === "system") loadSystem();
   updateBar();
+  if (!changed && wide()) return;
   window.scrollTo(0, 0);
-  const title = pageEl(name).querySelector("h1");
+  const title = pageEl(wide() && !name ? "" : shown).querySelector("h1");
   title.tabIndex = -1;
   title.focus({ preventScroll: true });
 }
+WIDE.addEventListener("change", () => { if (S) route(); });
 window.addEventListener("hashchange", () => { if (S) route(); });
 function go(name) {
   if (hashPage() === name && page === name) route();
@@ -2017,34 +2049,94 @@ function homeWidgets() {
   for (const w of S.widgets) if ((w.band_alone || pageErrors[w.id]) && !shown.includes(w.id)) shown.push(w.id);
   return shown;
 }
-function homeRow(name, title) {
+// Second line of a row, from the forms as they are now (not as saved).
+const short = (s, n = 26) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
+const hasAddress = () => (calendarChange === null ? false : !!calendarChange || !!S.secrets.calendar_url);
+function summary(name) {
+  const tzName = () => {
+    const known = TIME_ZONES.find(([v]) => v === $("timeZone").value);
+    return known ? known[1][lang].replace(/ \(.*/, "") : short($("timeZoneCustom").value.trim() || "–", 20);
+  };
+  const lines = {
+    layout: () => [t("nWidgets", { n: slotIds.length }), slotIds.map((id) => short(widgetName(id), 18)).join(", "),
+      $("language").selectedOptions[0].textContent],
+    mvg: () => ["MVG", short($("mvgName").value.trim() || (mvg.station ? mvg.station.name : "") || t("noStation")),
+      t({ list: "modeList", dir: "modeDir", two: "modeTwo" }[mvg.mode])],
+    weather: () => ["Open-Meteo", parseNumber($("weatherLat").value) === null ? t("noPlace")
+      : short($("weatherName").value.trim() || (place && place.name) || fmtCoord(parseNumber($("weatherLat").value)) + " / " + fmtCoord(parseNumber($("weatherLon").value)))],
+    calendar: () => ["Google", t(hasAddress() ? "calendarSet" : "calendarUnset")],
+    wifi: () => [short((S.wifi || {}).ssid || "–"), (S.wifi || {}).ip || "–"],
+    firmware: () => [t("versionInstalled", { v: (S.device || {}).firmware || "–" })],
+    time: () => [tzName(), short($("ntpServer").value.trim() || "pool.ntp.org")],
+  };
+  if (lines[name]) return lines[name]().join(" · ");
+  return t(pageEl(name) ? "s_" + name : "s_none");
+}
+// Widgets that cannot show anything yet.
+const NEEDS_SETUP = {
+  mvg: () => !mvg.station || (mvg.mode === "two" && !mvg.station2),
+  weather: () => parseNumber($("weatherLat").value) === null,
+  calendar: () => !hasAddress(),
+};
+// Parts of the configuration per row, to tell which ones differ from the
+// state as loaded ("geändert"). The baseline is taken from the forms
+// themselves (as long as nothing was changed), so defaults the forms add do
+// not count as a change.
+const AREAS = {
+  layout: (c) => [c.layout, c.language, c.display],
+  mvg: (c) => c.widgets.mvg, weather: (c) => c.widgets.weather,
+  calendar: (c) => [c.widgets.calendar, calendarChange !== undefined],
+  time: (c) => [c.time_zone, c.ntp_server],
+};
+let baseline = null;
+function areaState() {
+  const c = buildConfig().config, out = {};
+  for (const [name, part] of Object.entries(AREAS)) out[name] = JSON.stringify(part(c));
+  for (const w of S.widgets) if (!AREAS[w.id]) out[w.id] = JSON.stringify(c.widgets[w.id]);
+  return out;
+}
+function homeRow(name, title, now) {
   const n = pageErrors[name] || 0;
   const own = !!pageEl(name);
-  return el("a", { class: "item", href: own ? "#/" + name : null, "aria-disabled": own ? null : "true" },
-    icon(PAGE_ICONS[name]),
-    el("span", {}, el("b", {}, title), el("small", {}, t(own ? "s_" + name : "s_none"))),
-    n ? el("span", { class: "mark" }, n === 1 ? t("oneError") : t("nErrors", { n })) : null,
-    own ? icon("right", "go") : null);
+  let mark = null;
+  if (n) mark = el("span", { class: "mark" }, n === 1 ? t("oneError") : t("nErrors", { n }));
+  else if (NEEDS_SETUP[name] && NEEDS_SETUP[name]()) mark = el("span", { class: "mark setup" }, t("setupMark"));
+  else if (baseline && name in now && now[name] !== baseline[name]) mark = el("span", { class: "mark changed" }, t("changedMark"));
+  return el("a", { class: "item", href: own ? "#/" + name : null, "aria-disabled": own ? null : "true",
+    "aria-current": shownPage() === name ? "page" : null },
+  icon(PAGE_ICONS[name]),
+  el("span", {}, el("b", {}, title), el("small", {}, summary(name))),
+  mark, own ? icon("right", "go") : null);
 }
 function renderHome() {
+  const now = areaState();
+  if (!dirty) baseline = now;
   $("home").replaceChildren(...HOME.flatMap(([group, names]) => {
-    const rows = names ? names.map((n) => homeRow(n, t(n === "layout" || n === "restart" ? "p_" + n : n)))
-      : homeWidgets().map((id) => homeRow(id, widgetName(id)));
+    const rows = names ? names.map((n) => homeRow(n, t(n === "layout" || n === "restart" ? "p_" + n : n), now))
+      : homeWidgets().map((id) => homeRow(id, widgetName(id), now));
     return rows.length ? [el("h2", {}, t(group)), el("div", { class: "card list" }, rows)] : [];
   }));
+}
+// Wide window: the overview stays on the left and is redrawn shortly after
+// every change on the right.
+let homeTimer = 0;
+function refreshHome() {
+  if (!wide()) return;
+  clearTimeout(homeTimer);
+  homeTimer = setTimeout(renderHome, 150);
 }
 
 // The save bar is on every page; on the overview only when there is
 // something to say (changes, a failed save).
 function updateBar() {
   const bar = $("bar");
-  bar.hidden = $("main").hidden || (page === "" && bar.className === "bar");
+  bar.hidden = $("main").hidden || (page === "" && !wide() && bar.className === "bar");
 }
 
 // Pages with entries to correct get a mark "n Fehler" on the overview.
 function markPages(counts) {
   pageErrors = counts;
-  if (page === "") renderHome();
+  if (page === "" || wide()) renderHome();
 }
 function markPageErrors(errors) {
   const counts = {};

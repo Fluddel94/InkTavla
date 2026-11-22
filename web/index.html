@@ -60,7 +60,10 @@
     <h2 data-t="yourDisplay"></h2>
     <div class="card">
       <div class="sketch" id="sketch"></div>
+      <p class="hint" data-t="tapHint"></p>
+      <div id="slotPick"></div>
       <p class="hint" id="assignmentHint"></p>
+      <p class="more" id="slotLink"></p>
     </div>
     <h2 data-t="display"></h2>
     <div class="card">
@@ -276,10 +279,9 @@
       <p class="hint" data-t="sysLogHint"></p>
     </div>
   </section>
+  <div id="bar" class="bar" hidden><div><span id="barText"></span><button class="primary" id="save" type="button" data-t="save"></button></div></div>
 </main>
 </div>
-
-<div id="bar" class="bar" hidden><div><span id="barText"></span><button class="primary" id="save" type="button" data-t="save"></button></div></div>
 
 <script src="app.js"></script>
 </body>

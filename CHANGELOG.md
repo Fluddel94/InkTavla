@@ -54,6 +54,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the device interface are unchanged.
 - `tools/mock_device.py` serves the settings page with made-up data to try
   it in a browser without the display.
+- Settings page, overview: the second line of every row tells the current
+  entries (layout and widgets, station and display, place, calendar address
+  set or not, Wi-Fi, version, time zone and time server), worked out from
+  the forms as they are now. Marks, at most one per row: "n Fehler", then
+  "Einrichten" (departures without a station, weather without a place,
+  calendar without an address), then "geändert" (differs from the settings
+  as loaded).
+- Settings page, "Layout und Darstellung": tapping a place in the sketch
+  of the display chooses it; below it are the widget for that place and a
+  link to the settings of that widget.
+- Settings page in a wide window (from 860 px): two columns, the overview
+  on the left (stays put, the open page is marked) and the page on the
+  right, with the save bar at the foot of the right column. Borders of
+  fields and buttons have more contrast.
 
 - The event in the sentence of the band has three wordings for each case
   (today or tomorrow, with a time or all day), chosen by the date and the

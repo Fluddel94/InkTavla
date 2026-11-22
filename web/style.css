@@ -8,7 +8,7 @@
   --ink: #111315;
   --muted: #565d65;
   --line: #dfe2e6;
-  --field: #b9bec5;
+  --field: #878e96;  /* 3.3 : 1 to the card (borders of fields: at least 3 : 1) */
   --off: #8d949c;
   --accent: #0d5c63;
   --on-accent: #ffffff;
@@ -34,7 +34,7 @@
     --ink: #e8eaec;
     --muted: #a0a8b0;
     --line: #333a40;
-    --field: #4a5158;
+    --field: #666e76;
     --off: #69717a;
     --accent: #5fb7bd;
     --on-accent: #0d1213;
@@ -96,6 +96,9 @@ a.item b { display: block; font-size: 16px; font-weight: 600; }
 a.item small { display: block; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 a.item svg.go { width: 18px; height: 18px; color: var(--muted); }
 .mark { flex: none; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 10px; color: var(--bad); background: var(--bad-soft); }
+a.item > .mark { flex: none; }
+.mark.setup { color: var(--warn); background: var(--warn-soft); }
+.mark.changed { color: var(--accent); background: var(--accent-soft); }
 
 /* Form fields */
 label, .label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: 14px; }
@@ -211,12 +214,19 @@ button.busy::before { content: ""; display: inline-block; width: 12px; height: 1
 .sketch .band { flex: 205 0 0; display: flex; align-items: center; padding: 0 3%; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #4d545b; border-bottom: 2px solid #15181c; margin: 0 2%; }
 .sketch .cols { flex: 275 0 0; display: flex; min-height: 0; padding: 2% 0; }
 .sketch .col + .col { border-left: 1px dotted #15181c; }
-.sketch .col { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 1.6%; }
+.sketch .col { min-width: 0; display: flex; padding: 0 1.2%; }
+/* A place of the sketch: tap to choose it (paper colours in both modes). */
+.sketch button.slot { flex: 1; min-width: 0; min-height: 44px; padding: 4px 2px; flex-direction: column; gap: 2px; border: 1.5px dashed #8a9097; border-radius: 6px; background: #fff; color: #15181c; font-size: 14px; line-height: 1.2; }
+.sketch button.slot[aria-pressed=true] { border: 2px solid #0d5c63; background: #e3f0f0; }
+.sketch button.slot b { font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sketch svg { width: 20px; height: 20px; }
-.sketch select { height: 40px; padding: 0 22px 0 6px; font-size: 14px; background-position: right 3px center; background-size: 16px 16px; color-scheme: light; background-color: #fff; color: #15181c; border-color: #9aa0a7; }
-@media (max-width: 480px) { .sketch .col { padding: 0 1%; } .sketch select { padding: 0 18px 0 3px; font-size: 13px; } .sketch .band { font-size: 11px; } }
+@media (max-width: 480px) { .sketch button.slot { font-size: 13px; } .sketch .band { font-size: 11px; } }
 .sketch small { color: #4d545b; font-size: 12px; text-align: center; white-space: nowrap; }
 .sketch + .hint { margin-top: 10px; }
+#slotPick label { margin-top: 12px; }
+.more a { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: 15px; text-decoration: none; }
+.more a svg { width: 18px; height: 18px; }
+p.more { margin: 2px 0 -8px; }
 .link { border: 0; background: none; min-height: 0; padding: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 
 /* Wi-Fi */
@@ -283,3 +293,19 @@ input.code { font: 600 28px var(--mono); letter-spacing: .3em; text-align: cente
   .log div { grid-template-columns: 15ch 5ch 1fr; }
   .log span:last-child { grid-column: 1 / -1; padding-left: 2ch; }
 }
+
+/* Wide window (app.js sets body.wide from 860 px): two columns, the
+   overview on the left (stays put, chosen row marked), the page on the
+   right. */
+body.wide .wrap { max-width: 1100px; padding-left: 16px; padding-right: 16px; }
+body.wide main { display: grid; grid-template-columns: 380px minmax(0, 640px); column-gap: 28px; justify-content: center; align-items: start; }
+body.wide #secHome { grid-column: 1; grid-row: 1; position: sticky; top: 0; max-height: 100vh; overflow-y: auto; padding-bottom: 24px; scrollbar-width: thin; }
+body.wide main > .page:not(#secHome) { grid-column: 2; grid-row: 1; }
+body.wide .ph { padding-top: 20px; }
+body.wide .ph a.back { display: none; }
+body.wide a.item[aria-current=page] { background: var(--accent-soft); box-shadow: inset 3px 0 var(--accent); }
+body.wide a.item[aria-current=page] .mark.changed { background: var(--panel); }
+/* The save bar sits at the foot of the right column (cards there have
+   12 px margins; columns 380 + 28 + 640 px, centred, 16 px window margin). */
+body.wide .bar { left: max(436px, calc(50% - 104px)); right: auto; width: min(616px, calc(100% - 464px)); border: 1px solid var(--line); border-bottom: 0; border-radius: 14px 14px 0 0; box-shadow: 0 -2px 10px rgba(0, 0, 0, .06); }
+body.wide .bar > div { max-width: none; }
