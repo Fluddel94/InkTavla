@@ -32,6 +32,14 @@ std::string wifiConnectedText(int64_t lost_s, int rssi_dbm, int channel) {
   return buffer;
 }
 
+std::string wifiFailedText(bool lost, int rssi_dbm, int reason, const char* reason_name) {
+  std::string text = lost ? "disconnected" : "attempt failed";
+  // The driver reports 0 (or less than any real signal) without a signal.
+  if (rssi_dbm < 0 && rssi_dbm > -127) text += ", " + std::to_string(rssi_dbm) + " dBm";
+  text += ", reason " + std::to_string(reason) + " (" + reason_name + ")";
+  return text;
+}
+
 std::string wifiSignalText(int rssi_dbm) {
   char buffer[48];
   std::snprintf(buffer, sizeof(buffer), "signal %d dBm (%s)", rssi_dbm, signalQuality(rssi_dbm));

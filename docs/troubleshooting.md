@@ -42,3 +42,30 @@ the browser reports the error, and on a display without a saved network the
 screen shows "WLAN-Verbindung fehlgeschlagen." with the name of the network
 tried. Check the password and run the setup again. A network that was saved
 before stays saved and is used again.
+
+## The display connects to a far access point
+
+With several access points of one network (a router and a repeater or mesh
+access points), the display picks the strongest one. If it still ends up
+with a weak, far one, the strong one may refuse it. The system log shows
+this (see [system-log.md](system-log.md)):
+
+```
+WARN  wifi     attempt failed, -41 dBm, reason 202 (AUTH_FAIL)
+INFO  wifi     connected after 0:00:12, -84 dBm, ch 1
+```
+
+The access point with a good signal (-41 dBm) refused the password
+(reason 202), the display then took one with a weak signal (-84 dBm on
+channel 1). The network name and the addresses of the access points are
+never logged. What to check on that router or access point:
+
+- **WPA2/WPA3:** some routers refuse the ESP32 with WPA3 only or with a
+  WPA3 setting that differs between the bands. Try "WPA2 + WPA3" (mixed
+  mode) or WPA2 alone for the 2.4 GHz band.
+- **2.4 GHz:** the display only uses 2.4 GHz. Band steering, which pushes
+  devices to 5 or 6 GHz, and multi-link operation (MLO, Wi-Fi 7) can keep it
+  off the 2.4 GHz band of that access point; turn them off for 2.4 GHz or
+  use a separate 2.4 GHz network.
+- After a change, restart the display (system page or settings page) and
+  look at the log again.

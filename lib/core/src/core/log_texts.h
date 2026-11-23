@@ -17,6 +17,15 @@ std::string startText(const char* firmware_version, const char* restart_reason);
 // "connected after 0:00:09, -64 dBm, ch 6" (area "wifi")
 std::string wifiConnectedText(int64_t lost_s, int rssi_dbm, int channel);
 
+// "attempt failed, -41 dBm, reason 202 (AUTH_FAIL)" or, for a
+// lost connection, "disconnected, -78 dBm, reason 200 (BEACON_TIMEOUT)"
+// (area "wifi"). The signal is the one of the access point that rejected or
+// lost the device (diagnosis: a near access point refuses, a far one is
+// taken); it stands before the reason name so a long name cannot push it
+// off the line (the system page cuts long lines at the end). No signal (e.g. NO_AP_FOUND): left
+// out.
+std::string wifiFailedText(bool lost, int rssi_dbm, int reason, const char* reason_name);
+
 // "signal -63 dBm (good)" (area "wifi", hourly)
 std::string wifiSignalText(int rssi_dbm);
 

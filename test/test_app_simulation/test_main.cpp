@@ -16,6 +16,7 @@
 #include <string>
 
 #include "core/config.h"
+#include "core/syslog.h"
 #include "core/time.h"
 #include "hal/png.h"
 #include "hal/png_display.h"
@@ -32,7 +33,9 @@ class SimClock : public core::Clock {
  public:
   int64_t monotonicMs() const override { return ms; }
   int64_t wallTime() const override { return start + ms / 1000; }
+  uint32_t randomNumber() const override { return random; }
   int64_t ms = 0;
+  uint32_t random = 0;  // 0: MVG at second 20
   int64_t start = kStart;
 };
 
@@ -126,9 +129,10 @@ struct Rig {
   // calendar_address: whether an iCal address is set (read once, like on the
   // device where saving one restarts it).
   explicit Rig(const char* config_text, const char* name, bool calendar_address = true,
-               int64_t start = kStart)
+               int64_t start = kStart, uint32_t random = 0)
       : display(800, 480, std::string(".pio/simulation/") + name), app(clock, display, services()) {
     clock.start = start;
+    clock.random = random;
     // The saved departures are from kStart; move them to the start time.
     source.shift_s = start - kStart;
     calendar.has_address = calendar_address;
@@ -215,16 +219,22 @@ void test_normal_operation_and_refresh_types() {
   TEST_ASSERT_TRUE(rig.display.updates()[0].mode == hal::Refresh::kFull);
   checkPanel(rig.display, "sim_start");
 
-  // 22:25:01: new minute in the header line, MVG updated at second 1 - one
-  // partial refresh of the changed areas only (weather and calendar stay).
+  // 22:25:01: new minute in the header line - one partial refresh of the
+  // changed areas only (weather and calendar stay). MVG is fetched at a
+  // second between 20 and 45 (spread 0 in the simulation: second 20).
   rig.runUntil(11000);
-  TEST_ASSERT_EQUAL_INT(2, rig.source.requests);
+  TEST_ASSERT_EQUAL_INT(1, rig.source.requests);
   TEST_ASSERT_EQUAL_size_t(2, rig.display.updates().size());
   const hal::PngDisplay::Update& u = rig.display.updates()[1];
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
   TEST_ASSERT_TRUE(contains(u.regions, 0, 0));       // header line with the clock
   TEST_ASSERT_FALSE(contains(u.regions, 313, 205));  // calendar (every 15 minutes)
   TEST_ASSERT_FALSE(contains(u.regions, 553, 205));  // weather (every 30 minutes)
+
+  // 22:25:20: MVG updated; drawn with the next minute, no refresh now.
+  rig.runUntil(30000);
+  TEST_ASSERT_EQUAL_INT(2, rig.source.requests);
+  TEST_ASSERT_EQUAL_size_t(2, rig.display.updates().size());
 
   // One hour later at least one full refresh against ghosting.
   rig.runUntil(3700000);
@@ -239,27 +249,84 @@ void test_normal_operation_and_refresh_types() {
 void test_short_outage_is_bridged_then_age_is_shown() {
   Rig rig(kConfig, "outage");
   rig.app.controller().setNetworkConnected(true);
-  rig.runUntil(11000);  // 22:25:01, data from then
+  rig.runUntil(30000);  // 22:25:20 (MVG at second 20), data from then
   rig.source.fail = true;
   rig.app.controller().setNetworkConnected(false);
 
-  // 59 s after the first failure (22:26:01) still no hint, and the lost
+  // 59 s after the first failure (22:26:20) still no hint, and the lost
   // connection is not shown yet either.
-  rig.runUntil(11000 + 59000);
+  rig.runUntil(30000 + 59000);
   TEST_ASSERT_TRUE(rig.app.controller().state().network_connected);
-  rig.runUntil(11000 + 60000 + 59000);
+  rig.runUntil(30000 + 60000 + 59000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kFresh);
   TEST_ASSERT_FALSE(rig.app.controller().state().network_connected);
   // Then the age badge "Stand 22:25".
-  rig.runUntil(11000 + 60000 + 61000);
+  rig.runUntil(30000 + 60000 + 61000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kStale);
   checkPanel(rig.display, "sim_stale");
 
   // Back online: the badge disappears with the next successful update.
   rig.source.fail = false;
   rig.app.controller().setNetworkConnected(true);
-  rig.runUntil(11000 + 60000 + 75000);
+  rig.runUntil(30000 + 60000 + 75000);
   TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kFresh);
+}
+
+// Principle 13: the MVG is asked at a second between 20 and 45, chosen at
+// random per start, not by every device at second 1. Its data is drawn with
+// the redraw at second 1, so a minute has one panel refresh.
+void test_mvg_fetch_is_spread_over_the_minute() {
+  const std::vector<core::LogEntry> before = core::systemLog().newest(1);
+  const uint32_t seq = before.empty() ? 0 : before[0].seq;
+  Rig rig(kConfig, "spread", true, kStart, 13 + 26 * 7);  // 20 + 13
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);  // first data at once (22:24:50)
+  TEST_ASSERT_EQUAL_INT(1, rig.source.requests);
+
+  std::string text;
+  core::LogEntry e;
+  for (uint32_t s = seq; core::systemLog().next(s, e); s = e.seq) {
+    if (std::string(e.area) == "mvg") text = e.text;
+  }
+  TEST_ASSERT_EQUAL_STRING("updates at second 33 of every 60 s", text.c_str());
+
+  // 22:25:01: the clock; the departures are not asked yet.
+  rig.runUntil(11000);
+  TEST_ASSERT_EQUAL_INT(1, rig.source.requests);
+  const size_t updates = rig.display.updates().size();
+  rig.runUntil(42000);
+  TEST_ASSERT_EQUAL_INT(1, rig.source.requests);
+  // 22:25:33: asked, not drawn yet.
+  rig.runUntil(43000);
+  TEST_ASSERT_EQUAL_INT(2, rig.source.requests);
+  rig.runUntil(70000);
+  TEST_ASSERT_EQUAL_size_t(updates, rig.display.updates().size());
+  // 22:26:01: drawn with the new minute; 22:26:33 asked again.
+  rig.runUntil(71000);
+  TEST_ASSERT_EQUAL_size_t(updates + 1, rig.display.updates().size());
+  rig.runUntil(103000);
+  TEST_ASSERT_EQUAL_INT(3, rig.source.requests);
+
+  // A failure is retried after 10 s (22:27:43).
+  rig.source.fail = true;
+  rig.runUntil(163000);  // 22:27:33 fails
+  TEST_ASSERT_EQUAL_INT(4, rig.source.requests);
+  rig.source.fail = false;
+  rig.runUntil(173000);  // 22:27:43 works again
+  TEST_ASSERT_EQUAL_INT(5, rig.source.requests);
+  TEST_ASSERT_TRUE(rig.app.controller().state().contents[0].state == core::DataState::kFresh);
+
+  // KEY1 at second 1 (22:28:01): everything is fetched at once and drawn
+  // once with the new data (full refresh), not before the fetch.
+  rig.runUntil(190999);  // the clock now stands at 22:28:01, nothing run yet
+  const size_t before_key = rig.display.updates().size();
+  rig.source.shift_s += 120;  // other departures from now on
+  rig.app.controller().requestUpdate();
+  rig.app.controller().requestFullRefresh();
+  rig.runUntil(191500);
+  TEST_ASSERT_EQUAL_INT(6, rig.source.requests);
+  TEST_ASSERT_EQUAL_size_t(before_key + 1, rig.display.updates().size());
+  TEST_ASSERT_TRUE(rig.display.updates().back().mode == hal::Refresh::kFull);
 }
 
 void test_no_connection_from_the_start() {
@@ -479,7 +546,7 @@ void test_briefing_morning() {
   TEST_ASSERT_TRUE(rig.display.updates()[0].mode == hal::Refresh::kFull);
   checkPanel(rig.display, "sim_briefing_morning");
 
-  // 07:42:01: only the clock and the departures change.
+  // 07:42:01: only the clock and the departures change (minutes).
   rig.runUntil(11000);
   const hal::PngDisplay::Update& u = rig.display.updates().back();
   TEST_ASSERT_TRUE(u.mode == hal::Refresh::kPartial);
@@ -487,13 +554,15 @@ void test_briefing_morning() {
   TEST_ASSERT_FALSE(contains(u.regions, 0, 44));     // sentence unchanged
   TEST_ASSERT_FALSE(contains(u.regions, 553, 205));  // weather unchanged
 
-  // Wi-Fi lost: shown after 60 s in the header line and in the sentence.
+  // Wi-Fi lost after the departures of 07:42:20: shown after 60 s in the
+  // header line and in the sentence.
+  rig.runUntil(30000);
   rig.app.controller().setNetworkConnected(false);
   rig.weather.fail = true;
   rig.source.fail = true;
-  rig.runUntil(11000 + 59000);
+  rig.runUntil(30000 + 59000);
   TEST_ASSERT_TRUE(rig.app.controller().state().network_connected);
-  rig.runUntil(11000 + 125000);
+  rig.runUntil(30000 + 125000);
   TEST_ASSERT_FALSE(rig.app.controller().state().network_connected);
   checkPanel(rig.display, "sim_briefing_offline");
 }
@@ -682,6 +751,7 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(test_normal_operation_and_refresh_types);
   RUN_TEST(test_short_outage_is_bridged_then_age_is_shown);
+  RUN_TEST(test_mvg_fetch_is_spread_over_the_minute);
   RUN_TEST(test_no_connection_from_the_start);
   RUN_TEST(test_start_screen);
   RUN_TEST(test_station_name_from_the_api);

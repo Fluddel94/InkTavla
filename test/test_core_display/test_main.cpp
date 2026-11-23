@@ -242,9 +242,10 @@ void test_controller_waits_until_second_1_and_skips_unchanged_frames() {
   c.step();
   TEST_ASSERT_EQUAL_size_t(2, a.calls.size());
   TEST_ASSERT_EQUAL_INT64(kWall + 61, a.calls[1]);
-  // Same frame: no further refresh of the panel.
+  // Same frame: no further refresh of the panel. Drawn before the fetch (the
+  // clock never waits for a fetch) and again after it, not shown.
   TEST_ASSERT_EQUAL_size_t(1, display.updates().size());
-  TEST_ASSERT_EQUAL_size_t(2, renderer.states.size());  // drawn again, not shown
+  TEST_ASSERT_EQUAL_size_t(3, renderer.states.size());
 }
 
 void test_controller_bridges_failures_then_shows_age() {

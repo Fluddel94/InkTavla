@@ -32,7 +32,7 @@ Every entry has a time (local time; before the clock is set the time since
 the start, e.g. `+0:00:04`), a level, an area and a short English text:
 
 ```
-2026-11-06 07:17:20 WARN  wifi     disconnected, reason 200 (BEACON_TIMEOUT)
+2026-11-06 07:17:20 WARN  wifi     disconnected, -78 dBm, reason 200 (BEACON_TIMEOUT)
 2026-11-06 07:17:29 INFO  wifi     connected after 0:00:09, -64 dBm, ch 6
 2026-11-06 07:18:20 WARN  calendar fetch failed: HTTP 404 (1.2 s)
 2026-11-06 07:32:10 INFO  mvg      last hour: 59 ok, 1 failed, avg 0.9, max 3.1 s
@@ -51,9 +51,9 @@ the start, e.g. `+0:00:04`), a level, an area and a short English text:
 | Area | Entries |
 |---|---|
 | `system` | start with the firmware version and the reason of the last restart (`start 0.3.0, reason: power on`); planned restarts with their reason |
-| `wifi` | connected again (time without connection, signal, channel), lost (with the reason of the Wi-Fi driver), a change of the reason while reconnecting, restart of the Wi-Fi module, new network set up; hourly the signal (`signal -63 dBm (good)`) |
+| `wifi` | connected again (time without connection, signal, channel), lost and a change of the reason while reconnecting (`attempt failed, -41 dBm, reason 202 (AUTH_FAIL)`: the signal of the access point that lost or refused the device, then the reason of the Wi-Fi driver), restart of the Wi-Fi module, new network set up; hourly the signal (`signal -63 dBm (good)`) |
 | `time` | the clock was set by NTP |
-| `mvg`, `weather`, `calendar` | the first failed update with its reason (e.g. `HTTP 404`, `timed out`, a TLS error) and the duration, a change of the reason, working again after n attempts, failing for 30 minutes; an update that took 5 s or more (`slow fetch: 6.2 s`); an update stopped for a button (see below); hourly the number of updates and their average and longest duration in seconds |
+| `mvg`, `weather`, `calendar` | at the start the second of the minute the MVG is asked at (`updates at second 33 of every 60 s`, random per start); the first failed update with its reason (e.g. `HTTP 404`, `timed out`, a TLS error) and the duration, a change of the reason, working again after n attempts, failing for 30 minutes; an update that took 5 s or more (`slow fetch: 6.2 s`); an update stopped for a button (see below); hourly the number of updates and their average and longest duration in seconds |
 | `memory` | hourly: free internal memory, its lowest value since the start (`min`), the largest free block (`block`), free PSRAM |
 | `settings` | settings page opened, closed (button, page, time up), logged in, wrong code, saved, reset |
 | `update` | update check, download, firmware written, rejected or failed, new firmware confirmed |

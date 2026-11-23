@@ -30,6 +30,9 @@ class Clock {
   virtual ~Clock() = default;
   virtual int64_t monotonicMs() const = 0;  // milliseconds since start, never goes back
   virtual int64_t wallTime() const = 0;     // Unix seconds, invalid before NTP
+  // A random number for spreading fetches (Schedule::spread_s); 0 means no
+  // spread (default, tests).
+  virtual uint32_t randomNumber() const { return 0; }
 };
 
 // Clock of the device (or the PC): monotonicMs() and the system time.
@@ -37,6 +40,7 @@ class SystemClock : public Clock {
  public:
   int64_t monotonicMs() const override;
   int64_t wallTime() const override;
+  uint32_t randomNumber() const override;  // hardware random on the device
 };
 
 // Data of one slot as seen by the controller (implemented by the widgets).
@@ -58,6 +62,12 @@ class Content {
     (void)wall_s;
     return true;
   }
+
+  // Whether a successful fetch is drawn at once. False: shown with the next
+  // regular redraw (every minute at kRedrawSecond), so a fetch spread over
+  // the minute does not refresh the panel a second time; the first data and
+  // data after a failure are still drawn at once.
+  virtual bool drawsAtOnce() const { return true; }
 
   // Name in the system log, e.g. "mvg" (fixed text, at most 8 characters).
   virtual const char* logName() const { return "data"; }

@@ -22,6 +22,11 @@ struct Schedule {
   // Delay before another attempt after a failure, in seconds. A retry never
   // comes later than the next regular slot.
   uint32_t retry_s = 10;
+  // Spread of the alignment (principle 13, fair use of free APIs): the
+  // display controller moves offset_s by a random 0..spread_s seconds,
+  // chosen once per start (DisplayController::addContent), so not all
+  // devices ask a service in the same second. Only with offset_s >= 0.
+  uint32_t spread_s = 0;
 };
 
 // Due-based scheduler.

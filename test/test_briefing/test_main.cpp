@@ -1424,6 +1424,20 @@ void test_preview_system_page() {
   check(bitmap, "system_page");
 }
 
+// A rejected or lost connection names the signal of that access point
+// (W2: a near access point refuses the device, a far one is taken).
+void test_wifi_failed_text() {
+  TEST_ASSERT_EQUAL_STRING("attempt failed, -41 dBm, reason 202 (AUTH_FAIL)",
+                           core::wifiFailedText(false, -41, 202, "AUTH_FAIL").c_str());
+  TEST_ASSERT_EQUAL_STRING("disconnected, -78 dBm, reason 200 (BEACON_TIMEOUT)",
+                           core::wifiFailedText(true, -78, 200, "BEACON_TIMEOUT").c_str());
+  // No signal (0 or the driver's minimum): left out.
+  TEST_ASSERT_EQUAL_STRING("attempt failed, reason 201 (NO_AP_FOUND)",
+                           core::wifiFailedText(false, 0, 201, "NO_AP_FOUND").c_str());
+  TEST_ASSERT_EQUAL_STRING("disconnected, reason 201 (NO_AP_FOUND)",
+                           core::wifiFailedText(true, -127, 201, "NO_AP_FOUND").c_str());
+}
+
 // The longest form of every log text with numbers fits a line of the log on
 // the system page, and the Wi-Fi rows fit the overview (Befund 2026-11-06:
 // "verbunden · -78 dBm (schwach)" with a warning sign was cut off).
@@ -1440,6 +1454,10 @@ void test_system_page_longest_texts_fit() {
       core::wifiSignalText(-100),
       core::wifiSignalText(-30),
       core::wifiRestartText(99),
+      // The usual rejection with a signal.
+      core::wifiFailedText(false, -100, 202, "AUTH_FAIL"),
+      // Longer names are cut at the end; signal and reason stay.
+      core::wifiFailedText(true, -100, 200, ""),
       // Internal heap and PSRAM of the ESP32-S3 (512 KB, 8 MB) at most.
       core::memoryText(512 * 1024, 512 * 1024, 512 * 1024, 8192 * 1024),
       // At most one success a minute and one failure every 10 s.
@@ -2201,6 +2219,7 @@ int main() {
   RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
   RUN_TEST(test_preview_start_screen);
   RUN_TEST(test_preview_system_page);
+  RUN_TEST(test_wifi_failed_text);
   RUN_TEST(test_system_page_longest_texts_fit);
   RUN_TEST(test_preview_bands);
   RUN_TEST(test_preview_band_topics);

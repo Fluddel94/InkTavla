@@ -46,9 +46,15 @@ class MvgSource : public DataSource {
   SetupMessage setupMessage(ui::Language language) const override;
 
   bool fetches() const override { return true; }
-  // At second 1 of every minute (like the MVG departure display), retries
-  // every 10 s.
-  core::Schedule schedule() const override { return {60, 1, 10}; }
+  // Once a minute at a second between 20 and 45, chosen at random per
+  // start (principle 13: not all devices ask the MVG in the same second;
+  // ends before the redraw at second 1 even with the 10-s timeout of
+  // core/http.h); retries every 10 s. The data is drawn with the redraw at
+  // second 1, not at once (no second panel refresh within a minute).
+  core::Schedule schedule() const override { return {60, kFetchSecond, 10, kFetchSpread}; }
+  bool drawsAtOnce() const override { return false; }
+  static constexpr int32_t kFetchSecond = 20;
+  static constexpr uint32_t kFetchSpread = 25;
   bool isSetUp() const override { return config_.hasStation(); }
   bool fetch(int64_t wall_s) override;
 

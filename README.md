@@ -70,9 +70,13 @@ hour as bars.
 
 The display controller (`core/display_controller.h`) runs the device:
 
-- It fetches each widget's data when it is due (MVG: at second 1 of every
-  minute, calendar: every 15 minutes or as set, weather: every 30 minutes)
-  and redraws the screen, at the latest once a minute for the clock.
+- It fetches each widget's data when it is due (MVG: once a minute at a
+  second between 20 and 45, chosen at random at every start so that not all
+  displays ask the MVG at once; calendar: every 15 minutes or as set,
+  weather: every 30 minutes) and redraws the screen at second 1 of every
+  minute for the clock, before any fetch. New departures are drawn with
+  that redraw (one panel refresh a minute); new weather or calendar data,
+  the first data and data after a failure at once.
 - Short disturbances of up to 60 s are bridged silently. After that a widget
   shows its last data with the badge "Stand 14:32"; a widget that never had
   data shows "Keine Verbindung". A failing widget only affects its own column.
@@ -259,13 +263,13 @@ Nothing user-specific is compiled in.
   The one exception is on request: the update button on the settings page
   asks GitHub for the newest release only when it is pressed
   ([docs/updating.md](docs/updating.md#update-button-on-the-settings-page)).
-- Departures come from the **unofficial** MVG API, which is not endorsed by
-  MVG and may change at any time.
+- Departures come from the **unofficial** MVG API, which is not affiliated
+  with or endorsed by MVG, MVV or DB and may change at any time.
 
 ## Data sources
 
-- **MVG** (Munich public transport): unofficial API, not endorsed by MVG.
-  It may change or stop working at any time.
+- **MVG** (Munich public transport): unofficial API, not affiliated with or
+  endorsed by MVG, MVV or DB. It may change or stop working at any time.
 - **Calendar:** your own calendar, from its private iCal address (Google
   Calendar, Outlook, Nextcloud, iCloud, ...). It is only requested from the
   service that publishes it.
@@ -321,4 +325,23 @@ small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
 
 ## License
 
-Not decided yet; it will be set before the first public release.
+InkTavla is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. It is distributed in the hope that it will be useful, but without any
+warranty; without even the implied warranty of merchantability or fitness for
+a particular purpose. The full text is in [LICENSE](LICENSE)
+(SPDX: `GPL-3.0-or-later`).
+
+Copyright (C) 2026 Fluddel94
+
+Exceptions:
+
+- The fonts (Roboto Condensed, Fraunces) are under the SIL Open Font License
+  1.1; the license texts are in `lib/ui/src/ui/fonts/`.
+- `lib/qrcodegen` is under the MIT license (see its `README.md`).
+- The MVV line symbols are public domain, but may be trademarks (see
+  [Third-party libraries](#third-party-libraries)).
+- Case and design files (3D models, logo artwork) are under
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); they
+  will be added later with a `LICENSE` of their own in their folder.

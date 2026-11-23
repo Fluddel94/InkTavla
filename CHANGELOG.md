@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- License: GPL-3.0-or-later (`LICENSE`), with the license of the bundled fonts
+  and libraries named in the README.
+
 ### Changed
 
+- MVG departures are fetched once a minute at a second between 20 and 45,
+  chosen at random at every start, instead of at second 1 on every display
+  (fair use of the free API). They are drawn with the redraw at second 1,
+  so the panel still refreshes once a minute; the redraw no longer waits
+  for a fetch. The system log names the second at the start
+  (`updates at second 33 of every 60 s`).
+- System log: a failed Wi-Fi connection attempt or a lost connection names
+  the signal of that access point (`attempt failed, -41 dBm, reason 202
+  (AUTH_FAIL)`), so it shows when a near access point refuses the display
+  and a far one is taken. New section in `docs/troubleshooting.md`.
 - Development: platform pioarduino 55.03.313 (Arduino-ESP32 3.3.13, ESP-IDF
   5.5.6, toolchain GCC 14.4.0, esptool 5.6.0) instead of 55.03.312-1. On a
   new PC the VS Code extension installs PlatformIO Core 6.2.0.post1, which

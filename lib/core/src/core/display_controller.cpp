@@ -10,6 +10,10 @@
 #include "core/syslog.h"
 #include "core/time.h"
 
+#if defined(ARDUINO)
+#include <esp_random.h>
+#endif
+
 namespace core {
 
 namespace {
@@ -23,6 +27,14 @@ uint32_t clampMs(int64_t ms) {
 int64_t SystemClock::monotonicMs() const { return core::monotonicMs(); }
 
 int64_t SystemClock::wallTime() const { return static_cast<int64_t>(std::time(nullptr)); }
+
+uint32_t SystemClock::randomNumber() const {
+#if defined(ARDUINO)
+  return esp_random();
+#else
+  return 0;
+#endif
+}
 
 DisplayController::DisplayController(Clock& clock, hal::Display& display, ScreenRenderer& renderer,
                                      int full_refresh_minutes)
@@ -39,7 +51,13 @@ void DisplayController::addContent(Content& content) {
   if (!content.isSetUp()) {
     e.freshness.setNotSetUp(true);
   } else if (content.fetches()) {
-    e.task = scheduler_.add(content.schedule());
+    Schedule schedule = content.schedule();
+    if (schedule.spread_s > 0 && schedule.offset_s >= 0) {
+      schedule.offset_s += static_cast<int32_t>(clock_.randomNumber() % (schedule.spread_s + 1));
+      logInfo(content.logName(), "updates at second %d of every %u s",
+              static_cast<int>(schedule.offset_s), static_cast<unsigned>(schedule.interval_s));
+    }
+    e.task = scheduler_.add(schedule);
     e.has_result = false;
   } else {
     e.freshness.success(0, 0);  // nothing to fetch: always up to date
@@ -241,12 +259,21 @@ int64_t DisplayController::step() {
 
   bool stopped = false;  // a button press waits (core/fetch_cancel.h)
   bool before_network = false;
-  for (Scheduler::TaskId id : scheduler_.due(now_ms)) {
-    if (id == redraw_task_) {
-      scheduler_.markSuccess(id, now_ms, wall_s);
+  const std::vector<Scheduler::TaskId> due = scheduler_.due(now_ms);
+  for (Scheduler::TaskId id : due) {
+    if (id != redraw_task_) continue;
+    scheduler_.markSuccess(id, now_ms, wall_s);
+    // The regular redraw (clock, minutes) comes before the fetches, so it
+    // never waits for one. Not if a redraw is wanted anyway (e.g. KEY1:
+    // fetch everything now): then once, with the new data, after them.
+    if (!shown_.empty() && !redraw_needed) {
+      redraw(now_ms);
+    } else {
       redraw_needed = true;
-      continue;
     }
+  }
+  for (Scheduler::TaskId id : due) {
+    if (id == redraw_task_) continue;
     for (Entry& e : entries_) {
       if (e.task != id || stopped) continue;
       if (first_connected_ms_ < 0) {
@@ -263,8 +290,11 @@ int64_t DisplayController::step() {
         continue;
       }
       // A fetch may take seconds (network); fetch() uses the time after it.
+      // Data that is not drawn at once waits for the next regular redraw
+      // unless it is the first or comes after a failure.
+      const bool quiet = !e.content->drawsAtOnce() && e.has_result && e.report.failures_in_row == 0;
       if (fetch(e, id, wall_s)) {
-        redraw_needed = true;
+        if (!quiet || e.report.failures_in_row > 0) redraw_needed = true;
       } else {
         stopped = true;
       }

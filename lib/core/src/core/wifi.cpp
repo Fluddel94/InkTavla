@@ -29,14 +29,17 @@ constexpr int kReasonAssocLeave = 8;
 std::atomic<bool> disconnect_event{false};
 std::atomic<bool> connected_event{false};
 std::atomic<int> disconnect_reason{0};
+std::atomic<int> disconnect_rssi{0};
 
 void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     const int reason = info.wifi_sta_disconnected.reason;
-    Serial.printf("Wi-Fi: disconnected, reason %d (%s)\n", reason,
-                  WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)));
+    Serial.printf("Wi-Fi: disconnected, reason %d (%s), signal %d dBm\n", reason,
+                  WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)),
+                  static_cast<int>(info.wifi_sta_disconnected.rssi));
     if (reason != kReasonAssocLeave) {
       disconnect_reason = reason;
+      disconnect_rssi = info.wifi_sta_disconnected.rssi;
       disconnect_event = true;
     }
   } else if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
@@ -102,9 +105,9 @@ void Wifi::loop() {
     // change of the reason, not every attempt.
     if (lost_ms_ < 0) {
       lost_ms_ = now;
-      logWarning("wifi", "disconnected, reason %d (%s)", reason, name);
+      logWarning("wifi", "%s", wifiFailedText(true, disconnect_rssi, reason, name).c_str());
     } else if (reason != logged_reason_) {
-      logWarning("wifi", "connection attempt failed, reason %d (%s)", reason, name);
+      logWarning("wifi", "%s", wifiFailedText(false, disconnect_rssi, reason, name).c_str());
     }
     logged_reason_ = reason;
   }
