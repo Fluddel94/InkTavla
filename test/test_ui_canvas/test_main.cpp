@@ -682,6 +682,46 @@ void test_wrap_with_hyphenation_respects_max_lines() {
   for (const std::string& line : lines) TEST_ASSERT_TRUE(ui::textWidth(f, line) <= 200);
 }
 
+// The last line of a text that does not fit can end at the last letter that
+// fits instead of after a whole word (2026-11-23, disruption text).
+void test_wrap_cut_at_letter() {
+  const ui::Font& f = ui::fonts::kRobotoCondensedMedium17;
+  const std::string text =
+      "Wegen einer Stellwerksstörung kommt es zu Verspätungen und Ausfällen auf der gesamten "
+      "Strecke zwischen Petershausen und München Hbf";
+  bool complete = true;
+  // Default: after a whole word.
+  auto lines = ui::wrapText(f, text, 256, 1, &complete, true);
+  TEST_ASSERT_FALSE(complete);
+  TEST_ASSERT_EQUAL_size_t(1, lines.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen einer Stellwerksstörung\u2026", lines[0].c_str());
+  // One line, cut at the letter.
+  complete = true;
+  lines = ui::wrapText(f, text, 256, 1, &complete, true, true);
+  TEST_ASSERT_FALSE(complete);
+  TEST_ASSERT_EQUAL_size_t(1, lines.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen einer Stellwerksstörung kom\u2026", lines[0].c_str());
+  // Two lines: only the last one is cut, the first one is as before.
+  lines = ui::wrapText(f, text, 256, 2, &complete, true, true);
+  TEST_ASSERT_EQUAL_size_t(2, lines.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen einer Stellwerksstörung", lines[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("kommt es zu Verspätungen und Aus\u2026", lines[1].c_str());
+  // A text that fits is not changed, whatever the parameter.
+  complete = false;
+  lines = ui::wrapText(f, "Bauarbeiten am Bahnhof", 256, 1, &complete, true, true);
+  TEST_ASSERT_TRUE(complete);
+  TEST_ASSERT_EQUAL_STRING("Bauarbeiten am Bahnhof", lines[0].c_str());
+  // Any width: the line fits, ends with "…" and has no broken character.
+  for (int width = 60; width <= 256; width += 7) {
+    for (const std::string& line : ui::wrapText(f, text, width, 2, &complete, true, true)) {
+      TEST_ASSERT_TRUE(ui::textWidth(f, line) <= width);
+      for (size_t pos = 0; pos < line.size();)
+        TEST_ASSERT_TRUE(ui::decodeUtf8(line, pos) != 0xFFFD);
+    }
+    TEST_ASSERT_FALSE(complete);
+  }
+}
+
 // Codepoint of an emoji icon as UTF-8 (private use area, three bytes).
 std::string emojiUtf8(ui::EmojiIcon icon) {
   const uint32_t cp = ui::emojiCodepoint(icon);
@@ -755,6 +795,7 @@ int main() {
   RUN_TEST(test_hyphenation_of_railway_words);
   RUN_TEST(test_wrap_with_hyphenation_does_not_cut_words);
   RUN_TEST(test_wrap_with_hyphenation_respects_max_lines);
+  RUN_TEST(test_wrap_cut_at_letter);
   RUN_TEST(test_bitmap_layout_msb_first_black_is_set);
   RUN_TEST(test_canvas_area_offset_and_clipping);
   RUN_TEST(test_canvas_area_is_clipped_to_bitmap);

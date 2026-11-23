@@ -81,11 +81,13 @@ std::vector<Incident> visibleIncidents(const std::vector<Section>& sections,
 // ends with "..." instead.
 // Wraps the text (hyphenating long words) and puts `more` at the end of the
 // last line, on a line of its own if there is a line left, or by shortening
-// the last line. *complete is false if the text had to be cut.
+// the last line. A text that has to be cut ends with "…" after the last
+// letter that fits (not after a whole word, 2026-11-23). *complete is false
+// if the text had to be cut.
 std::vector<std::string> wrapIncident(const IncidentLabel& label, int width, int max_lines,
                                       bool* complete) {
   std::vector<std::string> lines =
-      ui::wrapText(incidentTextFont(), label.text, width, max_lines, complete, true);
+      ui::wrapText(incidentTextFont(), label.text, width, max_lines, complete, true, true);
   if (label.more.empty() || lines.empty()) return lines;
   const int more_width = ui::textWidth(incidentTextFont(), " " + label.more);
   if (ui::textWidth(incidentTextFont(), lines.back()) + more_width <= width) {
@@ -104,14 +106,9 @@ std::vector<std::string> wrapIncident(const IncidentLabel& label, int width, int
   }
   while (!last.empty() &&
          ui::textWidth(incidentTextFont(), last + kEllipsis) + more_width > width) {
-    const size_t space = last.find_last_of(' ');
-    if (space != std::string::npos) {
-      last.resize(space);
-    } else {
+    last.pop_back();
+    while (!last.empty() && (static_cast<unsigned char>(last.back()) & 0xC0) == 0x80) {
       last.pop_back();
-      while (!last.empty() && (static_cast<unsigned char>(last.back()) & 0xC0) == 0x80) {
-        last.pop_back();
-      }
     }
     while (!last.empty() && (last.back() == ' ' || last.back() == ',')) last.pop_back();
   }

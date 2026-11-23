@@ -60,9 +60,12 @@ std::string fitTextEllipsis(const Font& font, std::string_view text, int max_wid
 // last line ends with "…" after a whole word, and *complete (if given) is
 // set to false. With hyphenate, long German words are broken with a hyphen
 // at the end of a line (see hyphen.h) instead of moving to the next line
-// whole or, if they are wider than a line, being cut off.
+// whole or, if they are wider than a line, being cut off. With
+// cut_at_letter, the last line of a text that does not fit is cut at the
+// last letter that fits, followed by "…" ("Wegen einer Stellwerksst…"),
+// instead of after the last whole word.
 std::vector<std::string> wrapText(const Font& font, std::string_view text, int max_width,
                                   int max_lines = 0, bool* complete = nullptr,
-                                  bool hyphenate = false);
+                                  bool hyphenate = false, bool cut_at_letter = false);
 
 }  // namespace ui

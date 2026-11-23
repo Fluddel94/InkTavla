@@ -298,7 +298,8 @@ bool splitForHyphen(const Font& font, const std::string& word, int room, int lin
 }  // namespace
 
 std::vector<std::string> wrapText(const Font& font, std::string_view text, int max_width,
-                                  int max_lines, bool* complete, bool hyphenate) {
+                                  int max_lines, bool* complete, bool hyphenate,
+                                  bool cut_at_letter) {
   if (complete != nullptr) *complete = true;
   const std::vector<std::string_view> list = words(text);
   std::vector<std::string> lines;
@@ -339,8 +340,13 @@ std::vector<std::string> wrapText(const Font& font, std::string_view text, int m
     }
   }
   if (overflow) {
-    // Text left over: the last line ends with "…" after a whole word.
+    // Text left over: the last line ends with "…", after the last letter
+    // that fits or after a whole word.
     if (complete != nullptr) *complete = false;
+    if (cut_at_letter) {
+      lines.push_back(fitTextEllipsis(font, line + " " + leftover, max_width));
+      return lines;
+    }
     std::vector<std::string_view> last = words(line);
     std::string shortened;
     while (!last.empty()) {

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- MVG departures: a disruption text that has to be cut now ends with "…"
+  right after the last letter that fits ("Wegen einer Stellwerksst…") instead
+  of after the last whole word, which often left much of the line empty. This
+  applies to a single line, to the last of two lines and to the cut in front of
+  "+1 weitere". Other texts (calendar, band) are cut as before.
 - MVG departures: the disruption text has a setting with three steps
   instead of a switch: off, one line (new default) or two lines
   (`widgets.mvg.incidents`: `0`, `1`, `2`; settings page *Abfahrten*). One

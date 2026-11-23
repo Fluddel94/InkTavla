@@ -508,7 +508,9 @@ line only; for several lines it names the lines of the message. Long
 German words are hyphenated at the end of a line. The text has at most
 the lines set with `incidents` (one by default, at most two), and gets
 shorter, down to one line, so that every section keeps at least two
-departures. The
+departures. If the text does not fit, its last line ends with "…" right
+after the last letter that fits ("Wegen einer Stellwerksst…"), also in front
+of "+1 weitere"; a word is not kept whole for the sake of the ending. The
 affected departures keep a warning sign, right before the time and in the
 same place in every row; a cancelled departure has the same sign and its
 time struck through. Notes on early terminations stay in the row, fare notes

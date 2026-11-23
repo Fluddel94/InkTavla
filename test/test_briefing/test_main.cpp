@@ -1235,6 +1235,49 @@ widgets::mvg::Section incidentSection(const char* name, bool own_station, const 
   return s;
 }
 
+// A cut disruption text ends with "…" after the last letter that fits, as a
+// single line, as the last of two lines and before "+1 weitere" (2026-11-23).
+void test_incident_text_is_cut_at_the_letter() {
+  const std::string message =
+      "Wegen eines Polizeieinsatzes kommt es zu Verzögerungen im Betriebsablauf";
+  widgets::mvg::ColumnOptions options;
+  options.station = "Test";
+  options.now_s = kIncidentsNow;
+  auto draw = [&](widgets::mvg::Section list, int lines) {
+    list.name.clear();
+    ui::Bitmap bitmap(280, 260);
+    bitmap.clear(ui::Color::kWhite);
+    ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
+    options.incident_lines = lines;
+    std::vector<std::string> text;
+    widgets::mvg::drawDeparturesColumn(canvas, {list}, options, &text);
+    for (const std::string& line : text) {
+      TEST_ASSERT_TRUE(ui::textWidth(ui::fonts::kRobotoCondensedMedium17, line) <= 280 - 24);
+    }
+    return text;
+  };
+  widgets::mvg::Section list = incidentSection("", false, "S2", "Dachau", "!...", message);
+
+  std::vector<std::string> text = draw(list, 1);
+  TEST_ASSERT_EQUAL_size_t(1, text.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes kom\u2026", text[0].c_str());
+  text = draw(list, 2);
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes kommt", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("es zu Verzögerungen im Betriebsabl\u2026", text[1].c_str());
+
+  // A second message: "+1 weitere" stays at the end, the text before it is cut.
+  list.departures[1].warning = true;
+  list.departures[1].incidents = {{"Bauarbeiten", "S2"}};
+  text = draw(list, 1);
+  TEST_ASSERT_EQUAL_size_t(1, text.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieins\u2026 +1 weitere", text[0].c_str());
+  text = draw(list, 2);
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
+  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes kommt", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("es zu Verzögerungen im\u2026 +1 weitere", text[1].c_str());
+}
+
 // Long messages: pin line on top and the text below it (two directions and
 // two stations), hyphenation, "+1 weitere", the cancellation sign before the
 // time (2026-10-28).
@@ -2227,6 +2270,7 @@ int main() {
   RUN_TEST(test_incident_label);
   RUN_TEST(test_preview_departure_incidents);
   RUN_TEST(test_incident_variants);
+  RUN_TEST(test_incident_text_is_cut_at_the_letter);
   RUN_TEST(test_incidents_only_of_drawn_departures);
   RUN_TEST(test_incident_text_two_lines_with_two_departures_each);
   RUN_TEST(test_preview_start_screen);
