@@ -52,9 +52,11 @@ struct Config {
 
   TimeFormat time_format = TimeFormat::kClock;
 
-  // Disruption text under the station title (on by default). Off hides only
-  // the text; the warning signs at the departures stay.
-  bool show_incidents = true;
+  // Most lines of the disruption text under the station title: 0 (off), 1
+  // (default) or 2. Off hides only the text; the warning signs at the
+  // departures stay.
+  int incident_lines = 1;
+  static constexpr int kIncidentMaxLines = 2;
 
   Config();
 

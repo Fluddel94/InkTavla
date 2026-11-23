@@ -958,7 +958,7 @@ widgets::mvg::Config mvgConfig(const char* json) {
   return c;
 }
 
-// The switch "incidents": false hides only the disruption text of the view;
+// "incidents": 0 hides only the disruption text of the view;
 // the warning signs at the departures stay.
 void test_view_incidents_switch() {
   const char* base = R"("station":"de:09162:10","name":"Pasing","sections":[
@@ -983,7 +983,7 @@ void test_view_incidents_switch() {
   };
   bool on_has = false, off_has = false;
   const auto on = render("", &on_has);
-  const auto off = render(R"(,"incidents":false)", &off_has);
+  const auto off = render(R"(,"incidents":0)", &off_has);
   TEST_ASSERT_TRUE(on_has);
   TEST_ASSERT_TRUE(off_has);  // data is still fetched, only drawing is switched off
   TEST_ASSERT_TRUE(on != off);
@@ -1000,7 +1000,7 @@ void test_view_incidents_switch() {
   options.now_s = kMvgNow;
   widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options);
   TEST_ASSERT_TRUE(off == std::vector<uint8_t>(bitmap.data(), bitmap.data() + bitmap.size()));
-  TEST_ASSERT_FALSE(options.show_incidents);  // the default draws no text
+  TEST_ASSERT_EQUAL_INT(0, options.incident_lines);  // the default draws no text
 }
 
 // Only the first message is shown; the others as "+2 weitere". The lines
@@ -1031,7 +1031,7 @@ void test_preview_departure_incidents() {
   widgets::mvg::ColumnOptions options;
   options.station = "Pasing";
   options.now_s = kMvgNow;
-  options.show_incidents = true;
+  options.incident_lines = 2;
 
   // Two directions with the disruption messages of the departures drawn.
   TwoStations api;
@@ -1062,13 +1062,13 @@ void test_preview_departure_incidents() {
   TEST_ASSERT_TRUE(stations.sections()[0].own_station);
   TEST_ASSERT_TRUE(stations.sections()[1].own_station);
   TEST_ASSERT_FALSE(directions.sections()[0].own_station);
-  options.show_incidents = false;
+  options.incident_lines = 0;
   ui::BitmapCanvas b(bitmap, 300, 0, 280, 260);
   TEST_ASSERT_EQUAL_INT(7, widgets::mvg::drawDeparturesColumn(b, stations.sections(), options));
 
   // One list with the messages of its departures, in English; the age badge
   // stays on the title.
-  options.show_incidents = true;
+  options.incident_lines = 2;
   options.language = ui::Language::kEnglish;
   options.note = "Stand 22:21";
   options.note_alert = true;
@@ -1122,7 +1122,7 @@ void test_incidents_only_of_drawn_departures() {
   widgets::mvg::ColumnOptions options;
   options.station = "Test";
   options.now_s = kIncidentsNow;
-  options.show_incidents = true;
+  options.incident_lines = 2;
   ui::Bitmap bitmap(280, 260);
   bitmap.clear(ui::Color::kWhite);
   ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
@@ -1176,7 +1176,7 @@ void test_incident_text_two_lines_with_two_departures_each() {
   widgets::mvg::ColumnOptions options;
   options.station = "Test";
   options.now_s = kIncidentsNow;
-  options.show_incidents = true;
+  options.incident_lines = 2;
   for (const bool own_stations : {false, true}) {
     ui::Bitmap bitmap(280, 260);
     bitmap.clear(ui::Color::kWhite);
@@ -1187,7 +1187,8 @@ void test_incident_text_two_lines_with_two_departures_each() {
     TEST_ASSERT_EQUAL_size_t(2, text.size());
     TEST_ASSERT_TRUE(drawn >= 4);
   }
-  // One list: three lines of text, and still more than two rows.
+  // One list: two lines of text as well (up to 0.4 three), and still more
+  // than two rows.
   std::vector<widgets::mvg::Section> list(1);
   list[0] = sections(false)[0];
   list[0].name.clear();
@@ -1195,9 +1196,20 @@ void test_incident_text_two_lines_with_two_departures_each() {
   bitmap.clear(ui::Color::kWhite);
   ui::BitmapCanvas canvas(bitmap, 0, 0, 280, 260);
   std::vector<std::string> text;
-  const int drawn = widgets::mvg::drawDeparturesColumn(canvas, list, options, &text);
-  TEST_ASSERT_EQUAL_size_t(3, text.size());
+  int drawn = widgets::mvg::drawDeparturesColumn(canvas, list, options, &text);
+  TEST_ASSERT_EQUAL_size_t(2, text.size());
   TEST_ASSERT_TRUE(drawn >= 4);
+
+  // "incidents": 1 (the default) cuts the text to one line ending with "…";
+  // two directions get 3 + 2 departures, two stations 3 + 3.
+  options.incident_lines = 1;
+  for (const bool own_stations : {false, true}) {
+    bitmap.clear(ui::Color::kWhite);
+    drawn = widgets::mvg::drawDeparturesColumn(canvas, sections(own_stations), options, &text);
+    TEST_ASSERT_EQUAL_size_t(1, text.size());
+    TEST_ASSERT_TRUE(text[0].find("\u2026") != std::string::npos);
+    TEST_ASSERT_EQUAL_INT(own_stations ? 6 : 5, drawn);
+  }
 }
 
 // Departures of the made-up cases below: `incident` on the departures with
@@ -1234,7 +1246,7 @@ void test_incident_variants() {
   widgets::mvg::ColumnOptions options;
   options.station = "Karlsfeld";
   options.now_s = kIncidentsNow;
-  options.show_incidents = true;
+  options.incident_lines = 2;
   std::vector<std::string> text;
 
   // Two directions of one line: no prefix; a second message: "+1 weitere".

@@ -106,7 +106,12 @@
         <button type="button" data-v="clock"><span data-t="clock"></span><small>14:32 +3</small></button>
         <button type="button" data-v="minutes"><span data-t="minutes"></span><small>4 min</small></button>
       </div>
-      <div class="sw"><label for="mvgIncidents" data-t="mvgIncidents"></label><input id="mvgIncidents" type="checkbox" role="switch"></div>
+      <span class="label" data-t="mvgIncidents"></span>
+      <div class="seg" id="mvgIncidents">
+        <button type="button" data-v="0"><span data-t="incidentsOff"></span></button>
+        <button type="button" data-v="1"><span data-t="incidentsOne"></span></button>
+        <button type="button" data-v="2"><span data-t="incidentsTwo"></span></button>
+      </div>
     </div>
     <p class="hint foot" data-t="mvgUnofficial"></p>
   </section>

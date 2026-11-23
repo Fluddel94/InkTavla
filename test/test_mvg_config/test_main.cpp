@@ -69,7 +69,7 @@ void test_example_file_section() {
   TEST_ASSERT_EQUAL_STRING("Pasing", c.name.c_str());
   TEST_ASSERT_EQUAL_STRING("S3:B:S,RE80:R:Z", c.lines.toString().c_str());
   TEST_ASSERT_TRUE(c.time_format == TimeFormat::kClock);
-  TEST_ASSERT_TRUE(c.show_incidents);  // disruption text on by default
+  TEST_ASSERT_EQUAL_INT(1, c.incident_lines);  // one line of disruption text by default
   // With a line selection the request uses the types of the selected lines.
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
 }
@@ -90,14 +90,26 @@ void test_values_are_read() {
   TEST_ASSERT_EQUAL_STRING("SBAHN,BAHN", widgets::mvg::transportTypesParam(c).c_str());
 }
 
-void test_incidents_switch() {
+void test_incident_lines() {
   ConfigIssues issues;
-  TEST_ASSERT_FALSE(parse(R"({"station":"de:09162:10","incidents":false})", issues).show_incidents);
-  TEST_ASSERT_TRUE(parse(R"({"station":"de:09162:10","incidents":true})", issues).show_incidents);
+  auto lines = [&](const char* value) {
+    return parse((std::string(R"({"station":"de:09162:10","incidents":)") + value + "}").c_str(),
+                 issues)
+        .incident_lines;
+  };
+  TEST_ASSERT_EQUAL_INT(0, lines("0"));
+  TEST_ASSERT_EQUAL_INT(1, lines("1"));
+  TEST_ASSERT_EQUAL_INT(2, lines("2"));
+  // The switch up to 0.4: true showed up to two lines.
+  TEST_ASSERT_EQUAL_INT(0, lines("false"));
+  TEST_ASSERT_EQUAL_INT(2, lines("true"));
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
-  // A wrong type is reported and keeps the default (on).
+  TEST_ASSERT_EQUAL_INT(1, lines("3"));
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.incidents"));
+  issues.clear();
+  // A wrong type is reported and keeps the default (one line).
   const Config c = parse(R"({"station":"de:09162:10","incidents":"no"})", issues);
-  TEST_ASSERT_TRUE(c.show_incidents);
+  TEST_ASSERT_EQUAL_INT(1, c.incident_lines);
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.incidents"));
 }
 
@@ -283,7 +295,7 @@ int main() {
   RUN_TEST(test_lines_not_a_list);
   RUN_TEST(test_sections_are_read);
   RUN_TEST(test_sections_replace_lines_and_direction);
-  RUN_TEST(test_incidents_switch);
+  RUN_TEST(test_incident_lines);
   RUN_TEST(test_invalid_sections_give_one_list);
   RUN_TEST(test_sections_with_stations_of_their_own);
   RUN_TEST(test_invalid_section_station_gives_one_list);

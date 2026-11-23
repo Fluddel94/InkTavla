@@ -214,7 +214,14 @@ Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
       core::readChoice(section, "time_format", {"clock", "minutes"}, 0, kPath, issues) == 1
           ? TimeFormat::kMinutes
           : TimeFormat::kClock;
-  c.show_incidents = core::readBool(section, "incidents", c.show_incidents, kPath, issues);
+  // Up to 0.4: true/false (true showed up to two lines).
+  const JsonVariantConst incidents = section["incidents"];
+  if (incidents.is<bool>()) {
+    c.incident_lines = incidents.as<bool>() ? Config::kIncidentMaxLines : 0;
+  } else {
+    c.incident_lines = core::readInt(section, "incidents", c.incident_lines, 0,
+                                     Config::kIncidentMaxLines, kPath, issues);
+  }
   return c;
 }
 

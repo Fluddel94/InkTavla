@@ -76,7 +76,7 @@ std::vector<Incident> visibleIncidents(const std::vector<Section>& sections,
 // The text lines of the disruption messages and the rows the sections get
 // below them. The text and the rows depend on each other (the rows decide
 // which departures, and so which messages, are shown), so the text gets the
-// fewest lines it needs, at most kIncidentMaxLines(Sections); with more
+// fewest lines it needs, at most the lines allowed; with more
 // lines every section would get fewer than kIncidentMinRows rows, the text
 // ends with "..." instead.
 // Wraps the text (hyphenating long words) and puts `more` at the end of the
@@ -142,13 +142,12 @@ struct IncidentPlan {
 // `first`: baseline of the first line; `gap`: from the last line to the next
 // title (one list: to the rows).
 IncidentPlan planIncidents(int canvas_height, int text_width, const std::vector<Section>& sections,
-                           int first, int gap, ui::Language language) {
+                           int first, int gap, int max_lines, ui::Language language) {
   const int n = std::max(1, static_cast<int>(sections.size()));
   std::vector<int> available;
   for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
-  const int cap = n > 1 ? kIncidentMaxLinesSections : kIncidentMaxLines;
   IncidentPlan plan;
-  for (int lines = 1; lines <= cap; lines++) {
+  for (int lines = 1; lines <= max_lines; lines++) {
     const int height = first - ui::kColumnTitleBaseline + kIncidentLineStep * (lines - 1) + gap;
     const int fit = columnRowsThatFit(canvas_height - height, n);
     if (lines > 1 && fit < kIncidentMinRows * n) break;
@@ -293,9 +292,9 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   const int text_first = ui::kColumnTitleBaseline + kIncidentFirstStep;
   const int text_gap = list || text_in_section ? kIncidentListGap : kIncidentTitleGap;
   int text_end = 0;  // baseline the rows of the first section start below
-  if (options.show_incidents && !sections.empty()) {
+  if (options.incident_lines > 0 && !sections.empty()) {
     plan = planIncidents(canvas.height(), canvas.width() - kIncidentTextX, sections, text_first,
-                         text_gap, options.language);
+                         text_gap, options.incident_lines, options.language);
   }
   if (!plan.lines.empty()) {
     if (incident_lines != nullptr) *incident_lines = plan.lines;
@@ -379,7 +378,7 @@ void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) 
   options.time_format = source_.config().time_format;
   options.language = context.language;
   options.now_s = context.now_s;
-  options.show_incidents = source_.config().show_incidents;
+  options.incident_lines = source_.config().incident_lines;
   options.delay_unit = step_ == ui::SizeStep::kL;
   drawDeparturesColumn(canvas, withoutDeparted(source_.sections(), context.now_s), options);
 }

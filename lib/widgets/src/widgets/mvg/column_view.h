@@ -31,10 +31,9 @@ struct ColumnOptions {
   TimeFormat time_format = TimeFormat::kClock;
   ui::Language language = ui::Language::kGerman;
   int64_t now_s = 0;
-  // Show the disruption messages of the departures that are drawn below the
-  // station title (Briefing design D). Off: only the warning signs in the
-  // rows.
-  bool show_incidents = false;
+  // Most lines of the disruption text of the departures drawn, below the
+  // station title (Briefing design D). 0: only the warning signs in the rows.
+  int incident_lines = 0;
   // Step L (2026-11-16): the delay with its unit ("+8 min").
   bool delay_unit = false;
 };
@@ -51,11 +50,8 @@ struct IncidentLabel {
 IncidentLabel incidentLabel(const std::vector<Incident>& incidents, bool with_lines,
                             ui::Language language);
 
-// Most lines of the disruption text above a list and above two sections;
-// fewer (at least one) if otherwise a section would get fewer than
-// kIncidentMinRows rows.
-inline constexpr int kIncidentMaxLines = 3;
-inline constexpr int kIncidentMaxLinesSections = 2;
+// The disruption text gets fewer lines than allowed (at least one) if
+// otherwise a section would get fewer than kIncidentMinRows rows.
 inline constexpr int kIncidentMinRows = 2;
 
 // Row height and the space between the last row of a section and the next

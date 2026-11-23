@@ -75,7 +75,10 @@ const TEXTS = {
     retry: "Nochmal",
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regionalbus", typeZ: "Regionalzug",
     timeFormat: "Abfahrtszeit als",
-    mvgIncidents: "Störungsmeldungen unter der Haltestelle anzeigen",
+    mvgIncidents: "Störungsmeldungen unter der Haltestelle",
+    incidentsOff: "Aus",
+    incidentsOne: "1 Zeile",
+    incidentsTwo: "2 Zeilen",
     bandMvg: "Ausfälle im Satz des Bands nennen",
     bandCalendar: "Nächsten Termin im Satz des Bands nennen",
     bandWeather: "Wetter im Satz des Bands nennen",
@@ -295,7 +298,10 @@ const TEXTS = {
     retry: "Retry",
     typeS: "S-Bahn", typeU: "U-Bahn", typeT: "Tram", typeB: "Bus", typeR: "Regional bus", typeZ: "Regional train",
     timeFormat: "Departure time as",
-    mvgIncidents: "Show disruption messages under the station",
+    mvgIncidents: "Disruption messages under the station",
+    incidentsOff: "Off",
+    incidentsOne: "1 line",
+    incidentsTwo: "2 lines",
     bandMvg: "Mention cancellations in the band sentence",
     bandCalendar: "Mention the next event in the band sentence",
     bandWeather: "Mention the weather in the band sentence",
@@ -853,7 +859,9 @@ function fillMvg() {
   $("mvgName").placeholder = t("displayNamePlaceholder");
   segSet($("mvgMode"), mvg.mode);
   segSet($("mvgTime"), c.time_format === "minutes" ? "minutes" : "clock");
-  $("mvgIncidents").checked = c.incidents !== false;
+  // Up to 0.4 a switch: false = off, true = up to two lines.
+  const incidents = c.incidents === false ? 0 : c.incidents === true ? 2 : c.incidents;
+  segSet($("mvgIncidents"), [0, 1, 2].includes(incidents) ? String(incidents) : "1");
   showMvgStation();
   renderMvgBody();
 }
@@ -1234,12 +1242,14 @@ $("mvgMode").addEventListener("click", (e) => {
   renderMvgBody();
   setDirty(true);
 });
-$("mvgTime").addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (!b) return;
-  segSet($("mvgTime"), b.dataset.v);
-  setDirty(true);
-});
+for (const id of ["mvgTime", "mvgIncidents"]) {
+  $(id).addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    segSet($(id), b.dataset.v);
+    setDirty(true);
+  });
+}
 
 // pick map -> line entries; a line with both directions of the same value
 // becomes one entry "B".
@@ -1864,7 +1874,8 @@ function buildConfig() {
   delete m.direction;
   setOrDelete(m, "name", check("mvgName", 64));
   m.time_format = segValue($("mvgTime")) || "clock";
-  if ($("mvgIncidents").checked) delete m.incidents; else m.incidents = false;
+  const incidents = Number(segValue($("mvgIncidents")) || "1");
+  if (incidents === 1) delete m.incidents; else m.incidents = incidents;
   const usesMvg = slotIds.includes("mvg");
   const lineError = (msg) => errors.push(["mvgLinesError", msg]);
   if (mvg.mode === "list") {

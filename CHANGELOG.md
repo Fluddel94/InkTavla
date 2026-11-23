@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- MVG departures: the disruption text has a setting with three steps
+  instead of a switch: off, one line (new default) or two lines
+  (`widgets.mvg.incidents`: `0`, `1`, `2`; settings page *Abfahrten*). One
+  list now gets at most two lines as well (up to now three). An old
+  `config.json` keeps working: `false` means off, `true` two lines.
 - Configuration: the settings `layout.template`, `layout.grid` and
   `widgets.mvg.note` (and `note` in sections), dropped in earlier versions
   and only tolerated since, are now unknown settings: reported and ignored

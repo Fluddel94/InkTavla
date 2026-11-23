@@ -413,7 +413,7 @@ time.
 | `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
 | `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`; in a column of step L `14:32 +3 min`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
 | `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Abfahrten* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
-| `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: page *Abfahrten*. |
+| `incidents` | `0`, `1`, `2` | `1` | Most lines of the disruption text under the station title. `0` hides only the text; the warning signs at the departures stay. Up to 0.4.x a switch: `false` still means `0`, `true` means `2`. On the settings page: page *Abfahrten*. |
 
 Line entries (`lines`):
 
@@ -506,12 +506,13 @@ if there are more, the end of the text says how many: "+2 weitere". The
 line in front ("S2: ") is left out when the departures drawn belong to one
 line only; for several lines it names the lines of the message. Long
 German words are hyphenated at the end of a line. The text has at most
-three lines above one list and two above two sections, and gets shorter,
-down to one line, so that every section keeps at least two departures. The
+the lines set with `incidents` (one by default, at most two), and gets
+shorter, down to one line, so that every section keeps at least two
+departures. The
 affected departures keep a warning sign, right before the time and in the
 same place in every row; a cancelled departure has the same sign and its
 time struck through. Notes on early terminations stay in the row, fare notes
-are not shown. `widgets.mvg.incidents: false` hides the text only; the
+are not shown. `widgets.mvg.incidents: 0` hides the text only; the
 warning signs and the cancellations stay.
 
 ### `weather`: Weather forecast
