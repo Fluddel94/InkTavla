@@ -225,6 +225,26 @@ Each of these cases is reported with the path of the setting, e.g.
 monitor at the start, as the reply of `tools/inktavla_config.py put` and on
 the settings page when saving.
 
+## Compatibility
+
+From version 1.0.0 on, a valid `config.json` stays valid with every later
+firmware of the same major version:
+
+- Settings are not renamed or removed, and their values keep their meaning.
+  If the format ever has to change, the firmware still reads the old form or
+  converts it itself (that is what `version` is for); you do not have to
+  edit the file.
+- New settings and new values can be added at any time. An older firmware
+  reports them as unknown and ignores them.
+- The Wi-Fi access and the calendar address in the protected storage are
+  kept over every update (not over the web installer, see
+  [updating.md](updating.md)).
+
+Not covered: the internal interface between the settings page and the
+device (`/api/...`) and the exact wording of the USB commands; use the
+settings page or `tools/inktavla_config.py`, which always match the
+firmware.
+
 ## General settings
 
 | Setting | Type | Default | Description |
@@ -236,16 +256,6 @@ the settings page when saving.
 | `display.full_refresh_minutes` | 1–1440 | `360` | Minutes between full refreshes of the panel against ghosting; in between only changed areas are refreshed. |
 | `layout.slots` | list of 2 or 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. The number of entries is the layout: three widgets below the band, or two. A widget may appear more than once (its data is fetched only once); the settings page offers every widget once. |
 | `layout.dividers` | `true`, `false` | `true` | Dotted vertical lines in the middle between the columns; `false` turns them off. |
-
-The `layout.template` setting of earlier versions is no longer needed: the
-screen always uses the "Briefing" layout (see below). `"briefing"` is still
-accepted; another value is reported and ignored.
-
-The `layout.grid` setting of earlier versions (three columns of the same
-width) was removed: the columns have fixed widths. A file that still has it
-is reported (`layout.grid: no longer used, the columns have fixed widths`)
-and shown with the standard widths; the settings page removes it when
-saving.
 
 The columns only come in three widths, the size steps **S** (214 px),
 **M** (280 px) and **L** (367 px); they are 260 px high.
@@ -405,16 +415,13 @@ time.
 | `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Abfahrten* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
 | `incidents` | `true`, `false` | `true` | Show the disruption text under the station title. `false` hides only the text; the warning signs at the departures stay. On the settings page: page *Abfahrten*. |
 
-The former setting `note` (text on the right of a title, also in sections)
-was removed; an old `note` in `config.json` is ignored without a message.
-
 Line entries (`lines`):
 
 - **line:** as shown, spaces are ignored and case does not matter (`"RE 80"`
   = `"RE80"`).
 - **direction:** `H` or `R` (MVG direction code of the line) or `B` for both.
   The codes are fixed per line and do not mean "towards the city centre";
-  they will be replaced by freely named views.
+  to name the directions, use two sections (see below).
 - **type:** `S` S-Bahn, `U` U-Bahn, `T` tram, `B` bus, `R` regional bus,
   `Z` regional train.
 

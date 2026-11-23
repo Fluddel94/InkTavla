@@ -120,14 +120,13 @@ void test_invalid_values_fall_back_with_issues() {
   const CoreConfig c =
       parse(R"({"time_zone":"Europe/Berlin","language":"fr","ntp_server":"pool ntp",)"
             R"("display":{"full_refresh_minutes":0},)"
-            R"("layout":{"template":"grid","slots":["mvg"]}})",
+            R"("layout":{"slots":["mvg"]}})",
             issues);
   assertDefaults(c);
   TEST_ASSERT_TRUE(hasIssue(issues, "time_zone"));
   TEST_ASSERT_TRUE(hasIssue(issues, "language"));
   TEST_ASSERT_TRUE(hasIssue(issues, "ntp_server"));
   TEST_ASSERT_TRUE(hasIssue(issues, "display.full_refresh_minutes"));
-  TEST_ASSERT_TRUE(hasIssue(issues, "layout.template"));
   TEST_ASSERT_TRUE(hasIssue(issues, "layout.slots"));  // 3 slots needed
 }
 
@@ -176,20 +175,18 @@ void test_helpers() {
   TEST_ASSERT_EQUAL_STRING("w.a", issues[0].path.c_str());
 }
 
-void test_removed_templates_are_reported() {
+// Settings removed before 1.0 ("template", "grid") are unknown keys now:
+// reported like a typing error, the rest is read as usual.
+void test_removed_layout_settings_are_unknown() {
   JsonDocument doc;
   core::ConfigIssues issues;
-  // "briefing" (the only layout) is accepted as it is.
-  deserializeJson(doc, R"({"layout": {"template": "briefing"}})");
-  core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_EQUAL_size_t(0, issues.size());
-  TEST_ASSERT_EQUAL_STRING("calendar", c.slots[1].c_str());
-  // A removed layout gives a hint; the columns are read as usual.
-  deserializeJson(doc, R"({"layout": {"template": "one_plus_two",
+  deserializeJson(doc, R"({"layout": {"template": "briefing", "grid": "equal",
                            "slots": ["mvg", "weather", "calendar"]}})");
-  c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_EQUAL_size_t(1, issues.size());
+  core::CoreConfig c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
+  TEST_ASSERT_EQUAL_size_t(2, issues.size());
   TEST_ASSERT_EQUAL_STRING("layout.template", issues[0].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("layout.grid", issues[1].path.c_str());
+  TEST_ASSERT_EQUAL_STRING("unknown setting, ignored", issues[1].message.c_str());
   TEST_ASSERT_EQUAL_STRING("weather", c.slots[1].c_str());
 }
 
@@ -202,14 +199,10 @@ void test_layout_variants() {
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_FALSE(c.dividers);
-  // "grid" was removed: reported (not as an unknown key), whatever its value.
-  deserializeJson(doc, R"({"layout": {"grid": "equal", "dividers": "yes"}})");
+  deserializeJson(doc, R"({"layout": {"dividers": "yes"}})");
   c = core::parseCoreConfig(doc.as<JsonObjectConst>(), issues);
-  TEST_ASSERT_EQUAL_size_t(2, issues.size());
-  TEST_ASSERT_EQUAL_STRING("layout.grid", issues[0].path.c_str());
-  TEST_ASSERT_EQUAL_STRING("no longer used, the columns have fixed widths",
-                           issues[0].message.c_str());
-  TEST_ASSERT_EQUAL_STRING("layout.dividers", issues[1].path.c_str());
+  TEST_ASSERT_EQUAL_size_t(1, issues.size());
+  TEST_ASSERT_EQUAL_STRING("layout.dividers", issues[0].path.c_str());
   TEST_ASSERT_TRUE(c.dividers);
 }
 
@@ -273,7 +266,7 @@ int main() {
   RUN_TEST(test_unknown_keys_are_reported);
   RUN_TEST(test_newer_version_is_reported);
   RUN_TEST(test_helpers);
-  RUN_TEST(test_removed_templates_are_reported);
+  RUN_TEST(test_removed_layout_settings_are_unknown);
   RUN_TEST(test_layout_variants);
   RUN_TEST(test_layout_slots_two_or_three_entries);
   RUN_TEST(test_settings_page_opens_only_without_settings);

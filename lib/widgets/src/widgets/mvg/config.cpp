@@ -76,9 +76,7 @@ std::vector<SectionConfig> readSections(JsonObjectConst section, core::ConfigIss
       issues.push_back(core::ConfigIssue{path, "must be an object; showing one list"});
       return {};
     }
-    // "note" (text on the right of the title) was removed on 2026-10-31; an
-    // old key is ignored without an issue.
-    core::reportUnknownKeys(obj, {"name", "lines", "station", "note"}, path, issues);
+    core::reportUnknownKeys(obj, {"name", "lines", "station"}, path, issues);
     SectionConfig s;
     s.name = core::readString(obj, "name", "", kMaxSectionName, path, issues);
     s.lines = readLines(obj, "lines", path, issues);
@@ -163,10 +161,9 @@ bool isValidStationId(const std::string& id) {
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
-  // "note" was removed on 2026-10-31; an old key is ignored without an issue.
   core::reportUnknownKeys(section,
-                          {"station", "name", "note", "transport_types", "lines", "direction",
-                           "sections", "time_format", "incidents", "band"},
+                          {"station", "name", "transport_types", "lines", "direction", "sections",
+                           "time_format", "incidents", "band"},
                           kPath, issues);
 
   const std::string station = core::readString(section, "station", "", 32, kPath, issues);

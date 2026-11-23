@@ -1050,8 +1050,8 @@ void test_preview_departure_incidents() {
   // Two stations: one request each, the sections in the configured order.
   api.requests.clear();
   widgets::mvg::MvgSource stations(mvgConfig(R"({"station":"de:09162:10","sections":[
-        {"name":"Pasing","lines":["S3:H:S","S4:H:S"],"note":"Bahnhof"},
-        {"name":"Donnersbergerbr.","station":"de:09162:8","note":"4 min zu Fuß"}]})"),
+        {"name":"Pasing","lines":["S3:H:S","S4:H:S"]},
+        {"name":"Donnersbergerbr.","station":"de:09162:8"}]})"),
                                    api);
   TEST_ASSERT_TRUE(stations.fetch(kMvgNow));
   TEST_ASSERT_EQUAL_size_t(2, api.requests.size());

@@ -143,6 +143,9 @@ A build writes `firmware.bin` (the app, for updates on the settings page) and
 `firmware-full.bin` (the whole flash image, for the web installer) to
 `.pio/build/xiao_esp32s3_plus/`. Installing without building, the web
 installer and the update button: [docs/updating.md](docs/updating.md).
+Updates are meant to go over the update button on the settings page; the
+web installer is for the first installation and repairs and resets Wi-Fi
+and the calendar address.
 
 **Windows:** the framework package contains paths longer than 260 characters.
 Enable long path support once (PowerShell as administrator), then restart

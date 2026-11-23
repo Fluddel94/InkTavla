@@ -1863,7 +1863,6 @@ function buildConfig() {
   delete m.sections;
   delete m.direction;
   setOrDelete(m, "name", check("mvgName", 64));
-  delete m.note;  // removed setting
   m.time_format = segValue($("mvgTime")) || "clock";
   if ($("mvgIncidents").checked) delete m.incidents; else m.incidents = false;
   const usesMvg = slotIds.includes("mvg");
@@ -1945,9 +1944,7 @@ function buildConfig() {
   // Display
   c.layout = c.layout || {};
   c.layout.slots = slotIds.slice();
-  delete c.layout.grid;  // removed setting
   if ($("dividers").checked) delete c.layout.dividers; else c.layout.dividers = false;
-  delete c.layout.template;
   c.language = $("language").value;
   c.display = c.display || {};
   c.display.full_refresh_minutes = Number($("fullRefresh").value);

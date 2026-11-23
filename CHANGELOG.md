@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Configuration: the settings `layout.template`, `layout.grid` and
+  `widgets.mvg.note` (and `note` in sections), dropped in earlier versions
+  and only tolerated since, are now unknown settings: reported and ignored
+  like a typing error. Remove them from an old `config.json` (saving on the
+  settings page does not remove them any more). New section
+  "Compatibility" in `docs/configuration.md`: from 1.0.0 on a valid
+  `config.json` stays valid.
 - MVG departures are fetched once a minute at a second between 20 and 45,
   chosen at random at every start, instead of at second 1 on every display
   (fair use of the free API). They are drawn with the redraw at second 1,

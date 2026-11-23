@@ -192,15 +192,7 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
 
   JsonObjectConst layout = root["layout"];
   if (!layout.isNull()) {
-    reportUnknownKeys(layout, {"template", "slots", "grid", "dividers"}, "layout", issues);
-    // There is only one layout now; files from older versions may still
-    // name one of the removed templates.
-    JsonVariantConst name = layout["template"];
-    if (!name.isNull() &&
-        !(name.is<const char*>() && std::strcmp(name.as<const char*>(), "briefing") == 0)) {
-      addIssue(issues, "layout.template", "the other layouts were removed, \"briefing\" is used");
-    }
-
+    reportUnknownKeys(layout, {"slots", "dividers"}, "layout", issues);
     JsonVariantConst slots = layout["slots"];
     if (!slots.isNull()) {
       std::vector<std::string> ids;
@@ -218,11 +210,6 @@ CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues) {
       }
     }
 
-    // Removed with the fixed column widths; files from older versions may
-    // still have it.
-    if (!layout["grid"].isNull()) {
-      addIssue(issues, "layout.grid", "no longer used, the columns have fixed widths");
-    }
     c.dividers = readBool(layout, "dividers", c.dividers, "layout", issues);
   }
   return c;

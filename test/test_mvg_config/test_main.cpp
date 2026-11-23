@@ -77,13 +77,12 @@ void test_example_file_section() {
 void test_values_are_read() {
   ConfigIssues issues;
   const Config c =
-      parse(R"({"station":"de:09182:43227","name":"Holzkirchen Bf","note":"Bahnhof",)"
+      parse(R"({"station":"de:09182:43227","name":"Holzkirchen Bf",)"
             R"("transport_types":["BAHN","SBAHN","BAHN"],"direction":"R","time_format":"minutes"})",
             issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_STRING("de:09182:43227", c.station.c_str());
   TEST_ASSERT_EQUAL_STRING("Holzkirchen Bf", c.name.c_str());
-  // "note" was removed; an old key is ignored without an issue.
   TEST_ASSERT_TRUE(c.direction == DirectionFilter::kR);
   TEST_ASSERT_TRUE(c.time_format == TimeFormat::kMinutes);
   // Duplicates dropped, fixed order in the request.
@@ -190,9 +189,8 @@ void test_sections_replace_lines_and_direction() {
 void test_sections_with_stations_of_their_own() {
   ConfigIssues issues;
   const Config c = parse(R"({"station":"de:09162:5","sections":[)"
-                         R"({"name":"Ostbahnhof","lines":["S3:H:S"],"note":"Bahnhof"},)"
-                         R"({"name":"Leuchtenbergring","station":"de:09162:900",)"
-                         R"("note":"4 min zu Fuß"}]})",
+                         R"({"name":"Ostbahnhof","lines":["S3:H:S"]},)"
+                         R"({"name":"Leuchtenbergring","station":"de:09162:900"}]})",
                          issues);
   TEST_ASSERT_EQUAL_size_t(0, issues.size());
   TEST_ASSERT_EQUAL_size_t(2, c.sections.size());
@@ -227,13 +225,14 @@ void test_invalid_section_station_gives_one_list() {
                          issues);
   TEST_ASSERT_TRUE(c.sections.empty());
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.sections[0].station"));
-  // An old "note" is ignored, also when it is too long.
-  ConfigIssues long_note;
-  const Config d =
-      parse(R"({"station":"de:09162:5","sections":[{"name":"A","lines":["S3:H:S"],)"
-            R"("note":"Ein viel zu langer Zusatztext"},{"name":"B","lines":["S3:R:S"]}]})",
-            long_note);
-  TEST_ASSERT_EQUAL_size_t(0, long_note.size());
+  // The setting "note" was removed before 1.0: an unknown key now,
+  // reported, the sections still apply.
+  ConfigIssues old_note;
+  const Config d = parse(R"({"station":"de:09162:5","sections":[{"name":"A","lines":["S3:H:S"],)"
+                         R"("note":"Bahnhof"},{"name":"B","lines":["S3:R:S"]}]})",
+                         old_note);
+  TEST_ASSERT_EQUAL_size_t(1, old_note.size());
+  TEST_ASSERT_EQUAL_STRING("widgets.mvg.sections[0].note", old_note[0].path.c_str());
   TEST_ASSERT_EQUAL_size_t(2, d.sections.size());
 }
 
