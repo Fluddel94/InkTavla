@@ -139,7 +139,8 @@ const TEXTS = {
     arrangement: "Aufteilung",
     nWidgets: "Band + {n}",
     exMorning: "Guten Morgen.", exDay: "Guten Tag.", exEvening: "Guten Abend.",
-    exWeatherLong: "Mal Sonne, mal Wolken, bis 12°. Am Abend noch 8°.", exWeather: "Mal Sonne, mal Wolken, bis 12°.",
+    exMvgLong: "Die S2 um\u00a007:54 nach Dachau fällt aus, die nächste fährt um\u00a008:14.", exMvg: "Die S2 um\u00a007:54 nach Dachau fällt aus.", exMvgShort: "S2 um\u00a007:54 fällt aus.",
+    exWeatherLong: "Mal Sonne, mal Wolken, bis 12°. Am Abend noch 8°.", exWeather: "Mal Sonne, mal Wolken, bis 12°.", exWeatherShort: "Mal Sonne, mal Wolken.",
     exCalendarLong: "Heute um 18:30: Kino mit Lena, danach um 21:00 Essen.", exCalendarShort: "18:30 Kino mit Lena.",
     exMorningAlone: "Guten Morgen und einen schönen {day}.", exDayAlone: "Guten Tag und noch einen schönen {day}.",
     exEveningAlone: "Guten Abend und einen schönen {day}abend.",
@@ -365,7 +366,8 @@ const TEXTS = {
     arrangement: "Arrangement",
     nWidgets: "Band + {n}",
     exMorning: "Good morning.", exDay: "Good afternoon.", exEvening: "Good evening.",
-    exWeatherLong: "Sun and clouds, up to 12°. Still 8° in the evening.", exWeather: "Sun and clouds, up to 12°.",
+    exMvgLong: "The S2 at\u00a007:54 to Dachau is cancelled, the next one leaves at\u00a008:14.", exMvg: "The S2 at\u00a007:54 to Dachau is cancelled.", exMvgShort: "S2 at\u00a007:54 cancelled.",
+    exWeatherLong: "Sun and clouds, up to 12°. Still 8° in the evening.", exWeather: "Sun and clouds, up to 12°.", exWeatherShort: "Sun and clouds.",
     exCalendarLong: "Today at 18:30: cinema with Lena, then dinner at 21:00.", exCalendarShort: "18:30 cinema with Lena.",
     exMorningAlone: "Good morning, have a nice {day}.", exDayAlone: "Good afternoon, enjoy the rest of your {day}.",
     exEveningAlone: "Good evening, have a nice {day} evening.",
@@ -1496,8 +1498,9 @@ function slotLabel(i) {
 // Bands nennen"; without the weather in the sentence and in no column the
 // display shows a placeholder instead of the weather picture. Like the
 // display (2026-11-24) one widget alone tells more, with two the event gets
-// shorter (the weather keeps its usual form), and
-// with nothing to say the greeting names the weekday (fixed examples, not
+// shorter (weather and cancellation keep their usual form), with three all
+// are short; in the order of the display: cancellation, weather, event.
+// With nothing to say the greeting names the weekday (fixed examples, not
 // measured).
 function bandSketch() {
   const l = $("language").value === "en" ? "en" : "de", x = (key) => TEXTS[l][key];
@@ -1507,10 +1510,12 @@ function bandSketch() {
   const has = (id) => slotIds.includes(id), on = (id) => !!widgetInfo(id) && widgetInfo(id).band && $("band" + id.charAt(0).toUpperCase() + id.slice(1)).checked;
   const greeting = h < 11 ? "exMorning" : h < 18 ? "exDay" : "exEvening";
   const parts = [];
+  if (on("mvg") && has("mvg")) parts.push("exMvg");
   if (on("weather")) parts.push("exWeather");
   if (on("calendar") && has("calendar")) parts.push("exCalendar");
+  const form = (p) => parts.length === 1 ? p + "Long" : parts.length > 2 || p === "exCalendar" ? p + "Short" : p;
   const sentence = parts.length
-    ? [x(greeting), ...parts.map((p) => x(parts.length === 1 ? p + "Long" : p === "exCalendar" ? "exCalendarShort" : p))]
+    ? [x(greeting), ...parts.map((p) => x(form(p)))]
     : [x(greeting + "Alone").replace("{day}", now.toLocaleDateString(loc, { weekday: "long" }))];
   const none = !on("weather") && !has("weather");
   return el("div", { class: "band" + (none ? " none" : ""), "aria-hidden": "true" },

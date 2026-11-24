@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Weather column: the temperature curve is spread over at least 15 degrees
+  (up to now 8), so small differences look small: a winter day from -3 to
+  +3° fills about 40 % of the chart height instead of 70 %; a day with 15
+  degrees or more between low and high fills it as before.
 - Band: the sentence adapts its length. Every part (notice, cancellation,
   weather, event) comes in a longer, the usual and a shorter form, and the
   band picks them so that the sentence fills at least half and at most
@@ -61,6 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   new PC the VS Code extension installs PlatformIO Core 6.2.0.post1, which
   55.03.312-1 refused ("not compatible with PlatformIO Core
   v6.2.0-post.1"); 55.03.313 accepts every Core from 6.2.0 on.
+
+### Fixed
+
+- Settings page: the example sentence in the band of the sketch now follows
+  the switch "Ausfälle im Satz des Bands nennen" too (a cancelled S-Bahn,
+  when the departures are in a place): alone in its longer form, with the
+  weather or the event in the usual form, with both all three short.
 
 ## [0.4.0] - 2026-11-22
 

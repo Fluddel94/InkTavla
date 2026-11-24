@@ -509,6 +509,22 @@ void test_chart_never_meets_the_rain_bars() {
     bottom = std::max(bottom, p.y);
   }
   TEST_ASSERT_TRUE(bottom - top <= (flat.curve_bottom - flat.curve_top) / 8.0 + 1);
+  // Small differences look small (2026-11-24, at least 15 degrees): a winter
+  // day from -3 to +3 degrees fills less than half of the height, a day of
+  // 15 degrees all of it.
+  auto filled = [](const wx::ColumnChart& c) {
+    double hi = 1e9, lo = -1e9;
+    for (const auto& p : c.curve) {
+      hi = std::min(hi, p.y);
+      lo = std::max(lo, p.y);
+    }
+    return (lo - hi) / (c.curve_bottom - c.curve_top);
+  };
+  const double winter =
+      filled(wx::columnChart(forecast(course(-3, 3), rainFrom(0, 0)), kMorning, 214));
+  TEST_ASSERT_TRUE(winter > 0.3 && winter < 0.5);
+  TEST_ASSERT_TRUE(
+      filled(wx::columnChart(forecast(course(14, 29), rainFrom(0, 0)), kMorning, 214)) > 0.95);
   // Without rain the curve gets more height than with heavy rain.
   const wx::ColumnChart wet = wx::columnChart(list[0], kMorning, 214);
   TEST_ASSERT_TRUE(flat.curve_bottom > wet.curve_bottom);

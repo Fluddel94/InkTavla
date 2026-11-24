@@ -22,7 +22,9 @@
 // The chart adapts to the values so that curve and bars never meet: the
 // bars (at most kColumnRainMax px) have their own strip at the bottom, the
 // curve always stays above the highest bar of the day; temperatures are
-// spread over at least kColumnMinSpan degrees, so a flat day stays flat.
+// spread over at least kColumnMinSpan degrees, so a flat day stays flat
+// (2026-11-24: 15 instead of 8 degrees, small differences look small: a day
+// from -3 to +3 degrees fills about 40 % of the height, 15 degrees fill it).
 
 #include <string>
 #include <vector>
@@ -63,7 +65,7 @@ inline constexpr double kRainStretchTop = 2.0 / 3;  // ... and at most 2/3 of th
 // Examples: day_max 1.1 mm: 0.1 -> 6 px, 1 -> 20; day_max 5 mm: 0.1 -> 5,
 // 2 -> 20, 5 -> 32; day_max 9 mm: 0.1 -> 3, 2 -> 15, 9 -> 32.
 int rainBarHeight(float mm, float day_max);
-inline constexpr double kColumnMinSpan = 8;
+inline constexpr double kColumnMinSpan = 15;
 inline constexpr int kColumnDayIconSize = 44;
 
 // Days below the chart: three (steps S and M).
