@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-24
+
+The weather column has a new chart with weather symbols, and the band
+sentence adapts its length to the space it has: it tells more when one
+widget speaks and less when several do. Disruption texts are cut at the
+letter, and how many lines they get is a setting. InkTavla is licensed under
+GPL-3.0-or-later, and CI checks every image and 3D model of the repository
+for personal metadata.
+
 ### Added
 
 - License: GPL-3.0-or-later (`LICENSE`), with the license of the bundled fonts
@@ -14,46 +23,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Departures: the station in the title has a round stop sign (H) instead of
-  the location pin.
+- Band: the sentence adapts its length. Every part (notice, cancellation,
+  weather, event) comes in a longer, the usual and a shorter form, and the
+  band picks them so that the sentence fills at least half and at most
+  about 85 % of its three lines: one widget alone tells more ("Heute wird
+  es sonnig, bis 16°. Am Abend noch 9°.", "…, die nächste fährt um 08:14.",
+  "…, danach um 14:00 Elternabend."), several get shorter ("S2 um 07:54
+  fällt aus.", "09:30 Zahnarzt."), the event first, then the weather. The
+  sentence is always in Fraunces 38 (no smaller size any more); only if even
+  the shorter forms do not fit, the greeting and then the part of the lowest
+  rank are left out. With nothing else to say the greeting names the
+  weekday ("Guten Morgen und einen schönen Dienstag."). The example in the
+  sketch of the settings page follows the same idea. No new settings.
 - Weather column: new chart. It shows the whole day from 0 to 24 o'clock on
   all steps (step S up to now 5 to 23) without rain bars, hour numbers and
   bottom line, and reaches down to the days below. At 5, 10, 15 and 20
   o'clock (step L: 2, 6, 10, 14, 18 and 22) the temperature of the hour
   stands on the curve with a 30 px weather symbol above it (at night the
   moon; showers at night as rain of the same strength). The curve is thin
-  up to now and thicker from now on, with a dot at now. No new settings.
-- Weather column, step L: the hours of tomorrow's parts ("6–10") are bold
-  and a little larger.
-- Weather column: the temperature curve is spread over at least 15 degrees
-  (up to now 8), so small differences look small: a winter day from -3 to
-  +3° fills about 40 % of the chart height instead of 70 %; a day with 15
-  degrees or more between low and high fills it as before.
-- Band: the sentence adapts its length. Every part (notice, cancellation,
-  weather, event) comes in a longer, the usual and a shorter form, and the
-  band picks them so that the sentence fills at least half and at most
-  about 85 % of its three lines: one widget alone tells more ("Heute wird es sonnig, bis
-  16°. Am Abend noch 9°.", "…, die nächste fährt um 08:14.", "…, danach um
-  14:00 Elternabend."), several get shorter ("S2 um 07:54 fällt aus.",
-  "09:30 Zahnarzt."), the event first, then the weather. The sentence is
-  always in Fraunces 38 (no smaller size any more); only if even the
-  shorter forms do not fit, the greeting and then the part of the lowest
-  rank are left out. With nothing else to say the greeting names the
-  weekday ("Guten Morgen und einen schönen Dienstag."). The example in the
-  sketch of the settings page follows the same idea. No new settings.
-- MVG departures: further disruption messages are counted as "+1", "+2"
-  (no "weitere"/"more", in every language), which leaves more room for the
-  text itself.
-- MVG departures: a disruption text that has to be cut now ends with "…"
-  right after the last letter that fits ("Wegen einer Stellwerksst…") instead
-  of after the last whole word, which often left much of the line empty. This
-  applies to a single line, to the last of two lines and to the cut in front of
-  "+1". Other texts (calendar, band) are cut as before.
+  up to now and thicker from now on, with a dot at now. It is spread over
+  at least 15 degrees (up to now 8), so small differences look small: a
+  winter day from -3 to +3° fills about 40 % of the chart height instead of
+  70 %; a day with 15 degrees or more between low and high fills it as
+  before. On step L the hours of tomorrow's parts ("6–10") are bold and a
+  little larger. No new settings.
+- Departures: the station in the title has a round stop sign (H) instead of
+  the location pin.
 - MVG departures: the disruption text has a setting with three steps
   instead of a switch: off, one line (new default) or two lines
   (`widgets.mvg.incidents`: `0`, `1`, `2`; settings page *Abfahrten*). One
   list now gets at most two lines as well (up to now three). An old
   `config.json` keeps working: `false` means off, `true` two lines.
+- MVG departures: further disruption messages are counted as "+1", "+2"
+  (no "weitere"/"more", in every language), which leaves more room for the
+  text itself. A disruption text that has to be cut ends with "…" right
+  after the last letter that fits ("Wegen einer Stellwerksst…") instead of
+  after the last whole word, which often left much of the line empty. This
+  applies to a single line, to the last of two lines and to the cut in front
+  of "+1". Other texts (calendar, band) are cut as before.
+- MVG departures are fetched once a minute at a second between 20 and 45,
+  chosen at random at every start, instead of at second 1 on every display
+  (fair use of the free API). They are drawn with the redraw at second 1,
+  so the panel still refreshes once a minute; the redraw no longer waits
+  for a fetch. The system log names the second at the start
+  (`updates at second 33 of every 60 s`).
 - Configuration: the settings `layout.template`, `layout.grid` and
   `widgets.mvg.note` (and `note` in sections), dropped in earlier versions
   and only tolerated since, are now unknown settings: reported and ignored
@@ -61,12 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   settings page does not remove them any more). New section
   "Compatibility" in `docs/configuration.md`: from 1.0.0 on a valid
   `config.json` stays valid.
-- MVG departures are fetched once a minute at a second between 20 and 45,
-  chosen at random at every start, instead of at second 1 on every display
-  (fair use of the free API). They are drawn with the redraw at second 1,
-  so the panel still refreshes once a minute; the redraw no longer waits
-  for a fetch. The system log names the second at the start
-  (`updates at second 33 of every 60 s`).
 - System log: a failed Wi-Fi connection attempt or a lost connection names
   the signal of that access point (`attempt failed, -41 dBm, reason 202
   (AUTH_FAIL)`), so it shows when a near access point refuses the display
