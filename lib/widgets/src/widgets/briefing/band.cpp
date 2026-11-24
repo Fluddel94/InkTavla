@@ -51,62 +51,89 @@ void drawDottedIcon(ui::Canvas& canvas, int x, int y, const ui::Icon& icon) {
 
 const ui::Font& headerFont() { return ui::fonts::kRobotoCondensedBold20; }
 
-SentenceLayout layoutSentence(const std::string& sentence) {
-  SentenceLayout out;
-  bool complete = true;
-  out.lines = ui::wrapText(ui::fonts::kFraunces38, sentence, kSentenceWidth, 3, &complete);
-  if (complete) return out;
-  out.small = true;
-  out.lines = ui::wrapText(ui::fonts::kFraunces34, sentence, kSentenceWidth, 3);
-  return out;
+int sentenceFill(const std::string& sentence) {
+  return ui::textWidth(ui::fonts::kFraunces38, sentence) * 100 / (kSentenceLines * kSentenceWidth);
 }
 
 SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>& parts,
                            std::string* text) {
-  // Fits the sentence into three lines (Fraunces 38, else 34)?
-  const auto fits = [](const std::string& sentence, SentenceLayout* out) {
-    bool complete = true;
-    SentenceLayout l;
-    l.lines = ui::wrapText(ui::fonts::kFraunces38, sentence, kSentenceWidth, 3, &complete);
-    if (!complete) {
-      l.small = true;
-      l.lines = ui::wrapText(ui::fonts::kFraunces34, sentence, kSentenceWidth, 3, &complete);
-    }
-    if (out != nullptr) *out = l;
-    return complete;
-  };
-  // By rank: every part that still fits is taken, a part that does not is
-  // left out (a shorter one of a lower rank may still fit). Before a part is
-  // left out, the parts taken before it get their shorter forms if that
-  // makes room ("Kein WLAN – Stand 07:41." instead of the long notice).
-  std::vector<Part> kept;
+  const ui::Font& font = ui::fonts::kFraunces38;
+  const int width_min = kSentenceLines * kSentenceWidth * kSentenceFillMinPercent / 100;
+  const int width_max = kSentenceLines * kSentenceWidth * kSentenceFillMaxPercent / 100;
+  std::vector<std::vector<std::string>> forms;
+  // The same without the shortest forms (a title cut with "…"): those are
+  // only used if nothing fits without them.
+  std::vector<std::vector<std::string>> uncut;
   for (const Part& part : parts) {
-    kept.push_back(part);
-    if (fits(joinSentence(greeting, kept), nullptr) || kept.size() == 1) continue;
-    if (!part.shorter.empty()) {
-      kept.back().text = part.shorter;
-      if (fits(joinSentence(greeting, kept), nullptr)) continue;
+    forms.push_back(partForms(part));
+    uncut.push_back(forms.back());
+    if (!part.shortest.empty() && uncut.back().size() > 1 && uncut.back().back() == part.shortest) {
+      uncut.back().pop_back();
     }
-    std::vector<Part> shortened = kept;
-    for (size_t i = 0; i + 1 < shortened.size(); i++) {
-      if (!shortened[i].shorter.empty()) shortened[i].text = shortened[i].shorter;
-    }
-    shortened.back().text = part.text;
-    bool taken = fits(joinSentence(greeting, shortened), nullptr);
-    if (!taken && !part.shorter.empty()) {
-      shortened.back().text = part.shorter;
-      taken = fits(joinSentence(greeting, shortened), nullptr);
-    }
-    if (taken) {
-      kept = shortened;
-      continue;
-    }
-    kept.pop_back();
   }
-  const std::string sentence = joinSentence(greeting, kept);
+
+  // The best combination of the forms of the first `count` parts with or
+  // without the greeting; false if none fits into three lines.
+  const auto best = [&](const std::vector<std::vector<std::string>>& choices, size_t count,
+                        const std::string& start, std::string* out) {
+    std::vector<size_t> level(count, 0);  // 0 = longest form
+    bool found = false;
+    int best_distance = 0;
+    std::vector<size_t> best_level;
+    while (true) {
+      std::string sentence = start;
+      for (size_t i = 0; i < count; i++) {
+        if (!sentence.empty()) sentence += " ";
+        sentence += choices[i][level[i]];
+      }
+      bool complete = true;
+      ui::wrapText(font, sentence, kSentenceWidth, kSentenceLines, &complete);
+      if (complete) {
+        const int w = ui::textWidth(font, sentence);
+        // "At least half" counts more than the upper limit: a sentence below
+        // half only wins if no other one reaches half. Within the range the
+        // rank decides (below).
+        const int distance = w < width_min   ? kSentenceLines * kSentenceWidth + width_min - w
+                             : w > width_max ? w - width_max
+                                             : 0;
+        // Lexicographic: the longer forms of the higher ranks win a tie.
+        if (!found || distance < best_distance ||
+            (distance == best_distance && level < best_level)) {
+          found = true;
+          best_distance = distance;
+          best_level = level;
+          *out = sentence;
+        }
+      }
+      // Next combination (the last part counts fastest).
+      size_t i = count;
+      while (i > 0) {
+        i--;
+        if (++level[i] < choices[i].size()) break;
+        level[i] = 0;
+        if (i == 0) return found;
+      }
+    }
+  };
+
+  std::string sentence;
+  bool done = false;
+  for (size_t count = parts.size(); count > 0 && !done; count--) {
+    done = best(uncut, count, greeting, &sentence) || best(forms, count, greeting, &sentence) ||
+           (!greeting.empty() && best(forms, count, "", &sentence));
+  }
+  if (!done) {
+    // Nothing fits: the greeting alone, or the most important part in its
+    // shortest form, shortened with "…".
+    sentence = greeting;
+    if (!forms.empty()) {
+      if (!sentence.empty()) sentence += " ";
+      sentence += forms[0].back();
+    }
+  }
   if (text != nullptr) *text = sentence;
   SentenceLayout out;
-  fits(sentence, &out);  // the most important part alone is shortened if needed
+  out.lines = ui::wrapText(font, sentence, kSentenceWidth, kSentenceLines);
   return out;
 }
 
@@ -134,16 +161,20 @@ SentenceInput sentenceInput(const DrawContext& context, const BandData& data) {
   return in;
 }
 
-std::string greetingNow(const DrawContext& context) {
+// The greeting; alone (nothing else to say) the longer one with the weekday.
+std::string greetingNow(const DrawContext& context, bool alone) {
   core::LocalTime now;
   if (!core::isValidUnixTime(context.now_s) || !core::toLocalTime(context.now_s, now)) return "";
-  return greetingText(greetingFor(now.hour), context.language);
+  const Greeting greeting = greetingFor(now.hour);
+  return alone ? greetingAlone(greeting, now.weekday, context.language)
+               : greetingText(greeting, context.language);
 }
 
 }  // namespace
 
 std::string bandSentence(const DrawContext& context, const BandData& data) {
-  return joinSentence(greetingNow(context), sentenceParts(sentenceInput(context, data)));
+  const std::vector<Part> parts = sentenceParts(sentenceInput(context, data));
+  return joinSentence(greetingNow(context, parts.empty()), parts);
 }
 
 void drawHeaderLine(ui::Canvas& canvas, const DrawContext& context) {
@@ -169,11 +200,11 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
   drawHeaderLine(canvas, context);
 
   // Sentence.
-  const SentenceLayout layout =
-      layoutParts(greetingNow(context), sentenceParts(sentenceInput(context, data)));
-  const ui::Font& font = layout.small ? ui::fonts::kFraunces34 : ui::fonts::kFraunces38;
-  const int first = layout.small ? 80 : 82;
-  const int step = layout.small ? 40 : 44;
+  const std::vector<Part> parts = sentenceParts(sentenceInput(context, data));
+  const SentenceLayout layout = layoutParts(greetingNow(context, parts.empty()), parts);
+  const ui::Font& font = ui::fonts::kFraunces38;
+  const int first = 82;
+  const int step = 44;
   for (size_t i = 0; i < layout.lines.size(); i++) {
     ui::drawText(canvas, font, kSentenceX, first + step * static_cast<int>(i), layout.lines[i]);
   }

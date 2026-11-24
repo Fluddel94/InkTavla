@@ -20,7 +20,12 @@
 //  4. the next event of the calendar (2026-11-16, see eventText()): of
 //     today until eveningStartHour(), then the first one of tomorrow.
 // The parts stand side by side; the rank decides their order and which part
-// gives way when the sentence does not fit. Disruption messages are in
+// gets shorter first or gives way when the sentence does not fit.
+// Lengths (2026-11-24, 1a): every widget gives its part in up to three
+// forms, longer, the usual one and shorter; the band picks them so that the
+// sentence fills at least half and at most about 85 % of its three lines (see
+// layoutParts()). Only one widget with something to say tells more, several
+// get shorter. Disruption messages are in
 // their column, not in the sentence. Sources without fresh data
 // leave their parts out.
 //
@@ -118,8 +123,12 @@ std::string nowText(const WeatherSummary& summary, ui::Language language);
 // The weather sentence for the time of day of now_s (see above); "" without
 // values for the day it is about. *shorter (if given) gets a shorter form
 // without the temperature, for when the whole sentence does not fit.
+// *longer (if given) gets a longer form with a look at the next time of day
+// (2026-11-24): in the morning "Am Abend noch 9°.", in the afternoon the
+// sentence of tomorrow, in the evening "Heute Nacht bis 2°."; "" if there
+// is nothing to add.
 std::string weatherSentence(const weather::Forecast& forecast, int64_t now_s, ui::Language language,
-                            std::string* shorter = nullptr);
+                            std::string* shorter = nullptr, std::string* longer = nullptr);
 
 // "Keine Verbindung zum WLAN – die Angaben sind von 07:12." (as_of = "" if
 // unknown).
@@ -143,9 +152,13 @@ std::string failureText(const std::vector<FailedSource>& failed, ui::Language la
 // kCancellationDepartures departures of a section (from now on; each
 // direction or station for itself, these are always among the rows the
 // column draws) is cancelled and leaves within kCancellationAheadS; the
-// earliest such one. "" if none.
+// earliest such one. "" if none. *shorter (if given) gets "S2 um 07:54
+// fällt aus.", *longer (if given) adds the next departure of the same line
+// to the same destination ("…, die nächste fährt um 08:14."), "" if there is
+// none (2026-11-24).
 std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t now_s,
-                             ui::Language language);
+                             ui::Language language, std::string* shorter = nullptr,
+                             std::string* longer = nullptr);
 
 // The event of the sentence (2026-11-16): before the evening (see
 // weatherPeriod()) the next event of today that has not begun yet ("Um
@@ -154,13 +167,18 @@ std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t 
 // of tomorrow ("Morgen um 08:00 Zahnarzt.", "Morgen: Geburtstag Oma.").
 // Events that began on an earlier day are not named again. The settings of
 // the column apply (all-day events, words left out). "" for none. *shorter
-// (if given) gets the form with the title shortened.
+// (if given) gets the short form "09:30 Zahnarzt." ("Morgen 08:00 …",
+// "Heute: …"), *shortest (if given) the same with a long title shortened
+// with "…" ("" if it fits), *longer (if given) adds the next
+// timed event of the same day ("…, danach um 14:00 Elternabend."), "" if
+// there is none (2026-11-24).
 // Three wordings for each case (2026-11-16, V1), chosen like those of the
 // weather by the date and the time of day; English with the title first
 // ("Kino mit Lena at 18:30.").
 std::string eventText(const calendar::Occurrences& occurrences,
                       const calendar::DisplayConfig& display, int64_t now_s, bool tomorrow,
-                      ui::Language language, std::string* shorter = nullptr);
+                      ui::Language language, std::string* shorter = nullptr,
+                      std::string* longer = nullptr, std::string* shortest = nullptr);
 
 // --- The whole sentence -----------------------------------------------------
 
@@ -176,8 +194,18 @@ enum class Topic {
 struct Part {
   Topic topic;
   std::string text;
-  std::string shorter;  // shorter form, "" = none
+  std::string shorter;   // shorter form, "" = none
+  std::string longer;    // longer form, "" = none (2026-11-24)
+  std::string shortest;  // after the shorter one (the event with its title cut), "" = none
 };
+
+// The forms of a part from the longest to the shortest (at least one):
+// longer, text, shorter, shortest, each only if it differs.
+std::vector<std::string> partForms(const Part& part);
+
+// The greeting when the sentence has nothing else to say (2026-11-24):
+// "Guten Morgen und einen schönen Dienstag." (weekday 0 = Sunday).
+std::string greetingAlone(Greeting greeting, int weekday, ui::Language language);
 
 // What the sentence is built from; nullptr for a source without fresh data.
 struct SentenceInput {

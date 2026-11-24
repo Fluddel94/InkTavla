@@ -14,11 +14,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Band: the sentence adapts its length. Every part (notice, cancellation,
+  weather, event) comes in a longer, the usual and a shorter form, and the
+  band picks them so that the sentence fills at least half and at most
+  about 85 % of its three lines: one widget alone tells more ("Heute wird es sonnig, bis
+  16°. Am Abend noch 9°.", "…, die nächste fährt um 08:14.", "…, danach um
+  14:00 Elternabend."), several get shorter ("S2 um 07:54 fällt aus.",
+  "09:30 Zahnarzt."), the event first, then the weather. The sentence is
+  always in Fraunces 38 (no smaller size any more); only if even the
+  shorter forms do not fit, the greeting and then the part of the lowest
+  rank are left out. With nothing else to say the greeting names the
+  weekday ("Guten Morgen und einen schönen Dienstag."). The example in the
+  sketch of the settings page follows the same idea. No new settings.
+- MVG departures: further disruption messages are counted as "+1", "+2"
+  (no "weitere"/"more", in every language), which leaves more room for the
+  text itself.
 - MVG departures: a disruption text that has to be cut now ends with "…"
   right after the last letter that fits ("Wegen einer Stellwerksst…") instead
   of after the last whole word, which often left much of the line empty. This
   applies to a single line, to the last of two lines and to the cut in front of
-  "+1 weitere". Other texts (calendar, band) are cut as before.
+  "+1". Other texts (calendar, band) are cut as before.
 - MVG departures: the disruption text has a setting with three steps
   instead of a switch: off, one line (new default) or two lines
   (`widgets.mvg.incidents`: `0`, `1`, `2`; settings page *Abfahrten*). One

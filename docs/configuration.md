@@ -69,7 +69,8 @@ turns its part of the band sentence off.
 - **Layout und Darstellung / Layout and display:** the arrangement of the
   screen (band + 3 or band + 2) and a sketch of the display (the band shows
   an example with the date and time of the phone; its sentence follows the
-  band switches of the widgets, and the weather picture becomes the
+  band switches of the widgets – one widget alone with a longer example,
+  with two the event shorter, as on the display –, and the weather picture becomes the
   placeholder where the display would show it): tap a place to
   choose it, then pick its widget below the sketch (with a link to that
   widget's settings); below that the language, the full refresh and the
@@ -361,12 +362,35 @@ Tag" until 18:00, then "Guten Abend"), then
    settings of the calendar column (`all_day`, `exclude`) apply.
 
 Disruption messages are not part of the sentence; they are shown in their
-column. The parts stand side by side; the sentence has at most
-three lines (Fraunces 38, else 34 px). If it does not fit, the weather
-sentence leaves out the temperature, the event shortens its title with
-"…", the notices before it take their shorter form, and if it still does
-not fit, it is left out (the notices and a cancellation come first, the
-event last). Parts of sources without fresh data are left
+column. The parts stand side by side in this order; the sentence has at
+most three lines in Fraunces 38 (never a smaller size).
+
+**Length of the sentence.** Every part comes in up to three forms, and the
+band picks them so that the sentence fills at least half and at most about
+85 % of its three lines (the width of the whole sentence in Fraunces 38):
+if only one widget has something to say, it tells more; if several do,
+they get shorter. Of the combinations that fit within that range, the
+higher rank keeps the longer form, so the event gets shorter first, then
+the weather, then a cancellation or a notice. If none is within the range,
+the band takes one that reaches half and goes least beyond it; if all stay
+below half, the longest.
+
+| Part | Longer | Usual | Shorter |
+|---|---|---|---|
+| Notice | – | "Keine Verbindung zum WLAN – die Angaben sind von 07:12." | "Kein WLAN – Stand 07:12." (failed updates without the time) |
+| Cancellation | "…, die nächste fährt um 08:14." (next departure of the same line to the same destination) | "Die S2 um 07:54 nach Dachau fällt aus." | "S2 um 07:54 fällt aus." |
+| Weather | a look ahead: in the morning "Am Abend noch 9°.", in the afternoon the sentence about tomorrow, in the evening "Heute Nacht bis 2°." | as above | without the temperature ("Heute wird es sonnig."); a storm stays |
+| Event | "…, danach um 14:00 Elternabend." (next event with a time of the same day) | "Um 09:30 Zahnarzt." | "09:30 Zahnarzt.", "Morgen 08:00 Zahnarzt.", "Heute: Geburtstag Oma.", title shortened with "…" |
+
+English in the same way ("S2 at 07:54 cancelled.", "Still 9° in the
+evening.", "Down to 2° tonight.", "…, then Elternabend at 14:00."). Only if
+even the shorter forms of all parts do not fit, the greeting is left out,
+then the part of the lowest rank (the event first). This happens only
+when much comes together, e.g. no Wi-Fi, a cancellation, a storm and an
+event. With nothing else to say the greeting names the weekday: "Guten
+Morgen und einen schönen Dienstag.", "Guten Tag und noch einen schönen
+Dienstag.", "Guten Abend und einen schönen Dienstagabend." ("Good morning,
+have a nice Tuesday."). Parts of sources without fresh data are left
 out. The band reads the weather section (`widgets.weather`) even if the
 weather column is not on the screen, the departures and the calendar only
 if they are on the screen. Every widget has a switch `band` in its section
@@ -502,7 +526,8 @@ below the station title (two stations: below the title of the first one,
 its rows follow the text), with a warning sign: "S2: Verspätung eines
 vorausfahrenden Zuges.". The API only gives short texts without a heading.
 Only the first message is shown (the one of the earliest departure drawn);
-if there are more, the end of the text says how many: "+2 weitere". The
+if there are more, the end of the text says how many: "+2" (in every
+language). The
 line in front ("S2: ") is left out when the departures drawn belong to one
 line only; for several lines it names the lines of the message. Long
 German words are hyphenated at the end of a line. The text has at most
@@ -510,7 +535,7 @@ the lines set with `incidents` (one by default, at most two), and gets
 shorter, down to one line, so that every section keeps at least two
 departures. If the text does not fit, its last line ends with "…" right
 after the last letter that fits ("Wegen einer Stellwerksst…"), also in front
-of "+1 weitere"; a word is not kept whole for the sake of the ending. The
+of "+1"; a word is not kept whole for the sake of the ending. The
 affected departures keep a warning sign, right before the time and in the
 same place in every row; a cancelled departure has the same sign and its
 time struck through. Notes on early terminations stay in the row, fare notes

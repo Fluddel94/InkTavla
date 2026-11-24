@@ -247,15 +247,14 @@ int columnRowsThatFit(int canvas_height, int sections) {
 }
 
 IncidentLabel incidentLabel(const std::vector<Incident>& incidents, bool with_lines,
-                            ui::Language language) {
+                            ui::Language /*language*/) {
   IncidentLabel label;
   if (incidents.empty()) return label;
   const Incident& first = incidents[0];
   if (with_lines && !first.lines.empty()) label.text = joinLines(incidentLines({first})) + ": ";
   label.text += withFullStop(first.message);
   if (incidents.size() > 1) {
-    label.more = "+" + std::to_string(incidents.size() - 1) + " " +
-                 ui::text(language, ui::Text::kMoreIncidents);
+    label.more = "+" + std::to_string(incidents.size() - 1);  // all languages (2026-11-24)
   }
   return label;
 }

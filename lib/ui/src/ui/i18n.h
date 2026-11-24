@@ -12,12 +12,11 @@ enum class Language { kGerman, kEnglish };
 Language languageFromCode(std::string_view code);
 
 enum class Text {
-  kNow,            // departure in this minute
-  kMinutesUnit,    // after a number of minutes: "4 min"
-  kNoDepartures,   // empty departure list
-  kMoreIncidents,  // after "+2": further disruption messages ("+2 weitere")
-  kAsOf,           // age hint: "Stand 14:32"
-  kNoConnection,   // a widget has never received data
+  kNow,           // departure in this minute
+  kMinutesUnit,   // after a number of minutes: "4 min"
+  kNoDepartures,  // empty departure list
+  kAsOf,          // age hint: "Stand 14:32"
+  kNoConnection,  // a widget has never received data
   kNoConnectionDetail,
   kNoData,          // a widget's data could not be read
   kLoading,         // a widget waiting for its first data

@@ -463,19 +463,6 @@ void test_picture_follows_the_weather_of_now() {
   TEST_ASSERT_EQUAL_STRING("", text(forecast(temps, {0}), kMidnight + 4 * kDay + 3600).c_str());
 }
 
-void test_sentence_layout_falls_back_to_the_smaller_size() {
-  const br::SentenceLayout a = br::layoutSentence(
-      "Guten Morgen. Bis Mittag bleibt es trocken, ab 14 Uhr regnet es – Schirm mit.");
-  TEST_ASSERT_FALSE(a.small);
-  TEST_ASSERT_EQUAL_size_t(3, a.lines.size());
-  const br::SentenceLayout b = br::layoutSentence(
-      "Guten Abend. Keine Verbindung zum WLAN – die Angaben sind von 07:12. Ab 17\u00a0Uhr "
-      "Gewitter "
-      "– Schirm mit. Heiß, bis 33°.");
-  TEST_ASSERT_TRUE(b.small);
-  TEST_ASSERT_TRUE(b.lines.size() <= 3);
-}
-
 // --- Weather chart ------------------------------------------------------------------
 
 void checkChart(const wx::Forecast& f, const char* name) {
@@ -1003,7 +990,7 @@ void test_view_incidents_switch() {
   TEST_ASSERT_EQUAL_INT(0, options.incident_lines);  // the default draws no text
 }
 
-// Only the first message is shown; the others as "+2 weitere". The lines
+// Only the first message is shown; the others as "+2". The lines
 // stand in front only if the column shows more than one line.
 void test_incident_label() {
   const std::vector<widgets::mvg::Incident> three = {
@@ -1012,15 +999,15 @@ void test_incident_label() {
       {"Technische Störung am Zug", {"S3"}}};
   auto label = widgets::mvg::incidentLabel(three, true, ui::Language::kGerman);
   TEST_ASSERT_EQUAL_STRING("S2: Reparatur an einem Signal.", label.text.c_str());
-  TEST_ASSERT_EQUAL_STRING("+2 weitere", label.more.c_str());
+  TEST_ASSERT_EQUAL_STRING("+2", label.more.c_str());
   label = widgets::mvg::incidentLabel(three, false, ui::Language::kEnglish);
   TEST_ASSERT_EQUAL_STRING("Reparatur an einem Signal.", label.text.c_str());
-  TEST_ASSERT_EQUAL_STRING("+2 more", label.more.c_str());
+  TEST_ASSERT_EQUAL_STRING("+2", label.more.c_str());
   label = widgets::mvg::incidentLabel({three[1]}, true, ui::Language::kGerman);
   TEST_ASSERT_EQUAL_STRING("S2, S3: Verspätung eines vorausfahrenden Zuges.", label.text.c_str());
   TEST_ASSERT_EQUAL_STRING("", label.more.c_str());
   label = widgets::mvg::incidentLabel({three[0], three[2]}, true, ui::Language::kGerman);
-  TEST_ASSERT_EQUAL_STRING("+1 weitere", label.more.c_str());
+  TEST_ASSERT_EQUAL_STRING("+1", label.more.c_str());
   TEST_ASSERT_EQUAL_STRING(
       "", widgets::mvg::incidentLabel({}, true, ui::Language::kGerman).text.c_str());
 }
@@ -1118,7 +1105,7 @@ void test_incidents_only_of_drawn_departures() {
   TEST_ASSERT_EQUAL_size_t(3, all.size());
 
   // ... but with three and two rows only two of them are on the display: the
-  // first one and "+1 weitere".
+  // first one and "+1".
   widgets::mvg::ColumnOptions options;
   options.station = "Test";
   options.now_s = kIncidentsNow;
@@ -1130,7 +1117,7 @@ void test_incidents_only_of_drawn_departures() {
   const int drawn = widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options, &text);
   TEST_ASSERT_EQUAL_INT(5, drawn);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +1 weitere", text[0].c_str());  // no "S2: "
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +1", text[0].c_str());  // no "S2: "
 
   // Fewer rows (a lower column): only the first message, nothing else.
   ui::Bitmap low(280, 214);
@@ -1146,7 +1133,7 @@ void test_incidents_only_of_drawn_departures() {
   ui::BitmapCanvas tall_canvas(tall, 0, 0, 280, 400);
   widgets::mvg::drawDeparturesColumn(tall_canvas, source.sections(), options, &text);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +2 weitere", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +2", text[0].c_str());
 }
 
 // A long message above two sections gets two lines of text and every
@@ -1236,7 +1223,7 @@ widgets::mvg::Section incidentSection(const char* name, bool own_station, const 
 }
 
 // A cut disruption text ends with "…" after the last letter that fits, as a
-// single line, as the last of two lines and before "+1 weitere" (2026-11-23).
+// single line, as the last of two lines and before "+1" (2026-11-23).
 void test_incident_text_is_cut_at_the_letter() {
   const std::string message =
       "Wegen eines Polizeieinsatzes kommt es zu Verzögerungen im Betriebsablauf";
@@ -1266,20 +1253,20 @@ void test_incident_text_is_cut_at_the_letter() {
   TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes kommt", text[0].c_str());
   TEST_ASSERT_EQUAL_STRING("es zu Verzögerungen im Betriebsabl\u2026", text[1].c_str());
 
-  // A second message: "+1 weitere" stays at the end, the text before it is cut.
+  // A second message: "+1" stays at the end, the text before it is cut.
   list.departures[1].warning = true;
   list.departures[1].incidents = {{"Bauarbeiten", "S2"}};
   text = draw(list, 1);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieins\u2026 +1 weitere", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes ko\u2026 +1", text[0].c_str());
   text = draw(list, 2);
   TEST_ASSERT_EQUAL_size_t(2, text.size());
   TEST_ASSERT_EQUAL_STRING("Wegen eines Polizeieinsatzes kommt", text[0].c_str());
-  TEST_ASSERT_EQUAL_STRING("es zu Verzögerungen im\u2026 +1 weitere", text[1].c_str());
+  TEST_ASSERT_EQUAL_STRING("es zu Verzögerungen im Betriebs\u2026 +1", text[1].c_str());
 }
 
 // Long messages: pin line on top and the text below it (two directions and
-// two stations), hyphenation, "+1 weitere", the cancellation sign before the
+// two stations), hyphenation, "+1", the cancellation sign before the
 // time (2026-10-28).
 void test_incident_variants() {
   const std::string long_message =
@@ -1292,7 +1279,7 @@ void test_incident_variants() {
   options.incident_lines = 2;
   std::vector<std::string> text;
 
-  // Two directions of one line: no prefix; a second message: "+1 weitere".
+  // Two directions of one line: no prefix; a second message: "+1".
   std::vector<widgets::mvg::Section> directions = {
       incidentSection("München", false, "S2", "Markt Schwaben", "x!..", long_message),
       incidentSection("Dachau", false, "S2", "Petershausen", "x!..", long_message)};
@@ -1301,7 +1288,7 @@ void test_incident_variants() {
   TEST_ASSERT_EQUAL_INT(4, widgets::mvg::drawDeparturesColumn(a, directions, options, &text));
   TEST_ASSERT_EQUAL_size_t(2, text.size());
   TEST_ASSERT_TRUE(text[0].rfind("S2:", 0) == std::string::npos);
-  TEST_ASSERT_TRUE(text[1].size() > 10 && text[1].find(" +1 weitere") == text[1].size() - 11);
+  TEST_ASSERT_TRUE(text[1].size() > 10 && text[1].find(" +1") == text[1].size() - 3);
 
   // Two stations: the text stands below the pin title of the first one.
   std::vector<widgets::mvg::Section> stations = {
@@ -1607,8 +1594,10 @@ void test_preview_bands() {
   TEST_ASSERT_EQUAL_STRING(
       "Guten Morgen. Erst trocken, ab 16\u00a0Uhr Regen \u2013 Schirm mit. Bis\u00a014°.",
       br::bandSentence(context, data).c_str());
-  // Without weather data only the greeting; offline with the time.
-  TEST_ASSERT_EQUAL_STRING("Guten Morgen.", br::bandSentence(context, br::BandData{}).c_str());
+  // Without weather data only the greeting, the longer one (2026-11-24);
+  // offline with the time.
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.",
+                           br::bandSentence(context, br::BandData{}).c_str());
   context.network_connected = false;
   br::BandData offline;
   offline.as_of = "07:12";
@@ -1640,32 +1629,167 @@ void test_sentence_parts() {
   TEST_ASSERT_TRUE(parts[1].topic == br::Topic::kCancellation);
   TEST_ASSERT_TRUE(parts[2].topic == br::Topic::kWeather);
   TEST_ASSERT_EQUAL_STRING("Die S2 um\u00a007:54 nach Dachau fällt aus.", parts[1].text.c_str());
-  // The long offline notice would leave no room for the cancellation; its
-  // shorter form makes room (the weather still does not fit).
+  // All three fit only in their shorter forms and without the greeting
+  // (2026-11-24: shorter forms first, then the greeting, then a part).
   std::string used;
   const br::SentenceLayout layout = br::layoutParts("Guten Morgen.", parts, &used);
   TEST_ASSERT_TRUE(layout.lines.size() <= 3);
   TEST_ASSERT_EQUAL_STRING(
-      "Guten Morgen. Kein WLAN – Stand 07:12. Die S2 um\u00a007:54 nach Dachau fällt aus.",
+      "Kein WLAN – Stand 07:12. S2 um\u00a007:54 fällt aus. Erst trocken, ab 16\u00a0Uhr Regen "
+      "– Schirm mit.",
       used.c_str());
-  // Too long for three lines: the weather in its shorter form.
+  // Two parts: both shorter (longer ones go beyond 85 %); the greeting stays.
   in.online = true;
   br::layoutParts("Guten Morgen.", br::sentenceParts(in), &used);
   TEST_ASSERT_EQUAL_STRING(
-      "Guten Morgen. Die S2 um\u00a007:54 nach Dachau fällt aus. Erst trocken, ab 16\u00a0Uhr "
-      "Regen – Schirm mit. Bis\u00a014°.",
+      "Guten Morgen. S2 um\u00a007:54 fällt aus. Erst trocken, ab 16\u00a0Uhr Regen – Schirm mit.",
       used.c_str());
   // A part that does not fit even in its shorter form is left out.
   const std::vector<br::Part> skip = {
       {br::Topic::kOffline, "Kein WLAN seit 07:12.", ""},
       {br::Topic::kCancellation, "Die S2 um\u00a007:54 nach Dachau fällt aus.", ""},
       {br::Topic::kWeather,
-       "Heute regnet es den ganzen Tag und am Abend kommt noch ein Gewitter dazu.",
-       "Heute regnet es den ganzen Tag und abends gibt es Gewitter."}};
+       "Heute regnet es den ganzen Tag und am Abend kommt noch ein Gewitter dazu, das bis in die "
+       "Nacht anhält und Hagel bringen kann.",
+       "Heute regnet es den ganzen Tag und abends gibt es Gewitter mit Hagel bis in die Nacht "
+       "hinein."}};
   br::layoutParts("Guten Morgen.", skip, &used);
   TEST_ASSERT_EQUAL_STRING(
       "Guten Morgen. Kein WLAN seit 07:12. Die S2 um\u00a007:54 nach Dachau fällt aus.",
       used.c_str());
+}
+
+// Lengths of the sentence (2026-11-24, 1a): the band picks the forms so
+// that the sentence fills half to about 85 % of its three lines; one part
+// alone tells more, several get shorter, the event first.
+void test_sentence_lengths() {
+  const br::Part weather = {br::Topic::kWeather, "Heute wird es sonnig, bis 16°.",
+                            "Heute wird es sonnig.",
+                            "Heute wird es sonnig, bis 16°. Am Abend noch 9°."};
+  const br::Part event = {br::Topic::kEvent, "Um 09:30 Zahnarzt Dr. Huber.",
+                          "09:30 Zahnarzt Dr. Huber.",
+                          "Um 09:30 Zahnarzt Dr. Huber, danach um 14:00 Elternabend."};
+  const br::Part cancellation = {br::Topic::kCancellation, "Die S2 um 07:54 nach Dachau fällt aus.",
+                                 "S2 um 07:54 fällt aus.",
+                                 "Die S2 um 07:54 nach Dachau fällt aus, die nächste fährt "
+                                 "um 08:14."};
+  std::string used;
+  // The weather alone: the longer form.
+  br::layoutParts("Guten Morgen.", {weather}, &used);
+  TEST_ASSERT_EQUAL_STRING(("Guten Morgen. " + weather.longer).c_str(), used.c_str());
+  // Weather and event: the event shorter, the weather keeps its temperature.
+  br::layoutParts("Guten Morgen.", {weather, event}, &used);
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. Heute wird es sonnig, bis\u00a016°. Um\u00a009:30 Zahnarzt Dr.\u00a0Huber.",
+      used.c_str());
+  TEST_ASSERT_TRUE(br::sentenceFill(used) >= br::kSentenceFillMinPercent &&
+                   br::sentenceFill(used) <= br::kSentenceFillMaxPercent);
+  // All three: all shorter, nothing left out.
+  const br::SentenceLayout three =
+      br::layoutParts("Guten Morgen.", {cancellation, weather, event}, &used);
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. S2 um\u00a007:54 fällt aus. Heute wird es sonnig. 09:30 Zahnarzt "
+      "Dr.\u00a0Huber.",
+      used.c_str());
+  TEST_ASSERT_TRUE(three.lines.size() <= 3);
+  // The event alone: the longer form rather than the
+  // usual one below half.
+  br::layoutParts("Guten Morgen.", {event}, &used);
+  TEST_ASSERT_EQUAL_STRING(("Guten Morgen. " + event.longer).c_str(), used.c_str());
+  // Nothing to say: the greeting alone.
+  br::layoutParts("Guten Morgen und einen schönen Dienstag.", {}, &used);
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.", used.c_str());
+  // The forms of a part, the longest first; equal ones only once.
+  TEST_ASSERT_EQUAL_size_t(3, br::partForms(weather).size());
+  TEST_ASSERT_EQUAL_size_t(1, br::partForms({br::Topic::kWeather, "A.", "A.", ""}).size());
+  // The greeting alone, by the time of day.
+  const auto de = ui::Language::kGerman, en = ui::Language::kEnglish;
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.",
+                           br::greetingAlone(br::Greeting::kMorning, 2, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Guten Tag und noch einen schönen Freitag.",
+                           br::greetingAlone(br::Greeting::kDay, 5, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Guten Abend und einen schönen Sonntagabend.",
+                           br::greetingAlone(br::Greeting::kEvening, 0, de).c_str());
+  TEST_ASSERT_EQUAL_STRING("Good morning, have a nice Tuesday.",
+                           br::greetingAlone(br::Greeting::kMorning, 2, en).c_str());
+  TEST_ASSERT_EQUAL_STRING("Good afternoon, enjoy the rest of your Friday.",
+                           br::greetingAlone(br::Greeting::kDay, 5, en).c_str());
+  TEST_ASSERT_EQUAL_STRING("Good evening, have a nice Sunday evening.",
+                           br::greetingAlone(br::Greeting::kEvening, 0, en).c_str());
+}
+
+// The three forms of the parts (2026-11-24, 1a).
+void test_part_forms() {
+  const auto de = ui::Language::kGerman, en = ui::Language::kEnglish;
+  // Cancellation: shorter without the destination, longer with the next
+  // departure of the same line to the same destination.
+  std::vector<widgets::mvg::Section> sections(1);
+  sections[0].departures = {departure("S2", "Dachau", kMorning + 12 * 60, true),
+                            departure("S2", "Erding", kMorning + 20 * 60, false),
+                            departure("S2", "Dachau", kMorning + 32 * 60, false)};
+  std::string shorter, longer;
+  TEST_ASSERT_EQUAL_STRING("Die S2 um\u00a007:54 nach Dachau fällt aus.",
+                           br::cancellationText(sections, kMorning, de, &shorter, &longer).c_str());
+  TEST_ASSERT_EQUAL_STRING("S2 um\u00a007:54 fällt aus.", shorter.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Die S2 um\u00a007:54 nach Dachau fällt aus, die nächste fährt um\u00a008:14.",
+      longer.c_str());
+  br::cancellationText(sections, kMorning, en, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("S2 at\u00a007:54 cancelled.", shorter.c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "The S2 at\u00a007:54 to Dachau is cancelled, the next one leaves at\u00a008:14.",
+      longer.c_str());
+  sections[0].departures.pop_back();  // no next one: no longer form
+  br::cancellationText(sections, kMorning, de, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("", longer.c_str());
+
+  // Weather: a look at the next time of day.
+  const wx::Forecast f = forecast(course(4, 16), {0}, Condition::kOvercast, Condition::kClear);
+  // Morning: the evening.
+  TEST_ASSERT_EQUAL_STRING("Heute wird es sonnig, bis\u00a016°.",
+                           br::weatherSentence(f, kMorning, de, &shorter, &longer).c_str());
+  TEST_ASSERT_EQUAL_STRING("Heute wird es sonnig.", shorter.c_str());
+  TEST_ASSERT_EQUAL_STRING("Heute wird es sonnig, bis\u00a016°. Am Abend noch\u00a012°.",
+                           longer.c_str());
+  br::weatherSentence(f, kMorning, en, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("Sunny today, up to 16°. Still 12° in the evening.", longer.c_str());
+  // Afternoon: the sentence of tomorrow.
+  br::weatherSentence(f, kMidnight + 13 * 3600, de, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING(
+      "Sonnig bis zum Abend, dann\u00a012°. Morgen ein trockener Tag mit Sonne und Wolken, "
+      "bis\u00a013°.",
+      longer.c_str());
+  // Evening (about tomorrow): the night.
+  const int64_t evening = kMidnight + 20 * 3600 + 15 * 60;
+  br::weatherSentence(f, evening, de, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING(
+      "Morgen ein trockener Tag mit Sonne und Wolken, bis\u00a013°. Heute Nacht bis\u00a07°.",
+      longer.c_str());
+  br::weatherSentence(f, evening, en, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("A dry day with sun and clouds tomorrow, up to 13°. Down to 7° tonight.",
+                           longer.c_str());
+
+  // Event: the next timed event of the day after it.
+  cal::Occurrences e(2);
+  e[0].summary = "Zahnarzt";
+  e[1].summary = "Elternabend";
+  for (int i = 0; i < 2; i++) {
+    e[i].first_day = e[i].last_day = cal::localDay(kMidnight + 12 * 3600);
+    e[i].start = kMidnight + (i == 0 ? 9 * 3600 + 30 * 60 : 14 * 3600);
+    e[i].end = e[i].start + 3600;
+  }
+  cal::DisplayConfig display;
+  const std::string text = br::eventText(e, display, kMorning, false, de, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("Um\u00a009:30 Zahnarzt.", text.c_str());
+  TEST_ASSERT_EQUAL_STRING("09:30 Zahnarzt.", shorter.c_str());
+  TEST_ASSERT_EQUAL_STRING("Um\u00a009:30 Zahnarzt, danach um\u00a014:00 Elternabend.",
+                           longer.c_str());
+  br::eventText(e, display, kMorning, false, en, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("Zahnarzt at\u00a009:30, then Elternabend at\u00a014:00.",
+                           longer.c_str());
+  e.pop_back();  // only one event: no longer form
+  br::eventText(e, display, kMorning, false, de, &shorter, &longer);
+  TEST_ASSERT_EQUAL_STRING("", longer.c_str());
 }
 
 void test_cancellations() {
@@ -1952,17 +2076,22 @@ void test_event_wordings() {
           e[0].first_day = e[0].last_day = cal::localDay(event_day + 12 * 3600);
           e[0].start = timed ? event_day + 9 * 3600 + 15 * 60 : event_day;
           e[0].end = timed ? e[0].start + 3600 : event_day + kDay;
-          std::string shorter;
-          seen.push_back(br::eventText(e, display, now, tomorrow, lang, &shorter));
-          shorter_seen.push_back(shorter);
+          std::string shortest;
+          seen.push_back(
+              br::eventText(e, display, now, tomorrow, lang, nullptr, nullptr, &shortest));
+          shorter_seen.push_back(shortest);
         }
         std::vector<std::string> want = eventForms(timed, tomorrow, english, title, "09:15");
-        std::vector<std::string> want_short = eventForms(timed, tomorrow, english, cut, "09:15");
+        // The shortest form (title cut) is the same for every wording
+        // (2026-11-24).
+        const std::string want_short =
+            timed ? (tomorrow ? (english ? "Tomorrow 09:15 " : "Morgen 09:15 ") : "09:15 ") + cut
+                  : (tomorrow ? (english ? "Tomorrow: " : "Morgen: ")
+                              : (english ? "Today: " : "Heute: ")) +
+                        cut;
         for (size_t i = 0; i < 3; i++) {
           assertOneOf(seen[i], want);
-          // The shorter form belongs to the same wording.
-          const size_t index = std::find(want.begin(), want.end(), seen[i]) - want.begin();
-          TEST_ASSERT_EQUAL_STRING(want_short[index].c_str(), shorter_seen[i].c_str());
+          TEST_ASSERT_EQUAL_STRING(want_short.c_str(), shorter_seen[i].c_str());
         }
         std::sort(seen.begin(), seen.end());
         std::sort(want.begin(), want.end());
@@ -2037,8 +2166,67 @@ void test_preview_band_switches() {
   missing.weather_missing = true;
   ui::BitmapCanvas third(bitmap, 0, 430, 800, 205);
   br::drawBand(third, context, missing);
-  TEST_ASSERT_EQUAL_STRING("Guten Morgen.", br::bandSentence(context, missing).c_str());
+  // Nothing else to say: the longer greeting (2026-11-24).
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.",
+                           br::bandSentence(context, missing).c_str());
   check(bitmap, "briefing_band_switches");
+}
+
+// Reference: the band with one, two and three parts and with nothing to
+// say (2026-11-24, 1a): one part tells more, several get shorter.
+void test_preview_band_lengths() {
+  ui::Bitmap bitmap(800, 4 * 205 + 3 * 10);
+  bitmap.clear(ui::Color::kWhite);
+  const wx::Forecast f = forecast(course(4, 16), {0}, Condition::kOvercast, Condition::kClear);
+  std::vector<widgets::mvg::Section> sections(1);
+  sections[0].departures = {departure("S2", "Dachau", kMorning + 12 * 60, true),
+                            departure("S2", "Dachau", kMorning + 32 * 60, false)};
+  cal::Occurrences e(2);
+  e[0].summary = "Zahnarzt Huber";
+  e[1].summary = "Elternabend";
+  for (int i = 0; i < 2; i++) {
+    e[i].first_day = e[i].last_day = cal::localDay(kMidnight + 12 * 3600);
+    e[i].start = kMidnight + (i == 0 ? 9 * 3600 + 30 * 60 : 14 * 3600);
+    e[i].end = e[i].start + 3600;
+  }
+  widgets::DrawContext context;
+  context.now_s = kMorning;
+  context.network_connected = true;
+  std::vector<std::string> sentences;
+  for (int i = 0; i < 4; i++) {
+    br::BandData data;
+    data.forecast = &f;
+    data.weather_sentence = i < 3;
+    if (i == 1 || i == 2) data.events = &e;
+    if (i == 2) data.departures = &sections;
+    ui::BitmapCanvas canvas(bitmap, 0, i * 215, 800, 205);
+    br::drawBand(canvas, context, data);
+    const std::vector<br::Part> parts = br::sentenceParts({context.now_s,
+                                                           context.language,
+                                                           true,
+                                                           "",
+                                                           {},
+                                                           data.weather_sentence ? &f : nullptr,
+                                                           data.departures,
+                                                           data.events,
+                                                           data.event_display});
+    std::string used;
+    br::layoutParts(parts.empty() ? "Guten Morgen und einen schönen Dienstag." : "Guten Morgen.",
+                    parts, &used);
+    sentences.push_back(used);
+  }
+  check(bitmap, "briefing_band_lengths");
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen. Heute wird es sonnig, bis 16°. Am Abend noch 12°.",
+                           sentences[0].c_str());
+  // Two parts: the event shorter, the weather as usual (up to 85 %);
+  // three: all shorter, the title is not cut.
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. Heute wird es sonnig, bis\u00a016°. Um\u00a009:30 Zahnarzt Huber.",
+      sentences[1].c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Guten Morgen. S2 um\u00a007:54 fällt aus. Heute wird es sonnig. 09:30 Zahnarzt Huber.",
+      sentences[2].c_str());
+  TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.", sentences[3].c_str());
 }
 
 void test_preview_band_topics() {
@@ -2245,8 +2433,9 @@ int main() {
   RUN_TEST(test_band_picture_intensity_hail_wind);
   RUN_TEST(test_wind_sentence);
   RUN_TEST(test_preview_bands_wind);
-  RUN_TEST(test_sentence_layout_falls_back_to_the_smaller_size);
   RUN_TEST(test_sentence_parts);
+  RUN_TEST(test_sentence_lengths);
+  RUN_TEST(test_part_forms);
   RUN_TEST(test_cancellations);
   RUN_TEST(test_failed_updates);
   RUN_TEST(test_evening_start_by_sunset);
@@ -2278,6 +2467,7 @@ int main() {
   RUN_TEST(test_wifi_failed_text);
   RUN_TEST(test_system_page_longest_texts_fit);
   RUN_TEST(test_preview_bands);
+  RUN_TEST(test_preview_band_lengths);
   RUN_TEST(test_preview_band_topics);
   return UNITY_END();
 }

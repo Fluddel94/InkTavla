@@ -861,6 +861,40 @@ void replaceAll(std::string& text, const std::string& from, const std::string& t
   }
 }
 
+// The addition of the longer weather sentence (2026-11-24): a look at the
+// next time of day. In the morning the temperature of the evening, in the
+// afternoon the sentence of tomorrow, in the evening the low of the night
+// (up to 7 h of tomorrow). "" if the forecast has no values for it.
+std::string lookAhead(const Forecast& f, int64_t now_s, Greeting period, ui::Language lang) {
+  const bool de = lang == ui::Language::kGerman;
+  Values v;
+  switch (period) {
+    case Greeting::kMorning:
+      if (!temperatureAt(f, now_s, kEveningHour, v.eve)) return "";
+      return fill(de ? "Am Abend noch\u00a0{eve}°." : "Still {eve}° in the evening.", v);
+    case Greeting::kDay: {
+      std::string full, shorter;
+      tomorrow(f, now_s, lang, full, shorter);
+      return full;
+    }
+    case Greeting::kEvening: {
+      const weather::Day* next = dayAt(f, now_s, 1);
+      if (next == nullptr) return "";
+      bool any = false;
+      float low = 0;
+      for (const Hour& h : f.hours) {
+        if (h.time < now_s || h.time > next->time + 7 * 3600) continue;
+        if (!any || h.temperature < low) low = h.temperature;
+        any = true;
+      }
+      if (!any) return "";
+      v.lo = weather::displayTemperature(low);
+      return fill(de ? "Heute Nacht bis\u00a0{lo}°." : "Down to {lo}° tonight.", v);
+    }
+  }
+  return "";
+}
+
 // From the storm threshold an umbrella is of little use (W1).
 void hoodInsteadOfUmbrella(std::string& text) {
   replaceAll(text, "– Schirm mit.", "– Kapuze statt Schirm.");
@@ -872,9 +906,9 @@ void hoodInsteadOfUmbrella(std::string& text) {
 }  // namespace
 
 std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Language language,
-                            std::string* shorter) {
+                            std::string* shorter, std::string* longer) {
   core::LocalTime now;
-  std::string full, short_form;
+  std::string full, short_form, long_form;
   if (core::isValidUnixTime(now_s) && core::toLocalTime(now_s, now)) {
     const Greeting period = weatherPeriod(forecast, now_s);
     switch (period) {
@@ -914,8 +948,13 @@ std::string weatherSentence(const Forecast& forecast, int64_t now_s, ui::Languag
         if (gust >= weather::kStormGustKmh) short_form += " " + wind;
       }
     }
+    if (!full.empty() && longer != nullptr) {
+      const std::string more = lookAhead(forecast, now_s, period, language);
+      if (!more.empty()) long_form = full + " " + more;
+    }
   }
   if (shorter != nullptr) *shorter = short_form == full ? "" : short_form;
+  if (longer != nullptr) *longer = long_form;
   return full;
 }
 
@@ -963,11 +1002,14 @@ std::string failureText(const std::vector<FailedSource>& failed, ui::Language la
 }
 
 std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t now_s,
-                             ui::Language language) {
+                             ui::Language language, std::string* shorter, std::string* longer) {
+  if (shorter != nullptr) shorter->clear();
+  if (longer != nullptr) longer->clear();
   if (!core::isValidUnixTime(now_s)) return "";
   // The next departures of each section (direction, station) for itself;
   // of the cancelled ones within the hour the earliest.
   const mvg::Departure* first = nullptr;
+  const mvg::Section* section = nullptr;
   for (const mvg::Section& s : sections) {
     std::vector<const mvg::Departure*> next;
     for (const mvg::Departure& d : s.departures) {
@@ -981,15 +1023,37 @@ std::string cancellationText(const std::vector<mvg::Section>& sections, int64_t 
     }
     for (const mvg::Departure* d : next) {
       if (!d->cancelled || d->planned > now_s + kCancellationAheadS) continue;
-      if (first == nullptr || d->planned < first->planned) first = d;
+      if (first == nullptr || d->planned < first->planned) {
+        first = d;
+        section = &s;
+      }
     }
   }
   if (first == nullptr) return "";
   const std::string time = clockText(first->planned);
-  if (language == ui::Language::kGerman) {
-    return "Die " + first->line + " um " + time + " nach " + first->destination + " fällt aus.";
+  const bool de = language == ui::Language::kGerman;
+  // The next departure of the same line to the same destination.
+  const mvg::Departure* next = nullptr;
+  for (const mvg::Departure& d : section->departures) {
+    if (d.cancelled || d.planned <= first->planned || d.line != first->line ||
+        d.destination != first->destination) {
+      continue;
+    }
+    if (next == nullptr || d.planned < next->planned) next = &d;
   }
-  return "The " + first->line + " at " + time + " to " + first->destination + " is cancelled.";
+  if (shorter != nullptr) {
+    *shorter = de ? first->line + " um\u00a0" + time + " fällt aus."
+                  : first->line + " at\u00a0" + time + " cancelled.";
+  }
+  const std::string main =
+      de ? "Die " + first->line + " um\u00a0" + time + " nach " + first->destination + " fällt aus"
+         : "The " + first->line + " at\u00a0" + time + " to " + first->destination +
+               " is cancelled";
+  if (longer != nullptr && next != nullptr) {
+    *longer = main + (de ? ", die nächste fährt um\u00a0" : ", the next one leaves at\u00a0") +
+              clockText(next->planned) + ".";
+  }
+  return main + ".";
 }
 
 namespace {
@@ -1035,8 +1099,11 @@ const std::vector<Text>& eventWordings(bool timed, bool tomorrow) {
 
 std::string eventText(const calendar::Occurrences& occurrences,
                       const calendar::DisplayConfig& display, int64_t now_s, bool tomorrow,
-                      ui::Language language, std::string* shorter) {
+                      ui::Language language, std::string* shorter, std::string* longer,
+                      std::string* shortest) {
   if (shorter != nullptr) shorter->clear();
+  if (longer != nullptr) longer->clear();
+  if (shortest != nullptr) shortest->clear();
   calendar::DisplayConfig d = display;
   d.days = 2;
   d.past = false;
@@ -1055,6 +1122,19 @@ std::string eventText(const calendar::Occurrences& occurrences,
     }
   }
   const calendar::Entry* e = timed != nullptr ? timed : all_day;
+  // The next timed event of the same day after it (for the longer form).
+  const calendar::Entry* second = nullptr;
+  if (e != nullptr && e == timed) {
+    bool after = false;
+    for (const calendar::Entry& x : agenda[index].entries) {
+      if (&x == e) {
+        after = true;
+      } else if (after && x.kind == calendar::Entry::Kind::kTimed && !x.past && !x.title.empty()) {
+        second = &x;
+        break;
+      }
+    }
+  }
   if (e == nullptr || e->title.empty()) return "";
   const bool with_time = e->kind == calendar::Entry::Kind::kTimed;
   const std::vector<Text>& list = eventWordings(with_time, tomorrow);
@@ -1064,19 +1144,37 @@ std::string eventText(const calendar::Occurrences& occurrences,
                                 ? Greeting::kEvening
                                 : (t.hour < kMorningEndHour ? Greeting::kMorning : Greeting::kDay);
   const char* wording = pick(list[chooseIndex(list.size(), now_s, greeting)], language);
-  const auto build = [&](const std::string& title) {
-    std::string out = wording;
+  const auto fillIn = [&](const char* pattern, const std::string& title) {
+    std::string out = pattern;
     size_t pos;
     if ((pos = out.find("{time}")) != std::string::npos) out.replace(pos, 6, e->time);
     if ((pos = out.find("{title}")) != std::string::npos) out.replace(pos, 7, title);
+    return out;
+  };
+  const auto finish = [](std::string out) {
     if (!endsSentence(out)) out += ".";
     return out;
   };
-  const std::string text = build(e->title);
-  if (shorter != nullptr) {
+  const std::string text = finish(fillIn(wording, e->title));
+  const bool de = language == ui::Language::kGerman;
+  if (shorter != nullptr || shortest != nullptr) {
+    // "09:30 Zahnarzt.", "Morgen 08:00 Zahnarzt.", "Heute: Geburtstag Oma."
     const std::string cut =
         ui::fitTextEllipsis(ui::fonts::kFraunces38, e->title, kEventTitleShortWidth);
-    if (cut != e->title) *shorter = build(cut);
+    const char* pattern =
+        with_time ? (tomorrow ? (de ? "Morgen {time} {title}" : "Tomorrow {time} {title}")
+                              : "{time} {title}")
+                  : (tomorrow ? (de ? "Morgen: {title}" : "Tomorrow: {title}")
+                              : (de ? "Heute: {title}" : "Today: {title}"));
+    const std::string s = finish(fillIn(pattern, e->title));
+    if (shorter != nullptr && s != text) *shorter = s;
+    if (shortest != nullptr && cut != e->title) *shortest = finish(fillIn(pattern, cut));
+  }
+  if (longer != nullptr && second != nullptr && !endsSentence(e->title)) {
+    // "Um 09:30 Zahnarzt, danach um 14:00 Elternabend."
+    std::string more = de ? ", danach um\u00a0" + second->time + " " + second->title
+                          : ", then " + second->title + " at\u00a0" + second->time;
+    *longer = finish(fillIn(wording, e->title) + more);
   }
   return text;
 }
@@ -1098,25 +1196,61 @@ std::vector<Part> sentenceParts(const SentenceInput& in) {
     parts.push_back({Topic::kFailure, text, shorter == text ? "" : shorter});
   }
   if (in.departures != nullptr) {
-    const std::string text = cancellationText(*in.departures, in.now_s, in.language);
-    if (!text.empty()) parts.push_back({Topic::kCancellation, text, ""});
+    std::string shorter, longer;
+    const std::string text =
+        cancellationText(*in.departures, in.now_s, in.language, &shorter, &longer);
+    if (!text.empty()) parts.push_back({Topic::kCancellation, text, shorter, longer});
   }
   if (in.forecast != nullptr) {
-    std::string shorter;
-    const std::string text = weatherSentence(*in.forecast, in.now_s, in.language, &shorter);
-    if (!text.empty()) parts.push_back({Topic::kWeather, text, shorter});
+    std::string shorter, longer;
+    const std::string text =
+        weatherSentence(*in.forecast, in.now_s, in.language, &shorter, &longer);
+    if (!text.empty()) parts.push_back({Topic::kWeather, text, shorter, longer});
   }
   if (in.events != nullptr) {
     // Tomorrow from the same hour as the weather sentence.
     const weather::Forecast none;
     const bool tomorrow =
         weatherPeriod(in.forecast != nullptr ? *in.forecast : none, in.now_s) == Greeting::kEvening;
-    std::string shorter;
-    const std::string text =
-        eventText(*in.events, in.event_display, in.now_s, tomorrow, in.language, &shorter);
-    if (!text.empty()) parts.push_back({Topic::kEvent, text, shorter});
+    std::string shorter, longer, shortest;
+    const std::string text = eventText(*in.events, in.event_display, in.now_s, tomorrow,
+                                       in.language, &shorter, &longer, &shortest);
+    if (!text.empty()) parts.push_back({Topic::kEvent, text, shorter, longer, shortest});
   }
   return parts;
+}
+
+std::vector<std::string> partForms(const Part& part) {
+  std::vector<std::string> forms;
+  if (!part.longer.empty() && part.longer != part.text) forms.push_back(part.longer);
+  forms.push_back(part.text);
+  if (!part.shorter.empty() && part.shorter != part.text) forms.push_back(part.shorter);
+  if (!part.shortest.empty() && part.shortest != forms.back()) forms.push_back(part.shortest);
+  return forms;
+}
+
+std::string greetingAlone(Greeting greeting, int weekday, ui::Language language) {
+  const std::string day = ui::weekdayName(language, weekday);
+  if (day.empty()) return greetingText(greeting, language);
+  if (language == ui::Language::kGerman) {
+    switch (greeting) {
+      case Greeting::kMorning:
+        return "Guten Morgen und einen schönen " + day + ".";
+      case Greeting::kDay:
+        return "Guten Tag und noch einen schönen " + day + ".";
+      case Greeting::kEvening:
+        return "Guten Abend und einen schönen " + day + "abend.";
+    }
+  }
+  switch (greeting) {
+    case Greeting::kMorning:
+      return "Good morning, have a nice " + day + ".";
+    case Greeting::kDay:
+      return "Good afternoon, enjoy the rest of your " + day + ".";
+    case Greeting::kEvening:
+      return "Good evening, have a nice " + day + " evening.";
+  }
+  return "";
 }
 
 std::string joinSentence(const std::string& greeting, const std::vector<Part>& parts) {

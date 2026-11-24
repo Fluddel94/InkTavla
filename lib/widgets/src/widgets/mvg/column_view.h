@@ -6,7 +6,7 @@
 // Disruption messages of the shown departures (2026-10-26): below the
 // station title (two stations: below the title of the first one), a warning
 // sign and the wrapped, hyphenated text, no heading. Only the first message
-// is shown, with "+2 weitere" for the others (2026-10-28). On step L the
+// is shown, with "+2" for the others (2026-10-28). On step L the
 // delay has its unit, "+8 min" (2026-11-16).
 
 #include <string>
@@ -42,7 +42,8 @@ struct ColumnOptions {
 // departure drawn), ending with a full stop, with its lines in front ("S2:
 // Reparatur an einem Signal.") if with_lines; the lines are left out when the
 // station or section shows only one line. If there are more messages, `more`
-// says so ("+2 weitere"); it is put at the end of the text.
+// says so ("+2", in every language, 2026-11-24); it is put at the end of the
+// text.
 struct IncidentLabel {
   std::string text;
   std::string more;

@@ -49,21 +49,38 @@ inline constexpr int kRuleY = 204;
 // screen), in spaced capitals.
 const ui::Font& headerFont();
 
-// Lines of the sentence: Fraunces 38 with 44 px between baselines; if it
-// does not fit into three lines, Fraunces 34 with 40 px; then shortened.
+// The sentence: Fraunces 38, up to three lines with 44 px between
+// baselines; never a smaller size (2026-11-24).
+inline constexpr int kSentenceLines = 3;
+// How full the sentence should be (2026-11-24, 1a): the width of the whole
+// sentence in Fraunces 38 against the width of its three lines. At least
+// half; about two thirds is nice, but only a wish (Tobias): within the range
+// up to kSentenceFillMaxPercent the rank decides, so the parts keep their
+// longer forms as long as the band does not look crammed.
+inline constexpr int kSentenceFillMinPercent = 50;
+inline constexpr int kSentenceFillMaxPercent = 85;
+
 struct SentenceLayout {
   std::vector<std::string> lines;
-  bool small = false;  // Fraunces 34
 };
-SentenceLayout layoutSentence(const std::string& sentence);
+
+// Fill of a sentence in percent of three lines (its width in Fraunces 38).
+int sentenceFill(const std::string& sentence);
 
 // The sentence from the greeting and the parts (ordered by rank) in three
-// lines, in Fraunces 38 or else 34: the parts are taken by rank as long as
-// the sentence fits; a part that does not fit is taken in its shorter form
-// (the weather without the temperature), or the parts before it get their
-// shorter forms ("Kein WLAN – Stand 07:12."), or else it is left out. The greeting with
-// the most important part is shortened with "…" if necessary.
-// *text (if given) is set to the sentence used.
+// lines (2026-11-24): of all combinations of the forms of the parts (see
+// partForms()) that fit and whose fill is in the range
+// kSentenceFillMinPercent..kSentenceFillMaxPercent, the one with the longer
+// forms of the higher ranks (so the event gets shorter first, then the
+// weather, then a cancellation or notice); if none is in the range, the one
+// that reaches half and goes least beyond the range, else (all below half)
+// the longest. The order of the
+// parts stays. A title cut with "…" (Part::shortest) is only used if
+// nothing fits without it. Only if even the shortest forms do not fit, the greeting is
+// left out, then the part of the lowest rank (the greeting comes back if it
+// fits). Without parts the greeting stands alone. As a last resort the most
+// important part alone is shortened with "…". *text (if given) is set to
+// the sentence used.
 SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>& parts,
                            std::string* text = nullptr);
 

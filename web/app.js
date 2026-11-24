@@ -139,7 +139,10 @@ const TEXTS = {
     arrangement: "Aufteilung",
     nWidgets: "Band + {n}",
     exMorning: "Guten Morgen.", exDay: "Guten Tag.", exEvening: "Guten Abend.",
-    exWeather: "Mal Sonne, mal Wolken, bis 12°.", exCalendar: "Heute um 18:30: Kino mit Lena.",
+    exWeatherLong: "Mal Sonne, mal Wolken, bis 12°. Am Abend noch 8°.", exWeather: "Mal Sonne, mal Wolken, bis 12°.",
+    exCalendarLong: "Heute um 18:30: Kino mit Lena, danach um 21:00 Essen.", exCalendarShort: "18:30 Kino mit Lena.",
+    exMorningAlone: "Guten Morgen und einen schönen {day}.", exDayAlone: "Guten Tag und noch einen schönen {day}.",
+    exEveningAlone: "Guten Abend und einen schönen {day}abend.",
     swapWith: "{name} (tauscht mit Platz {n})",
     assignmentHint: "Jedes Widget gibt es einmal. Wählst du eines, das schon auf einem anderen Platz steht, tauschen die beiden.",
     wideHint: "Der breite Platz liegt dort, wo ein Widget ihn braucht ({names}).",
@@ -362,7 +365,10 @@ const TEXTS = {
     arrangement: "Arrangement",
     nWidgets: "Band + {n}",
     exMorning: "Good morning.", exDay: "Good afternoon.", exEvening: "Good evening.",
-    exWeather: "Sun and clouds, up to 12°.", exCalendar: "Today at 18:30: cinema with Lena.",
+    exWeatherLong: "Sun and clouds, up to 12°. Still 8° in the evening.", exWeather: "Sun and clouds, up to 12°.",
+    exCalendarLong: "Today at 18:30: cinema with Lena, then dinner at 21:00.", exCalendarShort: "18:30 cinema with Lena.",
+    exMorningAlone: "Good morning, have a nice {day}.", exDayAlone: "Good afternoon, enjoy the rest of your {day}.",
+    exEveningAlone: "Good evening, have a nice {day} evening.",
     swapWith: "{name} (swaps with slot {n})",
     assignmentHint: "Every widget is there once. If you choose one that is in another slot already, the two swap.",
     wideHint: "The wide slot is where a widget needs it ({names}).",
@@ -1488,16 +1494,24 @@ function slotLabel(i) {
 // band of the display (date and time of this device, the sentence, the
 // weather picture). The sentence follows the switches "... im Satz des
 // Bands nennen"; without the weather in the sentence and in no column the
-// display shows a placeholder instead of the weather picture.
+// display shows a placeholder instead of the weather picture. Like the
+// display (2026-11-24) one widget alone tells more, with two the event gets
+// shorter (the weather keeps its usual form), and
+// with nothing to say the greeting names the weekday (fixed examples, not
+// measured).
 function bandSketch() {
   const l = $("language").value === "en" ? "en" : "de", x = (key) => TEXTS[l][key];
   const loc = l === "en" ? "en-GB" : "de-DE", now = new Date(), h = now.getHours();
   const date = now.toLocaleDateString(loc, { weekday: "long" }) + ", " + now.getDate() + (l === "en" ? " " : ". ") +
     now.toLocaleDateString(loc, { month: "long" }) + " · " + hhmm(now);
   const has = (id) => slotIds.includes(id), on = (id) => !!widgetInfo(id) && widgetInfo(id).band && $("band" + id.charAt(0).toUpperCase() + id.slice(1)).checked;
-  const sentence = [x(h < 11 ? "exMorning" : h < 18 ? "exDay" : "exEvening")];
-  if (on("weather")) sentence.push(x("exWeather"));
-  if (on("calendar") && has("calendar")) sentence.push(x("exCalendar"));
+  const greeting = h < 11 ? "exMorning" : h < 18 ? "exDay" : "exEvening";
+  const parts = [];
+  if (on("weather")) parts.push("exWeather");
+  if (on("calendar") && has("calendar")) parts.push("exCalendar");
+  const sentence = parts.length
+    ? [x(greeting), ...parts.map((p) => x(parts.length === 1 ? p + "Long" : p === "exCalendar" ? "exCalendarShort" : p))]
+    : [x(greeting + "Alone").replace("{day}", now.toLocaleDateString(loc, { weekday: "long" }))];
   const none = !on("weather") && !has("weather");
   return el("div", { class: "band" + (none ? " none" : ""), "aria-hidden": "true" },
     el("div", {}, el("small", {}, date), el("p", {}, sentence.join(" "))),
