@@ -198,7 +198,7 @@ void test_briefing_symbols() {
   // Small symbols.
   ui::drawIcon(c, 440, 330, ui::kCalendarIcon);
   caption(c, 447, 364, "ganztägig");
-  ui::drawIcon(c, 500, 329, ui::kPinIcon);
+  ui::drawIcon(c, 500, 329, ui::kStationIcon);
   caption(c, 508, 364, "Haltestelle");
   ui::drawColumnTitle(c, 560, 600, 344, "", "", ui::TitleIcon::kArrow);
   caption(c, 566, 364, "Richtung");
@@ -291,8 +291,8 @@ void test_briefing_parts() {
                  text[i]);
   }
   ui::drawColumnTitle(c, 28, 292, 322, "In die Stadt", "", ui::TitleIcon::kArrow);
-  ui::drawColumnTitle(c, 28, 292, 352, "Pasing", "Bahnhof", ui::TitleIcon::kPin);
-  ui::drawColumnTitle(c, 28, 292, 382, "Pasing Marienpl.", "4 min zu Fuß", ui::TitleIcon::kPin);
+  ui::drawColumnTitle(c, 28, 292, 352, "Pasing", "Bahnhof", ui::TitleIcon::kStation);
+  ui::drawColumnTitle(c, 28, 292, 382, "Pasing Marienpl.", "4 min zu Fuß", ui::TitleIcon::kStation);
   ui::drawColumnTitle(c, 28, 292, 412, "Raus", "Stand 07:41", ui::TitleIcon::kArrow, true);
   ui::drawText(c, ui::fonts::kRobotoCondensedBold21, 262, 446, "07:47", ui::Color::kBlack,
                ui::Align::kRight);

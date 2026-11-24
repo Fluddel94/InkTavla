@@ -276,7 +276,8 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   const bool station_title = sections.empty() || list || station_above;
   if (station_title) {
     ui::drawColumnTitle(canvas, 0, canvas.width(), first_title, options.station,
-                        age ? options.note : "", ui::TitleIcon::kPin, age && options.note_alert);
+                        age ? options.note : "", ui::TitleIcon::kStation,
+                        age && options.note_alert);
   }
   std::vector<int> available;
   for (const Section& s : sections) available.push_back(static_cast<int>(s.departures.size()));
@@ -331,7 +332,7 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
       const bool badge = s == 0 && age && !station_above;
       ui::drawColumnTitle(canvas, 0, canvas.width(), title, sections[s].name,
                           badge ? options.note : "",
-                          sections[s].own_station ? ui::TitleIcon::kPin : ui::TitleIcon::kArrow,
+                          sections[s].own_station ? ui::TitleIcon::kStation : ui::TitleIcon::kArrow,
                           badge && options.note_alert);
     }
     int top = title + 6;
@@ -363,7 +364,7 @@ std::string DeparturesColumnView::title(ui::Language language) const {
 
 void DeparturesColumnView::drawTitle(ui::Canvas& canvas, ui::Language language) {
   ui::drawColumnTitle(canvas, 0, canvas.width(), ui::kColumnTitleBaseline, title(language), "",
-                      ui::TitleIcon::kPin);
+                      ui::TitleIcon::kStation);
 }
 
 void DeparturesColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {

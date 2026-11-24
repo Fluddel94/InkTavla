@@ -585,6 +585,12 @@ void test_column_title_note_and_badge() {
   ui::drawColumnTitle(c3, 0, 214, 20, "Abfahrten Pasing", "Stand 07:41", ui::TitleIcon::kPin, true);
   TEST_ASSERT_TRUE(b3.get(212, 12) == Color::kBlack);
   TEST_ASSERT_TRUE(b3.get(3, 10) == Color::kBlack);  // pin
+  // Stop sign: ring on the left edge, hollow between ring and H.
+  Bitmap b5(214, 30);
+  BitmapCanvas c5(b5);
+  ui::drawColumnTitle(c5, 0, 214, 20, "Pasing", "", ui::TitleIcon::kStation);
+  TEST_ASSERT_TRUE(b5.get(1, 10) == Color::kBlack);
+  TEST_ASSERT_TRUE(b5.get(3, 10) == Color::kWhite);
 }
 
 void test_briefing_icons() {
@@ -602,6 +608,8 @@ void test_briefing_icons() {
   TEST_ASSERT_EQUAL_INT(30, ui::weatherIcon(ui::WeatherIcon::kSun, 20).width);
   TEST_ASSERT_EQUAL_INT(15, ui::kCalendarIcon.width);
   TEST_ASSERT_EQUAL_INT(16, ui::kPinIcon.height);
+  TEST_ASSERT_EQUAL_INT(16, ui::kStationIcon.width);
+  TEST_ASSERT_EQUAL_INT(16, ui::kStationIcon.height);
 }
 
 // The word with "|" at every break the hyphenator allows (a hyphen that the

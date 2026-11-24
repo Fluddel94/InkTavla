@@ -136,6 +136,9 @@ int drawColumnTitle(Canvas& canvas, int x0, int x1, int baseline, std::string_vi
   } else if (icon == TitleIcon::kPin) {
     drawIcon(canvas, x, baseline - 15, kPinIcon);
     x += 22;
+  } else if (icon == TitleIcon::kStation) {
+    drawIcon(canvas, x, baseline - 15, kStationIcon);
+    x += 22;
   }
   std::string text = toUpper(title);
   const Font& font = columnTitleFont();

@@ -300,7 +300,7 @@ etc. by Claus Färber, marked as public domain), converted to 1 bit. They may
 be trademarks of MVV, MVG or DB. Tram and night tram symbols are our own.
 
 Weather symbols, the large weather pictures of the "Briefing" layout and the
-small symbols (calendar, location pin) are our own, drawn by `tools/icongen`
+small symbols (calendar, location pin, stop sign) are our own, drawn by `tools/icongen`
 (Pillow).
 
 ## Contributing

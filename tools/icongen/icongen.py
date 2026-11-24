@@ -396,7 +396,7 @@ def calendar_icon(size):
 
 
 def pin(size):
-    """Location pin (a station in the departure column)."""
+    """Location pin (the place in the weather column)."""
     def painter(d, n):
         cx, r = n / 2, n * 0.32
         d.ellipse((cx - r, n * 0.06, cx + r, n * 0.06 + 2 * r), fill=255)
@@ -404,6 +404,18 @@ def pin(size):
                    (cx + r * 0.86, n * 0.06 + r * 1.5)], fill=255)
         q = r * 0.42
         d.ellipse((cx - q, n * 0.06 + r - q, cx + q, n * 0.06 + r + q), fill=0)
+    return mask(size, painter)
+
+
+def station(size):
+    """Round stop sign with an H (a station in the departure column)."""
+    def painter(d, n):
+        d.ellipse((0, 0, n - 1, n - 1), fill=255)
+        d.ellipse((n * 0.13, n * 0.13, n * 0.87, n * 0.87), fill=0)
+        st = n * 0.13
+        d.rectangle((n * 0.31, n * 0.26, n * 0.31 + st, n * 0.74), fill=255)
+        d.rectangle((n * 0.69 - st, n * 0.26, n * 0.69, n * 0.74), fill=255)
+        d.rectangle((n * 0.31, n * 0.44, n * 0.69, n * 0.44 + st), fill=255)
     return mask(size, painter)
 
 
@@ -452,6 +464,7 @@ def main():
             table.append((enum, size, name))
     lines += array("kCalendar15", calendar_icon(15)) + [""]
     lines += array("kPin16", pin(16)) + [""]
+    lines += array("kStation16", station(16)) + [""]
     band_table = []
     for enum, kind in WEATHER + BAND_EXTRA:
         name = f"kBand{kind.title().replace('_', '')}"
@@ -470,13 +483,14 @@ def main():
         "",
         "const Icon kCalendarIcon = {15, 15, kCalendar15};",
         "const Icon kPinIcon = {16, 16, kPin16};",
+        "const Icon kStationIcon = {16, 16, kStation16};",
         "",
         "}  // namespace ui",
         "",
     ]
     OUT.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     print(f"{OUT.relative_to(ROOT)}: {len(table)} weather symbols, {len(band_table)} band "
-          "pictures, calendar, pin")
+          "pictures, calendar, pin, station")
     return 0
 
 

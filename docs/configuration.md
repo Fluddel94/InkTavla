@@ -412,7 +412,7 @@ the same position as the titles above) and the time on the right, as many
 as fit (settings: see [the calendar
 widget](#calendar-calendar-agenda)). The departure column shows one list
 (title: the station) or the two `sections` (titles with an arrow, or with
-the location pin for two stations), 28 px per row. Disruption messages of
+the stop sign for two stations), 28 px per row. Disruption messages of
 the shown lines follow the station title: a warning sign and the texts of
 the API for the departures drawn, with their lines (each once, at most three
 lines, two with sections).
@@ -473,7 +473,7 @@ choice, for example towards the city and away from it:
 
 - Exactly two sections, each with a `name` (up to 24 bytes, shown in
   capitals) and its `lines` in the same format as above (at least one).
-- Above the sections a title line shows the station (location pin and
+- Above the sections a title line shows the station (stop sign and
   `name`, or the name from the API). While the data is old, the age badge
   ("Stand 14:32") stands on its right.
 - Lines that are in no section are not shown; `lines` and `direction` are
@@ -514,7 +514,7 @@ door and one a short walk away:
 - While the data is old, the first title shows the age badge on its right.
 - The settings page writes the display name as the `name` of the first
   section.
-- Both titles get the location pin.
+- Both titles get the stop sign.
 - Each station is requested once a minute, so two stations mean two
   requests a minute.
 

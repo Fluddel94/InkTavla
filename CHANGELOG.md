@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Departures: the station in the title has a round stop sign (H) instead of
+  the location pin.
 - Weather column: new chart. It shows the whole day from 0 to 24 o'clock on
   all steps (step S up to now 5 to 23) without rain bars, hour numbers and
   bottom line, and reaches down to the days below. At 5, 10, 15 and 20

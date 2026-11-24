@@ -62,8 +62,10 @@ const Icon& bandIcon(WeatherIcon kind);
 
 // Calendar sheet for all-day events, 15 px.
 extern const Icon kCalendarIcon;
-// Location pin for stations, 16 px.
+// Location pin for places (weather column), 16 px.
 extern const Icon kPinIcon;
+// Round stop sign with an H for stations (departure column), 16 px.
+extern const Icon kStationIcon;
 
 // Generated table (icons_data.cpp).
 struct WeatherIconEntry {

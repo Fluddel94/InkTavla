@@ -44,8 +44,9 @@ void drawLineSymbol(Canvas& canvas, const Font& font, int x, int y, int width, i
 // Symbol in front of a column or section title.
 enum class TitleIcon {
   kNone,
-  kArrow,  // direction ("IN DIE STADT")
-  kPin,    // station ("PASING")
+  kArrow,    // direction ("IN DIE STADT")
+  kPin,      // place ("PASING" in the weather column)
+  kStation,  // station of the departure column, round stop sign
 };
 
 // Column or section title with its baseline at `baseline`: optional icon,
