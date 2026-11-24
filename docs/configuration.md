@@ -550,9 +550,10 @@ o'clock as a temperature curve (the hourly values, each averaged with its
 neighbours so that the line runs smoothly) and the next three days. At
 four hours (5, 10, 15 and 20 o'clock) the curve shows the temperature of
 that hour and above it a 30 px symbol of the weather around it (at night
-with the moon). The curve is thin and dashed up to now and solid from now
-on; a black dot marks now. In a column of step L (367 px, band + 2) the
-labelled hours are 6, 10, 14, 18 and 22 o'clock, and below follow tomorrow
+with the moon; showers at night as rain of the same strength). The curve is
+thin up to now and thicker from now on; a black dot marks now. In a column
+of step L (367 px, band + 2) the labelled hours are 2, 6, 10, 14, 18 and 22
+o'clock, and below follow tomorrow
 in three parts (morning, midday, evening) and the two days after. The
 forecast is fetched for six days (today and five); the band at the top uses
 the same data for its sentence and picture.

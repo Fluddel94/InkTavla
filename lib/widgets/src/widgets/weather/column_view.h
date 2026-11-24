@@ -12,11 +12,12 @@
 // The chart (W3, 2026-11-24): the temperature curve of the whole day 0-24 h
 // from the hourly values, averaged with their neighbours (1-2-1), without
 // rain bars, hour numbers or a bottom line. It reaches down to the dotted
-// line of the days. Labelled points (S: 5, 10, 15, 20 h; L: 6, 10, 14, 18,
-// 22 h) show the temperature of the hour and above it the 30 px symbol of
-// the hours around it (by night with the moon). The curve is thin and
-// dashed up to now and solid from now on; a black dot in a white ring marks
-// now on the curve. Temperatures are spread over at least kColumnMinSpan
+// line of the days. Labelled points (S: 5, 10, 15, 20 h; L: 2, 6, 10, 14,
+// 18, 22 h) show the temperature of the hour and above it the 30 px symbol
+// of the hours around it (by night with the moon, showers as rain). The
+// curve is thin (1 px) up to now and 2 px from now on (2026-11-24: solid
+// instead of dashed); a black dot in a white ring marks now on the curve.
+// Temperatures are spread over at least kColumnMinSpan
 // degrees, so a flat day stays flat (2026-11-24: 15 instead of 8 degrees: a
 // day from -3 to +3 degrees fills about 40 % of the height, 15 degrees fill
 // it).
@@ -44,8 +45,9 @@ inline constexpr int kColumnDayIconSize = 44;
 inline constexpr int kColumnDays = 3;
 
 // Labelled points of the chart: four on steps S and M (5, 10, 15, 20 h),
-// five on step L (6, 10, 14, 18, 22 h). The chart always shows 0-24 h.
-enum class ChartPoints { kFour, kFive };
+// six on step L (2, 6, 10, 14, 18, 22 h; 2026-11-24, before five from 6 h).
+// The chart always shows 0-24 h.
+enum class ChartPoints { kFour, kSix };
 inline constexpr int kChartIconSize = 30;
 
 // Geometry of the chart (column coordinates), for drawing and tests.
@@ -75,8 +77,9 @@ struct ColumnChart {
 // empty curve if the forecast has fewer than two hours of that day. The
 // hours are a whole number of px apart (8 at 214 px, 14 at 367 px) and the
 // chart is centred in the column. The symbol of a label is spanIcon() of the
-// hours around it (four points: h-2 to h+2, five: h-2 to h+1); by night
-// (Hour::day false at h) the sun becomes the moon.
+// hours around it (four points: h-2 to h+2, six: h-2 to h+1); by night
+// (Hour::day false at h) the sun becomes the moon and showers become rain of
+// the same strength (there is no shower symbol with the moon).
 ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width,
                         ChartPoints points = ChartPoints::kFour);
 
@@ -85,7 +88,7 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width,
 // symbol always by day as for the days; since W1 with intensity, hail and
 // sleet by spanIcon()); the temperature of the middle hour,
 // or the mean of the part if that hour is missing. Drawn under the weekday of
-// tomorrow, each part with its hours ("6–10") and a 30 px symbol; a solid line
+// tomorrow, each part with its hours ("6–10", Bold 15) and a 30 px symbol; a solid line
 // separates them from the two whole days after, which are wider.
 struct DayPartHours {
   int first, last, middle;

@@ -468,7 +468,7 @@ void test_picture_follows_the_weather_of_now() {
 wx::Forecast savedForecast(const char* fixture);
 
 // W3 (2026-11-24): the curve from 8 px below the room for the labels down
-// to 8 px above the dotted line of the days; four labels on S, five on L.
+// to 8 px above the dotted line of the days; four labels on S, six on L.
 void checkChart(const wx::Forecast& f, const char* name, int width = 214,
                 wx::ChartPoints points = wx::ChartPoints::kFour) {
   const wx::ColumnChart chart = wx::columnChart(f, kMorning, width, points);
@@ -482,7 +482,7 @@ void checkChart(const wx::Forecast& f, const char* name, int width = 214,
   }
   const bool four = points == wx::ChartPoints::kFour;
   const std::vector<int> hours =
-      four ? std::vector<int>{5, 10, 15, 20} : std::vector<int>{6, 10, 14, 18, 22};
+      four ? std::vector<int>{5, 10, 15, 20} : std::vector<int>{2, 6, 10, 14, 18, 22};
   TEST_ASSERT_EQUAL_size_t_MESSAGE(hours.size(), chart.labels.size(), name);
   const int gx0 = (width - 24 * chart.pitch) / 2;
   for (size_t i = 0; i < chart.labels.size(); i++) {
@@ -514,14 +514,14 @@ void test_chart_geometry() {
   const auto list = extremes();
   for (size_t i = 0; i < list.size(); i++) {
     for (int width : {214, 232, 240}) checkChart(list[i], names[i], width);
-    checkChart(list[i], names[i], 367, wx::ChartPoints::kFive);
+    checkChart(list[i], names[i], 367, wx::ChartPoints::kSix);
   }
   // The whole day 0-24 h on all steps: 10 spline points between two hours.
   const wx::ColumnChart s = wx::columnChart(list[1], kMorning, 214);
   TEST_ASSERT_EQUAL_INT(8, s.pitch);  // (214 - 12) / 24
   TEST_ASSERT_TRUE(s.curve.front().x == 11);
   TEST_ASSERT_EQUAL_size_t(23 * 10 + 1, s.curve.size());  // 0-23 h in the fixture
-  const wx::ColumnChart l = wx::columnChart(list[1], kMorning, 367, wx::ChartPoints::kFive);
+  const wx::ColumnChart l = wx::columnChart(list[1], kMorning, 367, wx::ChartPoints::kSix);
   TEST_ASSERT_EQUAL_INT(14, l.pitch);  // (367 - 12) / 24
   TEST_ASSERT_EQUAL_INT(15 + 22 * 14, l.labels.back().point_x);
   // A flat day stays flat: 1 degree is at most an eighth of the height.
@@ -564,7 +564,7 @@ void test_chart_now() {
     }
   }
   TEST_ASSERT_TRUE(std::abs(chart.now_y - y) <= 1.0);
-  const wx::ColumnChart l = wx::columnChart(f, kMorning, 367, wx::ChartPoints::kFive);
+  const wx::ColumnChart l = wx::columnChart(f, kMorning, 367, wx::ChartPoints::kSix);
   TEST_ASSERT_TRUE(std::abs(l.now_x - (15 + 7.7 * 14)) < 0.001);
   // Without a valid time, or before the first hour of the curve: no dot.
   TEST_ASSERT_TRUE(wx::columnChart(f, 0, 214).now_x < 0);
@@ -597,6 +597,29 @@ void test_chart_symbols() {
   TEST_ASSERT_EQUAL_size_t(4, autumn.labels.size());
   const ui::WeatherIcon evening = autumn.labels[3].icon;
   TEST_ASSERT_TRUE(evening != ui::WeatherIcon::kSun && evening != ui::WeatherIcon::kPartlyCloudy);
+  // The day the clocks go back (2026-10-25, 2 h twice): one label at 2 h,
+  // at its first time.
+  const wx::ColumnChart dst = wx::columnChart(savedForecast("muenchen_20261025.json"), 1792910460,
+                                              367, wx::ChartPoints::kSix);
+  TEST_ASSERT_EQUAL_size_t(6, dst.labels.size());
+  TEST_ASSERT_EQUAL_INT(2, dst.labels[0].hour);
+  TEST_ASSERT_EQUAL_INT(6, dst.labels[1].hour);
+  // Showers at night (2026-11-24): no sun behind the cloud, rain of the same
+  // strength (80 light, 81 moderate, 82 heavy); by day the showers stay.
+  const struct {
+    int code;
+    ui::WeatherIcon night, day;
+  } showers[] = {{80, ui::WeatherIcon::kRainLight, ui::WeatherIcon::kShowersLight},
+                 {81, ui::WeatherIcon::kRain, ui::WeatherIcon::kShowersModerate},
+                 {82, ui::WeatherIcon::kRainHeavy, ui::WeatherIcon::kShowers}};
+  for (const auto& sh : showers) {
+    wx::Forecast f = forecast(course(4, 12), rainFrom(0, 80), Condition::kShowers);
+    for (wx::Hour& hour : f.hours) hour.code = static_cast<int16_t>(sh.code);
+    const wx::ColumnChart c = wx::columnChart(f, kMorning, 367, wx::ChartPoints::kSix);
+    TEST_ASSERT_TRUE(c.labels[0].icon == sh.night);  // 2 h
+    TEST_ASSERT_TRUE(c.labels[2].icon == sh.day);    // 10 h
+    TEST_ASSERT_TRUE(c.labels[5].icon == sh.night);  // 22 h
+  }
 }
 
 wx::Forecast savedForecast(const char* fixture) {

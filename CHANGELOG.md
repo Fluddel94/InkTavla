@@ -17,10 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Weather column: new chart. It shows the whole day from 0 to 24 o'clock on
   all steps (step S up to now 5 to 23) without rain bars, hour numbers and
   bottom line, and reaches down to the days below. At 5, 10, 15 and 20
-  o'clock (step L: 6, 10, 14, 18 and 22) the temperature of the hour stands
-  on the curve with a 30 px weather symbol above it (at night the moon).
-  The curve is dashed up to now and solid from now on, with a dot at now.
-  No new settings.
+  o'clock (step L: 2, 6, 10, 14, 18 and 22) the temperature of the hour
+  stands on the curve with a 30 px weather symbol above it (at night the
+  moon; showers at night as rain of the same strength). The curve is thin
+  up to now and thicker from now on, with a dot at now. No new settings.
+- Weather column, step L: the hours of tomorrow's parts ("6–10") are bold
+  and a little larger.
 - Weather column: the temperature curve is spread over at least 15 degrees
   (up to now 8), so small differences look small: a winter day from -3 to
   +3° fills about 40 % of the chart height instead of 70 %; a day with 15
