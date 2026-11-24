@@ -38,9 +38,10 @@ def write_full_image(source, target, env):
     full_path = os.path.join(build, "firmware-full.bin")
     if os.path.exists(full_path):
         os.remove(full_path)  # never leave the image of an older build
-    if not os.path.isfile(factory_path) or os.path.getmtime(factory_path) < os.path.getmtime(
-        app_path
-    ):
+    # No check of the times: on a network drive the time of firmware.bin can
+    # be set after the factory image was written (2026-11-24). The content
+    # check below finds an image of an older build (its app differs).
+    if not os.path.isfile(factory_path):
         print("full_image: firmware.factory.bin of this build is missing")
         env.Exit(1)
     with open(app_path, "rb") as f:
