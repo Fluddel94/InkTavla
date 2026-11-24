@@ -71,6 +71,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the signal of that access point (`attempt failed, -41 dBm, reason 202
   (AUTH_FAIL)`), so it shows when a near access point refuses the display
   and a far one is taken. New section in `docs/troubleshooting.md`.
+- Development: `tools/png_strip.py` without an argument checks and cleans
+  the whole repository (all folders except `.git`, `.pio` and build folders)
+  instead of only the reference images; `--check` (CI) fails for any PNG with
+  metadata, for JPG, WebP, GIF and other image formats, and for an STL whose
+  header contains file paths, user or computer names or e-mail addresses (a
+  header that names the project, license and repository is allowed). Cleaning
+  keeps the pixels and the transparency table of a PNG and replaces such an
+  STL header by `InkTavla case - CC BY-NC-SA 4.0 - github.com/Fluddel94/InkTavla`.
+  A cut-off PNG is no longer written back. New tests in
+  `tools/test_png_strip.py`, run by CI.
 - Development: platform pioarduino 55.03.313 (Arduino-ESP32 3.3.13, ESP-IDF
   5.5.6, toolchain GCC 14.4.0, esptool 5.6.0) instead of 55.03.312-1. On a
   new PC the VS Code extension installs PlatformIO Core 6.2.0.post1, which

@@ -32,6 +32,8 @@ file names), so they are not changed without a reason.
      introduction above the first heading is fine.
    - Native tests and the device build pass (`pio test -e native`,
      `pio run -e xiao_esp32s3_plus`).
+   - `python tools/png_strip.py --check` finds nothing (no personal
+     metadata in images or 3D models of the repository; CI checks it too).
    - Commit message exactly: `chore(release): X.Y.Z`.
 2. **Firmware files.** Build exactly this commit after pushing it:
    `pio run -e xiao_esp32s3_plus` writes `firmware.bin` and

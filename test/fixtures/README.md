@@ -81,4 +81,5 @@ compared byte by byte (metadata chunks that tools may add are ignored);
 after an intended change of the appearance, update them with
 `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`.
 Before committing reference images, remove any metadata that tools may have
-added: `python tools/png_strip.py test/fixtures/ui`.
+added: `python tools/png_strip.py` (the whole repository; the folder
+`test/fixtures/ui` can be given as an argument to limit it).

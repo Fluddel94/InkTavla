@@ -168,9 +168,10 @@ with reference images in `test/fixtures/ui/`; the images are also written to
 panel refresh to `.pio/simulation/`. After an intended change of the appearance,
 update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`
 and strip metadata from them before committing with
-`python tools/png_strip.py test/fixtures/ui`. The tools in `tools/` also
-run with the Python that comes with PlatformIO, e.g. on Windows
-`& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py test\fixtures\ui`.
+`python tools/png_strip.py` (checks and cleans the whole repository). The
+tools in `tools/` also run with the Python that comes with PlatformIO, e.g.
+on Windows
+`& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py`.
 
 The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
@@ -322,9 +323,18 @@ small symbols (calendar, location pin, stop sign) are our own, drawn by `tools/i
   conversations, and once the repository is public they stay in its history
   (pull requests cannot be deleted). For contributors this is a request, not
   a requirement; CI only warns (`tools/check_ai_notes.py`).
-- Images are committed without metadata (`python tools/png_strip.py <files>`,
-  checked by CI). Editors and other tools may embed details about the person
-  who made or edited an image, which would stay in the history for good.
+- Images and 3D models are committed without personal metadata
+  (`python tools/png_strip.py` cleans the whole repository, `--check` only
+  looks; CI runs the check on every push). Editors and other tools may embed
+  details about the person who made or edited a file, which would stay in
+  the history for good. PNG files keep no metadata at all (copyright notes
+  are in README and `LICENSE`); other image formats (JPG, WebP, GIF) are not
+  accepted, use PNG. An STL file may carry a header naming the project, the
+  license and the repository (`InkTavla case - CC BY-NC-SA 4.0 -
+  github.com/Fluddel94/InkTavla`); the check fails only for paths, user or
+  computer names and e-mail addresses in the header (binary STL: the first
+  80 bytes, ASCII STL: the name behind `solid`/`endsolid`), and cleaning
+  replaces such a header by that line.
 
 ## License
 

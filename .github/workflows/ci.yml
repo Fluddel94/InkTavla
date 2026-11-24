@@ -53,10 +53,15 @@ jobs:
       - name: Check formatting (clang-format, nothing is changed)
         run: git ls-files -z '*.c' '*.cpp' '*.h' '*.hpp' | xargs -0 clang-format --dry-run -Werror
 
-      # Image metadata can reveal details about the person who made or edited
-      # an image; in a public repository it stays in the history for good.
-      - name: Check that images have no metadata
-        run: git ls-files -z '*.png' | xargs -0 --no-run-if-empty python tools/png_strip.py --check
+      # Metadata of images and 3D models can reveal details about the person
+      # who made or edited them; in a public repository it stays in the
+      # history for good. Checks every file of the repository (PNG without
+      # metadata, no other image formats, STL header without paths or names).
+      - name: Check that images and 3D models have no personal details
+        run: python tools/png_strip.py --check
+
+      - name: Test the tools
+        run: python -m unittest discover -s tools -p 'test_*.py'
 
       # The README notes once that the project is developed with Claude; chat
       # session links can lead to private conversations. Only a warning,
