@@ -3,6 +3,6 @@
 namespace core {
 
 // Firmware version (Semantic Versioning). Keep in sync with CHANGELOG.md.
-inline constexpr char kFirmwareVersion[] = "0.5.0";
+inline constexpr char kFirmwareVersion[] = "0.6.0-dev";
 
 }  // namespace core

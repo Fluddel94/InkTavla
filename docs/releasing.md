@@ -35,11 +35,13 @@ file names), so they are not changed without a reason.
    - `python tools/png_strip.py --check` finds nothing (no personal
      metadata in images or 3D models of the repository; CI checks it too).
    - Commit message exactly: `chore(release): X.Y.Z`.
-2. **Firmware files.** Build exactly this commit after pushing it:
-   `pio run -e xiao_esp32s3_plus` writes `firmware.bin` and
-   `firmware-full.bin` to `.pio/build/xiao_esp32s3_plus/`. Alternatively
-   take both files from the CI run of this commit (Actions → run →
-   artifact `firmware-<commit>`); CI must be green.
+   - No other commit on `main` until the release is published: the tag is
+     created on publishing and points to the newest commit of `main`.
+2. **Firmware files.** Take both files from the CI run of this commit
+   (Actions → run → artifact `firmware-<commit>`); CI must be green. Do
+   not attach files built on your own computer: a build embeds the paths
+   of the build tools, which on a PC contain the user name
+   (`C:/Users/<name>/.platformio/…`). The CI runner uses neutral paths.
 3. **GitHub release** (Releases → Draft a new release):
    - **Tag:** `vX.Y.Z` (lower-case `v`, target `main`), created when the
      release is published. Tags are never moved or deleted; a mistake is
@@ -60,5 +62,11 @@ file names), so they are not changed without a reason.
      (`.github/workflows/pages.yml`) runs by itself and publishes the
      installer with this version on GitHub Pages (only once the
      repository is public and Pages is set up).
-4. **Next development version.** The first commit after the release sets
-   `kFirmwareVersion` to `X.(Y+1).0-dev`.
+   - Setting up Pages once: Settings → Pages → Source "GitHub Actions";
+     then Settings → Environments → `github-pages` → "Deployment branches
+     and tags" → add a rule of type *Tag* with the pattern `v*`. Without
+     it the run fails with "Tag … is not allowed to deploy to
+     github-pages"; after adding it, re-run the failed job.
+4. **Next development version.** The first commit after the release
+   that changes the firmware sets `kFirmwareVersion` to the next
+   development version, normally `X.(Y+1).0-dev`.
