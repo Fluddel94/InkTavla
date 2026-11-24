@@ -63,8 +63,8 @@ of the panel. Below the band there are three columns of 280, 214 and
 214 px (the wide one is where the departures are) or two of 367 px, with
 26 px between them, separated by dotted lines that can be switched off
 (`layout.dividers`); `layout.slots` chooses the widgets and, by their
-number, the layout. The weather chart shows the amount of rain of every
-hour as bars.
+number, the layout. The weather chart shows the temperature of the whole
+day with weather symbols at four or five hours and a dot for now.
 
 ### Main loop
 

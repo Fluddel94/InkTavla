@@ -314,7 +314,7 @@ void test_briefing_parts() {
   ui::drawText(c, ui::fonts::kRobotoCondensedMedium15, x1, 350, "19:00", ui::Color::kBlack,
                ui::Align::kRight);
 
-  // Weather column: title, screened rain bars, day cell, credit.
+  // Weather column: title, screened bars (fillDotted), day cell, credit.
   const int w0 = 558, w1 = 772;
   ui::drawColumnTitle(c, w0, w1, 234, "Wetter", "München");
   for (int i = 0; i < 6; i++) c.fillDotted(w0 + 40 + i * 12, 300 - i * 5, 10, i * 5 + 4);

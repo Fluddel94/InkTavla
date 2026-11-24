@@ -465,23 +465,36 @@ void test_picture_follows_the_weather_of_now() {
 
 // --- Weather chart ------------------------------------------------------------------
 
-void checkChart(const wx::Forecast& f, const char* name) {
-  const wx::ColumnChart chart = wx::columnChart(f, kMorning, 214);
+wx::Forecast savedForecast(const char* fixture);
+
+// W3 (2026-11-24): the curve from 8 px below the room for the labels down
+// to 8 px above the dotted line of the days; four labels on S, five on L.
+void checkChart(const wx::Forecast& f, const char* name, int width = 214,
+                wx::ChartPoints points = wx::ChartPoints::kFour) {
+  const wx::ColumnChart chart = wx::columnChart(f, kMorning, width, points);
   TEST_ASSERT_FALSE_MESSAGE(chart.curve.empty(), name);
-  int highest = 0;
-  for (const auto& b : chart.bars) highest = std::max(highest, b.height);
-  TEST_ASSERT_TRUE_MESSAGE(highest <= wx::kColumnRainMax, name);
+  TEST_ASSERT_EQUAL_INT_MESSAGE(ui::kColumnTitleBaseline + 60, chart.curve_top, name);
+  TEST_ASSERT_EQUAL_INT_MESSAGE(ui::kColumnTitleBaseline + 122, chart.curve_bottom, name);
   for (const auto& p : chart.curve) {
     TEST_ASSERT_TRUE_MESSAGE(p.y >= chart.curve_top, name);
     TEST_ASSERT_TRUE_MESSAGE(p.y <= chart.curve_bottom, name);
-    // Never into the bars (2 px line width).
-    TEST_ASSERT_TRUE_MESSAGE(p.y + 1 < chart.base - highest, name);
-    TEST_ASSERT_TRUE_MESSAGE(p.x >= 0 && p.x < 214, name);
+    TEST_ASSERT_TRUE_MESSAGE(p.x >= 0 && p.x < width, name);
   }
-  TEST_ASSERT_EQUAL_size_t_MESSAGE(5, chart.labels.size(), name);
-  for (const auto& l : chart.labels) {
-    // Label 8 px above the point, at most 12 px high: below the title.
-    TEST_ASSERT_TRUE_MESSAGE(l.y - 8 - 12 > ui::kColumnTitleBaseline + 4, name);
+  const bool four = points == wx::ChartPoints::kFour;
+  const std::vector<int> hours =
+      four ? std::vector<int>{5, 10, 15, 20} : std::vector<int>{6, 10, 14, 18, 22};
+  TEST_ASSERT_EQUAL_size_t_MESSAGE(hours.size(), chart.labels.size(), name);
+  const int gx0 = (width - 24 * chart.pitch) / 2;
+  for (size_t i = 0; i < chart.labels.size(); i++) {
+    const auto& l = chart.labels[i];
+    TEST_ASSERT_EQUAL_INT_MESSAGE(hours[i], l.hour, name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(gx0 + hours[i] * chart.pitch, l.point_x, name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(std::clamp(l.point_x, 15, width - 15), l.x, name);
+    TEST_ASSERT_TRUE_MESSAGE(l.y >= chart.curve_top && l.y <= chart.curve_bottom, name);
+    // Symbol above the temperature, never into the title.
+    TEST_ASSERT_TRUE_MESSAGE(wx::ColumnChart::iconTop(l) >= ui::kColumnTitleBaseline + 6, name);
+    TEST_ASSERT_TRUE_MESSAGE(l.x - wx::kChartIconSize / 2 >= 0, name);
+    TEST_ASSERT_TRUE_MESSAGE(l.x + wx::kChartIconSize / 2 <= width, name);
   }
 }
 
@@ -496,10 +509,21 @@ std::vector<wx::Forecast> extremes() {
   };
 }
 
-void test_chart_never_meets_the_rain_bars() {
+void test_chart_geometry() {
   const char* names[] = {"frost", "heat", "flat", "jump"};
   const auto list = extremes();
-  for (size_t i = 0; i < list.size(); i++) checkChart(list[i], names[i]);
+  for (size_t i = 0; i < list.size(); i++) {
+    for (int width : {214, 232, 240}) checkChart(list[i], names[i], width);
+    checkChart(list[i], names[i], 367, wx::ChartPoints::kFive);
+  }
+  // The whole day 0-24 h on all steps: 10 spline points between two hours.
+  const wx::ColumnChart s = wx::columnChart(list[1], kMorning, 214);
+  TEST_ASSERT_EQUAL_INT(8, s.pitch);  // (214 - 12) / 24
+  TEST_ASSERT_TRUE(s.curve.front().x == 11);
+  TEST_ASSERT_EQUAL_size_t(23 * 10 + 1, s.curve.size());  // 0-23 h in the fixture
+  const wx::ColumnChart l = wx::columnChart(list[1], kMorning, 367, wx::ChartPoints::kFive);
+  TEST_ASSERT_EQUAL_INT(14, l.pitch);  // (367 - 12) / 24
+  TEST_ASSERT_EQUAL_INT(15 + 22 * 14, l.labels.back().point_x);
   // A flat day stays flat: 1 degree is at most an eighth of the height.
   const wx::ColumnChart flat =
       wx::columnChart(forecast(course(12, 13), rainFrom(0, 0)), kMorning, 214);
@@ -525,9 +549,54 @@ void test_chart_never_meets_the_rain_bars() {
   TEST_ASSERT_TRUE(winter > 0.3 && winter < 0.5);
   TEST_ASSERT_TRUE(
       filled(wx::columnChart(forecast(course(14, 29), rainFrom(0, 0)), kMorning, 214)) > 0.95);
-  // Without rain the curve gets more height than with heavy rain.
-  const wx::ColumnChart wet = wx::columnChart(list[0], kMorning, 214);
-  TEST_ASSERT_TRUE(flat.curve_bottom > wet.curve_bottom);
+}
+
+// Now on the curve (W3, variant F): x of now, y from the curve; -1 if now is
+// not within the curve of today.
+void test_chart_now() {
+  const wx::Forecast f = forecast(course(4, 12), rainFrom(0, 0));
+  const wx::ColumnChart chart = wx::columnChart(f, kMorning, 214);  // 07:42
+  TEST_ASSERT_TRUE(std::abs(chart.now_x - (11 + 7.7 * 8)) < 0.001);
+  double y = -1;
+  for (size_t i = 0; i + 1 < chart.curve.size(); i++) {
+    if (chart.curve[i].x <= chart.now_x && chart.curve[i + 1].x >= chart.now_x) {
+      y = chart.curve[i].y;
+    }
+  }
+  TEST_ASSERT_TRUE(std::abs(chart.now_y - y) <= 1.0);
+  const wx::ColumnChart l = wx::columnChart(f, kMorning, 367, wx::ChartPoints::kFive);
+  TEST_ASSERT_TRUE(std::abs(l.now_x - (15 + 7.7 * 14)) < 0.001);
+  // Without a valid time, or before the first hour of the curve: no dot.
+  TEST_ASSERT_TRUE(wx::columnChart(f, 0, 214).now_x < 0);
+  wx::Forecast later = f;
+  later.hours.erase(later.hours.begin(), later.hours.begin() + 10);  // from 10 h
+  const wx::ColumnChart from10 = wx::columnChart(later, kMorning, 214);
+  TEST_ASSERT_FALSE(from10.curve.empty());
+  TEST_ASSERT_TRUE(from10.now_x < 0);
+  TEST_ASSERT_TRUE(wx::columnChart(later, kMidnight + 12 * 3600, 214).now_x > 0);
+}
+
+// The symbols at the points: spanIcon() of the hours around, by night the
+// moon.
+void test_chart_symbols() {
+  const wx::Forecast clear =
+      forecast(course(4, 12), rainFrom(0, 0), Condition::kClear, Condition::kClear);
+  const wx::ColumnChart chart = wx::columnChart(clear, kMorning, 214);
+  TEST_ASSERT_TRUE(chart.labels[0].icon == ui::WeatherIcon::kMoon);  // 5 h
+  TEST_ASSERT_TRUE(chart.labels[1].icon == ui::WeatherIcon::kSun);   // 10 h
+  TEST_ASSERT_TRUE(chart.labels[3].icon == ui::WeatherIcon::kMoon);  // 20 h
+  // Rain from 14 h: the point of 15 h shows rain.
+  const wx::Forecast wet =
+      forecast(course(4, 12), rainFrom(14, 80), Condition::kRain, Condition::kClear);
+  const wx::ColumnChart rain = wx::columnChart(wet, kMorning, 214);
+  TEST_ASSERT_TRUE(rain.labels[2].icon != ui::WeatherIcon::kSun);
+  TEST_ASSERT_TRUE(rain.labels[1].icon == ui::WeatherIcon::kSun);
+  // A real autumn evening (2026-10-20): at 20 h it is night, no sun.
+  const wx::ColumnChart autumn =
+      wx::columnChart(savedForecast("muenchen_20261020.json"), kMorning, 214);
+  TEST_ASSERT_EQUAL_size_t(4, autumn.labels.size());
+  const ui::WeatherIcon evening = autumn.labels[3].icon;
+  TEST_ASSERT_TRUE(evening != ui::WeatherIcon::kSun && evening != ui::WeatherIcon::kPartlyCloudy);
 }
 
 wx::Forecast savedForecast(const char* fixture) {
@@ -537,107 +606,6 @@ wx::Forecast savedForecast(const char* fixture) {
   wx::Forecast f;
   TEST_ASSERT_TRUE(wx::parseForecast(doc, f));
   return f;
-}
-
-void test_rain_bar_heights() {
-  // Nothing below 0.1 mm.
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0, 5));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(0.05f, 5));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(-1, 5));
-  TEST_ASSERT_EQUAL_INT(0, wx::rainBarHeight(NAN, 5));
-  // A day reaching 5 mm: the fixed square root scale, full from 5 mm.
-  TEST_ASSERT_EQUAL_INT(5, wx::rainBarHeight(0.1f, 5));
-  TEST_ASSERT_EQUAL_INT(10, wx::rainBarHeight(0.5f, 5));
-  TEST_ASSERT_EQUAL_INT(20, wx::rainBarHeight(2, 5));
-  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(5, 5));
-  // Little rain: stretched until the wettest hour reaches 2/3 of the height
-  // (21 px), at most 1.5 times.
-  TEST_ASSERT_EQUAL_INT(21, wx::rainBarHeight(1.1f, 1.1f));
-  TEST_ASSERT_EQUAL_INT(6, wx::rainBarHeight(0.1f, 1.1f));
-  TEST_ASSERT_EQUAL_INT(12, wx::rainBarHeight(0.3f, 0.3f));  // 1.5 times 8 px
-  // Moderate rain already above 2/3: not stretched.
-  TEST_ASSERT_EQUAL_INT(25, wx::rainBarHeight(3, 3));
-  // Heavy rain: the wettest hour is full, light rain is pressed down.
-  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(9, 9));
-  TEST_ASSERT_EQUAL_INT(15, wx::rainBarHeight(2, 9));
-  TEST_ASSERT_EQUAL_INT(3, wx::rainBarHeight(0.1f, 9));
-  // From 10 mm on the scale stays: 10 mm and more are full.
-  TEST_ASSERT_EQUAL_INT(32, wx::rainBarHeight(12, 20));
-  TEST_ASSERT_EQUAL_INT(30, wx::rainBarHeight(9, 20));
-}
-
-void test_rain_bars_between_the_hour_marks() {
-  // Rain all day: 18 bars (6-23 h) of the same width with gaps of 2 px, from
-  // the left to the right end of the bottom line, centred in the column.
-  const struct {
-    int width, pitch;
-  } widths[] = {{214, 11}, {232, 12}, {240, 12}};
-  for (const auto& w : widths) {
-    const wx::ColumnChart chart =
-        wx::columnChart(forecast(course(8, 12), rainFrom(0, 100)), kMorning, w.width);
-    TEST_ASSERT_EQUAL_INT(w.pitch, chart.pitch);
-    TEST_ASSERT_EQUAL_size_t(18, chart.bars.size());
-    TEST_ASSERT_EQUAL_INT(chart.line_x0, chart.bars.front().x0);
-    TEST_ASSERT_EQUAL_INT(chart.line_x1, chart.bars.back().x1);
-    TEST_ASSERT_TRUE(chart.line_x0 >= 0 && chart.line_x1 < w.width);
-    TEST_ASSERT_INT_WITHIN(1, chart.line_x0, w.width - 1 - chart.line_x1);
-    for (size_t i = 0; i < chart.bars.size(); i++) {
-      const auto& b = chart.bars[i];
-      TEST_ASSERT_EQUAL_INT(w.pitch - 2, b.x1 - b.x0 + 1);
-      TEST_ASSERT_EQUAL_INT(wx::kColumnRainMax, b.height);
-      if (i > 0) TEST_ASSERT_EQUAL_INT(2, b.x0 - chart.bars[i - 1].x1 - 1);
-    }
-  }
-  // The value of 17 h (rain from 16 to 17 h) stands left of the mark 17.
-  std::vector<int> rain(24, 0);
-  rain[17] = 100;
-  wx::ColumnChart chart = wx::columnChart(forecast(course(8, 12), rain), kMorning, 214);
-  TEST_ASSERT_EQUAL_size_t(1, chart.bars.size());
-  int mark = -1;
-  for (const auto& l : chart.labels) {
-    if (l.hour == 17) mark = l.x;
-  }
-  TEST_ASSERT_EQUAL_INT(mark - chart.pitch + 1, chart.bars[0].x0);
-  TEST_ASSERT_EQUAL_INT(mark - 2, chart.bars[0].x1);
-  // The value of 5 h (rain from 4 to 5 h) is not shown; dry hours have no
-  // bar, but the bottom line stays.
-  rain.assign(24, 0);
-  rain[5] = 100;
-  chart = wx::columnChart(forecast(course(8, 12), rain), kMorning, 214);
-  TEST_ASSERT_EQUAL_size_t(0, chart.bars.size());
-  TEST_ASSERT_TRUE(chart.line_x1 > chart.line_x0);
-  // The real day of steady rain: a bar for every hour from 6 to 18 h, also
-  // for 0.1 mm (read as 0.0999999 from the JSON).
-  chart = wx::columnChart(savedForecast("muenchen_20261025.json"), 1792910460, 214);
-  TEST_ASSERT_EQUAL_size_t(13, chart.bars.size());
-  TEST_ASSERT_EQUAL_INT(6, chart.bars[8].height);    // 0.1 mm from 13 to 14 h
-  TEST_ASSERT_EQUAL_INT(21, chart.bars[11].height);  // 1.1 mm from 16 to 17 h (2/3)
-  // Without data the line still has its place.
-  const wx::ColumnChart empty = wx::columnChart(wx::Forecast{}, kMorning, 214);
-  TEST_ASSERT_EQUAL_INT(chart.line_x0, empty.line_x0);
-  TEST_ASSERT_EQUAL_INT(chart.line_x1, empty.line_x1);
-}
-
-void test_chart_full_day() {
-  // Step L (2026-11-16): the whole day 0-24 h, labels every four hours
-  // (not at 0 and 24 h), the rain of every hour as a bar.
-  const wx::Forecast f = forecast(course(4, 12), rainFrom(20, 80));
-  const wx::ColumnChart chart = wx::columnChart(f, kMorning, 367, wx::ChartSpan::kFullDay);
-  TEST_ASSERT_EQUAL_INT(14, chart.pitch);  // (367 - 12) / 24
-  TEST_ASSERT_EQUAL_INT(16, chart.line_x0);
-  TEST_ASSERT_EQUAL_INT(15 + 24 * 14 - 2, chart.line_x1);
-  TEST_ASSERT_EQUAL_size_t(5, chart.labels.size());
-  const int hours[] = {4, 8, 12, 16, 20};
-  for (size_t i = 0; i < 5; i++) {
-    TEST_ASSERT_EQUAL_INT(hours[i], chart.labels[i].hour);
-    TEST_ASSERT_EQUAL_INT(15 + hours[i] * 14, chart.labels[i].x);
-  }
-  // Rain from 20 h: the values of 20-23 h, bars from 19 to 23 h.
-  TEST_ASSERT_EQUAL_size_t(4, chart.bars.size());
-  TEST_ASSERT_EQUAL_INT(15 + 19 * 14 + 1, chart.bars[0].x0);
-  // The day of 5-23 h stays as it was.
-  TEST_ASSERT_EQUAL_size_t(5, wx::columnChart(f, kMorning, 367).labels.size());
-  TEST_ASSERT_EQUAL_INT(8, wx::columnChart(f, kMorning, 367).labels[0].hour);
 }
 
 void test_day_parts() {
@@ -682,8 +650,7 @@ void test_chart_curve_is_smoothed() {
   constexpr int64_t kThursday = 1792647660;
   const wx::Forecast f = savedForecast("muenchen_20261022.json");
   const wx::ColumnChart chart = wx::columnChart(f, kThursday, 214);
-  TEST_ASSERT_EQUAL_size_t(18 * 10 + 1, chart.curve.size());  // 5-23 h
-  TEST_ASSERT_EQUAL_size_t(5, chart.labels.size());
+  TEST_ASSERT_EQUAL_size_t(4, chart.labels.size());
   for (const auto& l : chart.labels) {
     for (const wx::Hour& h : f.hours) {
       core::LocalTime t;
@@ -694,7 +661,7 @@ void test_chart_curve_is_smoothed() {
     }
     bool on_curve = false;
     for (const auto& p : chart.curve) {
-      on_curve = on_curve || (std::abs(p.x - l.x) <= 1 && std::abs(p.y - l.y) <= 1);
+      on_curve = on_curve || (std::abs(p.x - l.point_x) <= 1 && std::abs(p.y - l.y) <= 1);
     }
     TEST_ASSERT_TRUE(on_curve);
   }
@@ -2457,12 +2424,11 @@ int main() {
   RUN_TEST(test_evening_start_by_sunset);
   RUN_TEST(test_evening_after_sunset);
   RUN_TEST(test_tomorrow_follows_the_daily_code);
-  RUN_TEST(test_chart_never_meets_the_rain_bars);
-  RUN_TEST(test_chart_full_day);
+  RUN_TEST(test_chart_geometry);
+  RUN_TEST(test_chart_now);
+  RUN_TEST(test_chart_symbols);
   RUN_TEST(test_day_parts);
   RUN_TEST(test_chart_curve_is_smoothed);
-  RUN_TEST(test_rain_bar_heights);
-  RUN_TEST(test_rain_bars_between_the_hour_marks);
   RUN_TEST(test_preview_weather_extremes);
   RUN_TEST(test_preview_calendar_columns);
   RUN_TEST(test_preview_calendar_emoji);

@@ -545,13 +545,17 @@ warning signs and the cancellations stay.
 ### `weather`: Weather forecast
 
 Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
-every 30 minutes. The column shows the course of the day from 5 to 23
-o'clock (temperature curve from the hourly values, each averaged with its
-neighbours so that the line runs smoothly, with five labelled hours; the amount of rain per hour as bars) and the next three
-days. In a column of step L (367 px, band + 2) the chart shows the whole
-day from 0 to 24 o'clock with labels at 4, 8, 12, 16 and 20 o'clock, and
-five days follow below. The forecast is fetched for six days (today and
-five); the band at the top uses the same data for its sentence and picture.
+every 30 minutes. The column shows the course of today from 0 to 24
+o'clock as a temperature curve (the hourly values, each averaged with its
+neighbours so that the line runs smoothly) and the next three days. At
+four hours (5, 10, 15 and 20 o'clock) the curve shows the temperature of
+that hour and above it a 30 px symbol of the weather around it (at night
+with the moon). The curve is thin and dashed up to now and solid from now
+on; a black dot marks now. In a column of step L (367 px, band + 2) the
+labelled hours are 6, 10, 14, 18 and 22 o'clock, and below follow tomorrow
+in three parts (morning, midday, evening) and the two days after. The
+forecast is fetched for six days (today and five); the band at the top uses
+the same data for its sentence and picture.
 Temperatures are in degrees Celsius. The column title is the place (`name`)
 with the location pin and the credit "Open-Meteo" on the right.
 
@@ -561,18 +565,8 @@ symbol of each day follows the daily weather code of
 Open-Meteo. Rain is shown by its intensity: one stroke below the cloud for
 drizzle and slight rain, two for moderate and three for heavy rain. Showers
 have the sun behind the cloud, freezing drizzle and freezing rain a snow star
-between two strokes. The band always shows the umbrella for rain.
-
-Each bar shows the precipitation (rain and snow as water) of one hour and
-stands between its hour marks: Open-Meteo gives the sum of the preceding
-hour, so the value of 17:00 is the bar between 16 and 17. The height follows
-a square root scale, so light rain stays visible: a full bar is 5 mm per
-hour or more, less than 0.1 mm shows no bar. The scale follows the day within
-limits: on a day with little rain the bars are drawn up to 1.5 times higher
-(the wettest hour at most at two thirds of the height); on a day with more
-than 5 mm in an hour that hour is full (up to 10 mm), so the hours with
-little rain are drawn lower. The
-sentence in the band still uses the rain probability.
+between two strokes. The band always shows the umbrella for rain; its
+sentence uses the rain probability.
 
 | Setting | Type | Default | Description |
 |---|---|---|---|

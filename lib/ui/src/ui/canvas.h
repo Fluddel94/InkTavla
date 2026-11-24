@@ -48,7 +48,7 @@ class Canvas {
   void dottedHLine(int x, int y, int w, int step, Color color = Color::kBlack);
   void dottedVLine(int x, int y, int h, int step, Color color = Color::kBlack);
   // Screened area: every `step`-th pixel in both directions (at canvas
-  // coordinates divisible by step), e.g. the rain bars of the weather chart.
+  // coordinates divisible by step), e.g. screened bars.
   void fillDotted(int x, int y, int w, int h, int step = 2, Color color = Color::kBlack);
   // Outline inside the rectangle.
   void drawRect(int x, int y, int w, int h, Color color, int thickness = 1);

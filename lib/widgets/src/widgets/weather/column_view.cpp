@@ -18,12 +18,15 @@ using ui::Color;
 
 // Sizes of the Briefing design (design/briefing/werkzeug/weather3.py),
 // relative to the column title.
-constexpr int kBase = ui::kColumnTitleBaseline + 96;
-constexpr int kCurveTop = ui::kColumnTitleBaseline + 32;  // room for the labels above
-constexpr int kCurveGapAboveBars = 6;
-constexpr int kCurveBottomWithoutRain = kBase - 12;
 constexpr int kChartMargin = 6;
-constexpr int kDaysTop = kBase + 34;
+constexpr int kDaysTop = ui::kColumnTitleBaseline + 130;
+// W3 (2026-11-24): the curve reaches down to 8 px above the dotted line of
+// the days; above its highest point there is room for symbol (30 px, 4 px
+// gap), temperature (12 px) and 8 px to the point, 6 px below the title.
+constexpr int kCurveTop = ui::kColumnTitleBaseline + 6 + kChartIconSize + 4 + 12 + 8;
+constexpr int kCurveBottom = kDaysTop - 8;
+// Labels keep their centre this far from the edges of the column.
+constexpr int kLabelEdge = 15;
 // The three days below the dotted line, spread evenly down to the bottom of
 // the column (2026-10-31, variant B of the probe): weekday, 44 px symbol and
 // temperatures with gaps of about 11 px; offsets from kDaysTop.
@@ -31,9 +34,15 @@ struct DaysLayout {
   int icon_size, weekday_baseline, icon_top, temperatures_baseline;
 };
 constexpr DaysLayout kDays{kColumnDayIconSize, 23, 34, 100};
-constexpr int kLabelHours[] = {8, 11, 14, 17, 20};
-constexpr int kLabelHoursFullDay[] = {4, 8, 12, 16, 20};
+constexpr int kLabelHoursFour[] = {5, 10, 15, 20};
+constexpr int kLabelHoursFive[] = {6, 10, 14, 18, 22};
 constexpr double kCurveWidth = 2;
+// The curve up to now: thin and dashed (variant F of the probe).
+constexpr double kPastWidth = 1.2;
+constexpr double kDashOn = 3;
+constexpr double kDashOff = 2;
+constexpr int kNowRing = 7;  // white
+constexpr int kNowDot = 5;   // black
 // Points of the spline between two hourly values.
 constexpr int kStepsBetweenHours = 10;
 
@@ -70,21 +79,67 @@ std::vector<ColumnChart::Point> smooth(const std::vector<ColumnChart::Point>& p,
   return out;
 }
 
-void drawChart(ui::Canvas& c, const ColumnChart& chart) {
-  for (const ColumnChart::Bar& b : chart.bars) {
-    c.fillDotted(b.x0, chart.base - b.height, b.x1 - b.x0 + 1, b.height);
+// The points of the line from distance `from` to `to` along it.
+std::vector<ColumnChart::Point> piece(const std::vector<ColumnChart::Point>& line, double from,
+                                      double to) {
+  std::vector<ColumnChart::Point> out;
+  double at = 0;
+  for (size_t i = 0; i + 1 < line.size(); i++) {
+    const ColumnChart::Point& a = line[i];
+    const ColumnChart::Point& b = line[i + 1];
+    const double len = std::hypot(b.x - a.x, b.y - a.y);
+    const double s0 = std::max(from, at), s1 = std::min(to, at + len);
+    if (len > 0 && s0 <= s1) {
+      auto lerp = [&](double s) {
+        const double t = (s - at) / len;
+        return ColumnChart::Point{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
+      };
+      if (out.empty()) out.push_back(lerp(s0));
+      out.push_back(lerp(s1));
+    }
+    at += len;
+    if (at >= to) break;
   }
-  c.hLine(chart.line_x0, chart.base, chart.line_x1 - chart.line_x0 + 1, Color::kBlack);
-  c.drawPolyline(chart.curve, kCurveWidth, Color::kBlack);
+  return out;
+}
+
+void drawDashed(ui::Canvas& c, const std::vector<ColumnChart::Point>& line) {
+  double length = 0;
+  for (size_t i = 0; i + 1 < line.size(); i++) {
+    length += std::hypot(line[i + 1].x - line[i].x, line[i + 1].y - line[i].y);
+  }
+  for (double s = 0; s < length; s += kDashOn + kDashOff) {
+    const std::vector<ColumnChart::Point> dash = piece(line, s, std::min(s + kDashOn, length));
+    if (dash.size() >= 2) c.drawPolyline(dash, kPastWidth, Color::kBlack);
+  }
+}
+
+void drawChart(ui::Canvas& c, const ColumnChart& chart) {
+  if (chart.now_x < 0) {
+    c.drawPolyline(chart.curve, kCurveWidth, Color::kBlack);
+  } else {
+    // Up to now dashed and thin, from now on solid; both meet at now.
+    const ColumnChart::Point now{chart.now_x, chart.now_y};
+    std::vector<ColumnChart::Point> past, future{now};
+    for (const ColumnChart::Point& p : chart.curve) {
+      (p.x < chart.now_x ? past : future).push_back(p);
+    }
+    past.push_back(now);
+    drawDashed(c, past);
+    if (future.size() >= 2) c.drawPolyline(future, kCurveWidth, Color::kBlack);
+  }
   for (const ColumnChart::Label& l : chart.labels) {
     char t[12];
     std::snprintf(t, sizeof(t), "%d°", l.temperature);
     ui::drawText(c, ui::fonts::kRobotoCondensedBold16, l.x, l.y - 8, t, Color::kBlack,
                  ui::Align::kCenter);
-    char h[4];
-    std::snprintf(h, sizeof(h), "%d", l.hour);
-    ui::drawText(c, ui::fonts::kRobotoCondensedMedium15, l.x, chart.base + 18, h, Color::kBlack,
-                 ui::Align::kCenter);
+    ui::drawIcon(c, l.x - kChartIconSize / 2, ColumnChart::iconTop(l),
+                 ui::weatherIcon(l.icon, kChartIconSize));
+  }
+  if (chart.now_x >= 0) {
+    const int x = roundToInt(chart.now_x), y = roundToInt(chart.now_y);
+    c.fillCircle(x, y, kNowRing, Color::kWhite);
+    c.fillCircle(x, y, kNowDot, Color::kBlack);
   }
 }
 
@@ -199,30 +254,6 @@ void drawDayParts(ui::Canvas& c, const Forecast& f, int64_t now_s, ui::Language 
 
 namespace {
 
-// The JSON parser reads "0.10" as 0.0999999; a small tolerance keeps 0.1 mm
-// a bar. !(>=) is also true for NaN.
-bool wet(float mm) { return mm >= kRainMinMm - 0.001f; }
-
-double share(double mm, double full) { return std::sqrt(std::min(1.0, mm / full)); }
-
-}  // namespace
-
-int rainBarHeight(float mm, float day_max) {
-  if (!wet(mm)) return 0;
-  if (!(day_max >= mm)) day_max = mm;
-  double full = kRainFullMm;
-  double stretch = 1;
-  if (day_max > kRainFullMm) {
-    full = std::min(day_max, kRainFullMaxMm);
-  } else {
-    stretch = std::clamp(kRainStretchTop / share(day_max, kRainFullMm), 1.0, kRainStretchMax);
-  }
-  const int h = roundToInt(share(mm, full) * stretch * kColumnRainMax);
-  return std::clamp(h, kRainMinBar, kColumnRainMax);
-}
-
-namespace {
-
 // The hours of the chart: from `start` (local time of its first mark)
 // `hours` hours on; labels at the local hours of `labels`.
 struct Window {
@@ -241,29 +272,33 @@ int64_t hourOfDay(const Forecast& forecast, const core::LocalTime& day, int hour
   return 0;
 }
 
-Window chartWindow(const Forecast& forecast, int64_t now_s, ChartSpan span) {
+// By night the sun of a symbol becomes the moon.
+ui::WeatherIcon nightIcon(ui::WeatherIcon icon) {
+  if (icon == ui::WeatherIcon::kSun) return ui::WeatherIcon::kMoon;
+  if (icon == ui::WeatherIcon::kPartlyCloudy) return ui::WeatherIcon::kPartlyCloudyNight;
+  return icon;
+}
+
+// 0-24 h of the local day of now_s (W3, 2026-11-24: on all steps).
+Window chartWindow(const Forecast& forecast, int64_t now_s, ChartPoints points) {
   Window w;
-  if (span == ChartSpan::kDay) {
-    w.hours = kLastHour - kFirstHour;
-    w.labels.assign(std::begin(kLabelHours), std::end(kLabelHours));
+  w.hours = 24;
+  if (points == ChartPoints::kFour) {
+    w.labels.assign(std::begin(kLabelHoursFour), std::end(kLabelHoursFour));
   } else {
-    // 0-24 h; marks every hour, labels at 4, 8, ..., 20 h (2026-11-16:
-    // not at 24 h, its label would stand at the right edge).
-    w.hours = 24;
-    w.labels.assign(std::begin(kLabelHoursFullDay), std::end(kLabelHoursFullDay));
+    w.labels.assign(std::begin(kLabelHoursFive), std::end(kLabelHoursFive));
   }
   if (forecast.hours.empty()) return w;
   const int64_t now = core::isValidUnixTime(now_s) ? now_s : forecast.hours.front().time;
   core::LocalTime today;
   core::toLocalTime(now, today);
-  const int first = span == ChartSpan::kDay ? kFirstHour : 0;
-  w.start = hourOfDay(forecast, today, first);
+  w.start = hourOfDay(forecast, today, 0);
   if (w.start == 0) {
-    // The first hour is missing: count back from the first hour of today.
+    // Midnight is missing: count back from the first hour of today.
     for (const Hour& h : forecast.hours) {
       core::LocalTime t;
       if (core::toLocalTime(h.time, t) && sameDay(t, today)) {
-        w.start = h.time - static_cast<int64_t>(t.hour - first) * 3600;
+        w.start = h.time - static_cast<int64_t>(t.hour) * 3600;
         break;
       }
     }
@@ -273,19 +308,17 @@ Window chartWindow(const Forecast& forecast, int64_t now_s, ChartSpan span) {
 
 }  // namespace
 
-ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width, ChartSpan span) {
+ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width, ChartPoints points) {
   ColumnChart chart;
-  chart.base = kBase;
   chart.curve_top = kCurveTop;
-  const Window window = chartWindow(forecast, now_s, span);
-  // Hour marks a whole number of px apart, the chart centred in the column.
+  chart.curve_bottom = kCurveBottom;
+  const Window window = chartWindow(forecast, now_s, points);
+  // Hours a whole number of px apart, the chart centred in the column.
   const int hours = window.hours;
   const int pitch = std::max(3, (width - 2 * kChartMargin) / hours);
   const int gx0 = (width - hours * pitch) / 2;
   auto px = [&](double h) { return gx0 + h * pitch; };
   chart.pitch = pitch;
-  chart.line_x0 = gx0 + 1;                  // left edge of the first bar
-  chart.line_x1 = gx0 + hours * pitch - 2;  // right edge of the last bar
   if (forecast.hours.empty() || window.start == 0) return chart;
 
   struct Item {
@@ -303,25 +336,6 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width, Char
     items.push_back({static_cast<int>((h.time - window.start) / 3600), t.hour, &h});
   }
   if (items.size() < 2) return chart;
-
-  // Bars first: the curve has to stay above the highest one. The value of
-  // hour h is the precipitation from h - 1 to h: its bar fills that span.
-  float day_max = 0;
-  for (const Item& i : items) {
-    if (i.offset > 0) day_max = std::max(day_max, i.data->precipitation);
-  }
-  int highest_bar = 0;
-  for (const Item& i : items) {
-    if (i.offset <= 0) continue;
-    const int h = rainBarHeight(i.data->precipitation, day_max);
-    if (h <= 0) continue;
-    highest_bar = std::max(highest_bar, h);
-    const int x0 = static_cast<int>(px(i.offset - 1)) + 1;
-    chart.bars.push_back({x0, x0 + pitch - 3, h});
-  }
-  chart.curve_bottom =
-      highest_bar > 0 ? std::min(kCurveBottomWithoutRain, kBase - highest_bar - kCurveGapAboveBars)
-                      : kCurveBottomWithoutRain;
 
   // The temperatures of the curve: the hourly values, each averaged with its
   // neighbours (1-2-1), so that the curve runs smoothly (2026-10-29; the
@@ -355,15 +369,40 @@ ColumnChart columnChart(const Forecast& forecast, int64_t now_s, int width, Char
   for (ColumnChart::Point& p : chart.curve) {
     p.y = std::clamp<double>(p.y, chart.curve_top, chart.curve_bottom);
   }
-  // Labels: the value of the hour, placed on the (averaged) curve.
+  // Labels: the value of the hour, placed on the (averaged) curve, with the
+  // symbol of the hours around it.
+  const int after = points == ChartPoints::kFour ? 2 : 1;
   for (size_t i = 0; i < items.size(); i++) {
     const int hour = items[i].hour;
     if (std::find(window.labels.begin(), window.labels.end(), hour) == window.labels.end()) {
       continue;
     }
-    chart.labels.push_back({hour, roundToInt(px(items[i].offset)),
-                            roundToInt(py(values[i].temperature)),
-                            displayTemperature(items[i].data->temperature)});
+    ColumnChart::Label l;
+    l.hour = hour;
+    l.point_x = roundToInt(px(items[i].offset));
+    l.x = std::clamp(l.point_x, kLabelEdge, width - kLabelEdge);
+    l.y = roundToInt(py(values[i].temperature));
+    l.temperature = displayTemperature(items[i].data->temperature);
+    const std::vector<const Hour*> around =
+        hoursOfDay(forecast, items[i].data->time, std::max(0, hour - 2), hour + after);
+    l.icon = spanIcon(around);
+    if (!items[i].data->day) l.icon = nightIcon(l.icon);
+    chart.labels.push_back(l);
+  }
+  // Now on the curve, if it lies within it.
+  if (core::isValidUnixTime(now_s)) {
+    const double x = px((now_s - window.start) / 3600.0);
+    if (x >= chart.curve.front().x && x <= chart.curve.back().x) {
+      for (size_t i = 0; i + 1 < chart.curve.size(); i++) {
+        const ColumnChart::Point& a = chart.curve[i];
+        const ColumnChart::Point& b = chart.curve[i + 1];
+        if (x < a.x || x > b.x) continue;
+        const double t = b.x > a.x ? (x - a.x) / (b.x - a.x) : 0;
+        chart.now_x = x;
+        chart.now_y = a.y + (b.y - a.y) * t;
+        break;
+      }
+    }
   }
   return chart;
 }
@@ -374,7 +413,7 @@ void drawWeatherColumn(ui::Canvas& canvas, const Forecast& forecast, const Colum
                       place ? options.place : ui::text(options.language, ui::Text::kTitleWeather),
                       options.note.empty() ? kAttribution : options.note,
                       place ? ui::TitleIcon::kPin : ui::TitleIcon::kNone, options.note_alert);
-  drawChart(canvas, columnChart(forecast, options.now_s, canvas.width(), options.span));
+  drawChart(canvas, columnChart(forecast, options.now_s, canvas.width(), options.points));
   if (options.day_parts) {
     drawDayParts(canvas, forecast, options.now_s, options.language);
   } else {
@@ -427,9 +466,9 @@ void ForecastColumnView::draw(ui::Canvas& canvas, const DrawContext& context) {
   options.note_alert = context.note_alert;
   options.language = context.language;
   options.now_s = context.now_s;
-  // Step L (2026-11-16): the 24 hours; tomorrow in parts and two days (V1).
+  // Step L (2026-11-16): five points; tomorrow in parts and two days (V1).
   if (step_ == ui::SizeStep::kL) {
-    options.span = ChartSpan::kFullDay;
+    options.points = ChartPoints::kFive;
     options.day_parts = true;
   }
   drawWeatherColumn(canvas, source_.forecast(), options);
