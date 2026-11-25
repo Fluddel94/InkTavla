@@ -738,6 +738,21 @@ void test_removed_grid_setting_is_reported() {
   checkPanel(rig.display, "sim_briefing_morning");
 }
 
+void test_briefing_morning_in_english() {
+  // The same morning in English (for the README): only the language and the
+  // names of the two directions differ.
+  std::string config = kBriefingConfig;
+  config.replace(config.find(R"("language": "de")"), 16, R"("language": "en")");
+  config.replace(config.find("In die Stadt"), 12, "To the city");
+  config.replace(config.find("Raus"), 4, "Out");
+  Rig rig(config.c_str(), "briefing", true, kBriefingMorning);
+  rig.weather.fixture = "muenchen_20261022.json";
+  TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
+  rig.app.controller().setNetworkConnected(true);
+  rig.runUntil(0);
+  checkPanel(rig.display, "sim_briefing_morning_en");
+}
+
 void test_briefing_not_set_up() {
   // Without station, calendar address and location: messages in the
   // columns, the band only greets.
@@ -761,6 +776,7 @@ int main() {
   RUN_TEST(test_settings_page_gets_the_layouts);
   RUN_TEST(test_one_source_for_several_views);
   RUN_TEST(test_briefing_morning);
+  RUN_TEST(test_briefing_morning_in_english);
   RUN_TEST(test_access_notices);
   RUN_TEST(test_calendar_address_wrong);
   RUN_TEST(test_briefing_layouts);

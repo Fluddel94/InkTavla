@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Draws the picture of the screen for the README: docs/images/screen.png.
+"""Draws the pictures of the screen for the README: docs/images/screen-de.png
+and docs/images/screen-en.png.
 
-Takes the reference image test/fixtures/ui/sim_briefing_morning.png (the
+Takes the reference images test/fixtures/ui/sim_briefing_morning.png
+(German) and sim_briefing_morning_en.png (the same morning in English; the
 whole screen in the simulation, see test/test_app_simulation) and puts a
-light frame with rounded corners and a soft shadow around it, so that it
-looks like a display. Run it after the reference image has changed:
+light frame with rounded corners and a soft shadow around each, so that it
+looks like a display. Run it after a reference image has changed:
 
     pip install -r tools/fontgen/requirements.txt
     python tools/frame_screen.py
@@ -17,8 +19,12 @@ import pathlib
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "test" / "fixtures" / "ui" / "sim_briefing_morning.png"
-TARGET = ROOT / "docs" / "images" / "screen.png"
+FIXTURES = ROOT / "test" / "fixtures" / "ui"
+IMAGES = ROOT / "docs" / "images"
+PICTURES = [  # (reference image, picture for the README)
+    (FIXTURES / "sim_briefing_morning.png", IMAGES / "screen-de.png"),
+    (FIXTURES / "sim_briefing_morning_en.png", IMAGES / "screen-en.png"),
+]
 
 SCALE = 4  # drawn larger and scaled down, for smooth corners
 PAD = 24  # room for the shadow
@@ -30,8 +36,8 @@ INNER = (170, 170, 168, 255)  # thin line around the screen
 SHADOW = (0, 0, 0, 70)
 
 
-def main():
-    screen = Image.open(SOURCE).convert("RGB")
+def frame(source, target):
+    screen = Image.open(source).convert("RGB")
     w, h = screen.size
     width, height = w + 2 * (BEZEL + PAD), h + 2 * (BEZEL + PAD)
     s = SCALE
@@ -56,9 +62,14 @@ def main():
 
     out = big.resize((width, height), Image.LANCZOS)
     out.paste(screen, (PAD + BEZEL, PAD + BEZEL))
-    TARGET.parent.mkdir(parents=True, exist_ok=True)
-    out.save(TARGET, optimize=True)
-    print(f"frame_screen: wrote {TARGET.relative_to(ROOT)} ({width} x {height})")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    out.save(target, optimize=True)
+    print(f"frame_screen: wrote {target.relative_to(ROOT)} ({width} x {height})")
+
+
+def main():
+    for source, target in PICTURES:
+        frame(source, target)
 
 
 if __name__ == "__main__":

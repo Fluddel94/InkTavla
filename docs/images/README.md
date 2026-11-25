@@ -6,6 +6,8 @@ backgrounds) is Copyright (C) 2026 Fluddel94 and licensed under
 (full text in [LICENSE](LICENSE)), not under the GPL of the software.
 Photos of the display will be added here under the same license.
 
-`screen.png` is a picture of the screen of the firmware (the reference image
-`test/fixtures/ui/sim_briefing_morning.png` in a drawn frame, made by
-`tools/frame_screen.py`); like the software it is under the GPL-3.0-or-later.
+`screen-de.png` and `screen-en.png` are pictures of the screen of the
+firmware in German and English (the reference images
+`test/fixtures/ui/sim_briefing_morning.png` and `sim_briefing_morning_en.png`
+in a drawn frame, made by `tools/frame_screen.py`); like the software they are
+under the GPL-3.0-or-later.

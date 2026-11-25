@@ -265,7 +265,8 @@ Pages for every release by `.github/workflows/pages.yml`.
 | `tools/embed_web.py` | Inlines and compresses the settings page (`web/`) into `src/generated/settings_page.h` before every build (not in the repository). |
 | `tools/build_installer.py` | Builds the web installer ([below](#firmware-files-and-the-web-installer)). |
 | `tools/full_image.py` | Writes `firmware-full.bin` after the build. |
-| `tools/frame_screen.py` | Draws `docs/images/screen.png`, the picture of the screen in the README, from the reference image `sim_briefing_morning.png`; run it when that image changes (needs Pillow). |
+| `tools/frame_screen.py` | Draws `docs/images/screen-de.png` and `screen-en.png`, the pictures of the screen in the README, from the reference images `sim_briefing_morning.png` and `sim_briefing_morning_en.png`; run it when one of them changes (needs Pillow). |
+| `case/source/inktavla_case.py` | Makes the STL files and pictures of the case (`python case/source/inktavla_case.py slim`, and `slim-battery`); checks and its own requirements: [case/README.md](case/README.md). |
 | `tools/fontgen/`, `tools/icongen/` | Generate the bitmap fonts and the symbols ([tools/fontgen/README.md](tools/fontgen/README.md)). |
 | `tools/check_ai_notes.py` | Warns about AI notes and chat session links (see [Conventions](#conventions)). |
 

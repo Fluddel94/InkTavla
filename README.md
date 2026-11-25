@@ -15,8 +15,10 @@ browser of your phone or computer.
 <!-- Photo of the display: docs/images/display.png (to be added) -->
 
 <p align="center">
-  <img alt="The screen of InkTavla: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen.png" width="640">
+  <img alt="The screen of InkTavla in German: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen-de.png" width="49%">
+  <img alt="The same screen in English" src="docs/images/screen-en.png" width="49%">
 </p>
+<p align="center"><sub>The same morning in German and in English (setting <code>language</code>).</sub></p>
 
 **Install: <https://fluddel94.github.io/InkTavla/>** (Chrome, Edge or
 Firefox 151 or later, on a computer)
@@ -42,6 +44,12 @@ Firefox 151 or later, on a computer)
 The display restarts and opens its settings page by itself. Details and
 other ways to install: [docs/updating.md](docs/updating.md). Problems:
 [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Case
+
+A 3D-printed stand in two versions, **Slim** (USB cable) and **Slim+Battery**
+(with room for the kit's battery), with print settings and assembly:
+[docs/case.md](docs/case.md).
 
 ## Setting it up
 
@@ -171,4 +179,5 @@ Exceptions:
 - Design files are under
   [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), with
   a `LICENSE` of their own in their folder: the logo in
-  [`docs/images/`](docs/images/); the case (3D models) will follow.
+  [`docs/images/`](docs/images/) and the case (3D models and their source) in
+  [`case/`](case/).

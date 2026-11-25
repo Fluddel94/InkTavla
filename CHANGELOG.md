@@ -12,9 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The logo at the top of the README (light and dark mode) and a picture of
   the screen in a drawn frame.
 - An issue template for bug reports.
+- The case: two 3D-printed stands for the kit, Slim (USB cable) and
+  Slim+Battery (with room for the kit's battery), as STL files with their
+  CadQuery source and checks in `case/`, under CC BY-NC-SA 4.0. Print
+  settings and assembly in `docs/case.md`. The buttons are labelled R 3 2 1
+  from behind, so the numbers match KEY1 to KEY3 of the board.
 
 ### Changed
 
+- The README shows the screen in German and in English side by side.
 - The documentation is reorganised for new users: a shorter README from
   installing to updating, one page per widget (setup, settings, data
   source, limits), pages for the settings page and the screen, more help in

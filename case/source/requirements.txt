@@ -1,0 +1,17 @@
+# Python packages for the case (not for the firmware). Install with:
+# python -m pip install -r case/source/requirements.txt
+# CadQuery: Apache-2.0, https://github.com/CadQuery/cadquery
+cadquery==2.8.0
+# trimesh: MIT, https://github.com/mikedh/trimesh
+trimesh==5.2.2
+# manifold3d (booleans for the checks): Apache-2.0, https://github.com/elalish/manifold
+manifold3d==3.5.5
+# shapely, mapbox-earcut (text outlines, triangulation): BSD-3-Clause, ISC
+shapely==2.2.0
+mapbox-earcut==2.1.0
+# matplotlib (glyph outlines of the labels): PSF-based, https://matplotlib.org
+matplotlib==3.11.2
+# Pillow (pictures): MIT-CMU
+Pillow==12.3.0
+# numpy: BSD-3-Clause
+numpy==2.5.3
