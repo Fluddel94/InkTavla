@@ -739,14 +739,18 @@ void test_removed_grid_setting_is_reported() {
 }
 
 void test_briefing_morning_in_english() {
-  // The same morning in English (for the README): only the language and the
-  // names of the two directions differ.
+  // The same morning in English (for the README). Only the language, the
+  // names of the directions and of the place and the calendar (the same week
+  // with English titles) differ; disruption texts stay German, as MVG sends
+  // them only in German.
   std::string config = kBriefingConfig;
   config.replace(config.find(R"("language": "de")"), 16, R"("language": "en")");
   config.replace(config.find("In die Stadt"), 12, "To the city");
   config.replace(config.find("Raus"), 4, "Out");
+  config.replace(config.find("München"), std::strlen("München"), "Munich");
   Rig rig(config.c_str(), "briefing", true, kBriefingMorning);
   rig.weather.fixture = "muenchen_20261022.json";
+  rig.calendar.fixture = "week_en.ics";
   TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
   rig.app.controller().setNetworkConnected(true);
   rig.runUntil(0);
