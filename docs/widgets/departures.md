@@ -1,7 +1,9 @@
 # Departures (MVG)
 
-Live departures of one or two stations in Munich and its surroundings (the
-area of the MVV), with delays, cancellations and disruption messages.
+Live departures of one or two stations, with delays, cancellations and
+disruption messages. Made and tested for Munich and its surroundings (the
+area of the MVV); many stations elsewhere in Bavaria work too (see
+[limits](#data-source-and-limits)).
 Widget ID `mvg`.
 
 ## Setting it up
@@ -169,8 +171,18 @@ warning signs and the cancellations stay.
 - The departures come from the **unofficial** API of the MVG (the one its
   website uses). It is not affiliated with or endorsed by MVG, MVV or DB,
   has no documented terms and may change or stop working at any time.
-- Only stations in the area of the MVV (Munich and the surrounding
-  counties) are available. Other cities are not supported.
+- InkTavla is made and tested for the area of the MVV (Munich and the
+  surrounding counties). The API knows stations in most of Bavaria and a
+  few beyond (in a test on 2026-11-25: Augsburg, Nürnberg, Regensburg,
+  Passau, Kempten, Hof, Lindau and Salzburg delivered departures), but not
+  all: some stations deliver none (in that test Würzburg Hbf and
+  Aschaffenburg Hbf; Ulm and Frankfurt were not found). Outside the MVV,
+  fewer departures have live data.
+  Try your station with the station search on the settings page; if its
+  column stays empty ("Keine Abfahrten"), the API has no departures for it.
+- The line symbols follow the style of Munich (MVV) everywhere: S-Bahn,
+  U-Bahn and tram lines with a Munich number get the Munich symbol, all
+  others a frame with their name.
 - Each station is requested once a minute, at a second between 20 and 45
   chosen at random at every start, so that not all displays ask at once;
   new departures appear with the next minute.

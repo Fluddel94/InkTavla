@@ -216,7 +216,9 @@ the folder of the repository):
 & "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py test\fixtures\ui
 ```
 
-Without a path it checks and cleans the whole repository. The test data is
+Without a path it checks and cleans the whole repository. If
+`sim_briefing_morning.png` changed, also redraw the picture in the README
+with `python tools/frame_screen.py`. The test data is
 described in [test/fixtures/README.md](test/fixtures/README.md).
 
 ### Formatting
@@ -263,6 +265,7 @@ Pages for every release by `.github/workflows/pages.yml`.
 | `tools/embed_web.py` | Inlines and compresses the settings page (`web/`) into `src/generated/settings_page.h` before every build (not in the repository). |
 | `tools/build_installer.py` | Builds the web installer ([below](#firmware-files-and-the-web-installer)). |
 | `tools/full_image.py` | Writes `firmware-full.bin` after the build. |
+| `tools/frame_screen.py` | Draws `docs/images/screen.png`, the picture of the screen in the README, from the reference image `sim_briefing_morning.png`; run it when that image changes (needs Pillow). |
 | `tools/fontgen/`, `tools/icongen/` | Generate the bitmap fonts and the symbols ([tools/fontgen/README.md](tools/fontgen/README.md)). |
 | `tools/check_ai_notes.py` | Warns about AI notes and chat session links (see [Conventions](#conventions)). |
 

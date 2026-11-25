@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The logo at the top of the README (light and dark mode).
+- The logo at the top of the README (light and dark mode) and a picture of
+  the screen in a drawn frame.
 - An issue template for bug reports.
 
 ### Changed

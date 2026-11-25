@@ -6,28 +6,28 @@
 </p>
 
 InkTavla is a firmware for a 7.5" e-paper display that shows the day at a
-glance: the next departures of your station in Munich, the weather and your
-calendar, below a short sentence that sums them up ("Guten Morgen. Mal
-Sonne, mal Wolken, bis 12°. Heute um 18:30: Kino mit Lena."). Everything runs
-on the display itself; no server, no account, no app. It is set up in the
+glance: the next departures of your station in Munich (or elsewhere in
+Bavaria), the weather and your calendar, below a short sentence that sums
+them up ("Guten Morgen. Mal Sonne, mal Wolken, bis 12°. Heute um 18:30: Kino
+mit Lena."). Everything runs on the display itself; no server, no account, no app. It is set up in the
 browser of your phone or computer.
 
 <!-- Photo of the display: docs/images/display.png (to be added) -->
 
 <p align="center">
-  <img alt="The screen of InkTavla: departures, calendar and weather below the band with date, time and a sentence" src="test/fixtures/ui/sim_briefing_morning.png" width="600">
+  <img alt="The screen of InkTavla: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen.png" width="640">
 </p>
 
-**Install: <https://fluddel94.github.io/InkTavla/>** (Chrome or Edge on a
-computer)
+**Install: <https://fluddel94.github.io/InkTavla/>** (Chrome, Edge or
+Firefox 151 or later, on a computer)
 
 ## What you need
 
 - The [Seeed TRMNL 7.5" (OG) DIY Kit](https://wiki.seeedstudio.com/trmnl_7inch5_diy_kit_main_page/)
   (XIAO ESP32-S3 Plus, EE04 driver board, 7.5" 800×480 black-and-white
   panel). It is the only hardware InkTavla is tested on.
-- A USB-C cable that carries data, and a computer with Chrome or Edge
-  (Firefox from version 151 works too) for the installation.
+- A USB-C cable that carries data, and a computer with Chrome, Edge or
+  Firefox (version 151 or later) for the installation.
 - A Wi-Fi with 2.4 GHz (the display does not use 5 GHz).
 
 ## Installing
@@ -60,7 +60,7 @@ More: [the settings page](docs/settings-page.md),
 
 | Widget | Shows | Data from |
 |---|---|---|
-| [Departures](docs/widgets/departures.md) | Departures of one or two stations, in one list or in two directions, with delays, cancellations and disruptions | MVG (Munich area only) |
+| [Departures](docs/widgets/departures.md) | Departures of one or two stations, in one list or in two directions, with delays, cancellations and disruptions | MVG (made for Munich; much of Bavaria works too) |
 | [Weather](docs/widgets/weather.md) | Today as a curve with symbols, the next days | Open-Meteo |
 | [Calendar](docs/widgets/calendar.md) | Today, the next day with events and the rest of the week | Your calendar's private iCal address (Google, Outlook, Nextcloud, iCloud, …) |
 
