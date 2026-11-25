@@ -1,7 +1,7 @@
 # Installing and updating
 
 Three ways to get InkTavla onto the display (the Seeed TRMNL 7.5" (OG) DIY
-Kit, see the [README](../README.md#reference-hardware)):
+Kit, see the [README](../README.md#what-you-need)):
 
 | Way | For | Keeps Wi-Fi and calendar address | Keeps settings (`config.json`) |
 |---|---|---|---|
@@ -9,31 +9,15 @@ Kit, see the [README](../README.md#reference-hardware)):
 | [Update button](#update-button-on-the-settings-page) | new release over Wi-Fi | yes | yes |
 | [File upload](#file-upload-on-the-settings-page) | own builds, older versions | yes | yes |
 
-Building from source and flashing with PlatformIO is described in the
-README ([Building](../README.md#building)).
-
-## Files of a build and of a release
-
-Every device build writes two files to `.pio/build/xiao_esp32s3_plus/`
-(and CI keeps both as the artifact of the run):
-
-- `firmware.bin` – the app alone. Used by the update button and the file
-  upload; it is written into the second app slot.
-- `firmware-full.bin` – the whole flash image from offset 0: bootloader,
-  partition table, OTA data and the app (`tools/full_image.py`; the image
-  is merged by the platform with esptool, using the offsets of the build).
-  Used by the web installer.
-
-A release has exactly these two files, with exactly these names. The update
-button looks for `firmware.bin`; the web installer workflow takes
-`firmware-full.bin`.
+Building from source and flashing with PlatformIO:
+[CONTRIBUTING.md](../CONTRIBUTING.md#building).
 
 ## Web installer
 
-A page with [ESP Web Tools](https://github.com/esphome/esp-web-tools) that
-flashes the display over the USB cable (Web Serial) and then sets up Wi-Fi
-over Improv. It is published on GitHub Pages for every release by
-`.github/workflows/pages.yml`.
+**<https://fluddel94.github.io/InkTavla/>** flashes the newest release over
+the USB cable (Web Serial) and then asks for the Wi-Fi (Improv). The page
+explains the steps; in short: connect the display, press **Install
+InkTavla**, choose its serial port, wait about a minute, enter the Wi-Fi.
 
 - **Browsers:** Chrome, Edge or Firefox from version 151 (May 2026), on a
   computer (Windows, macOS, Linux). Firefox first asks to add a *site
@@ -42,31 +26,15 @@ over Improv. It is published on GitHub Pages for every release by
   version 148, but it lists no USB ports on ordinary phones). Uploading
   `firmware.bin` on the settings page (below) works in every browser, as it
   goes over Wi-Fi.
-
-- **Writing `firmware-full.bin` at offset 0 clears the NVS partition**
-  (the gaps between the parts are filled), so Wi-Fi access and the calendar
-  address have to be entered again; the installer asks for Wi-Fi right
-  away. `config.json` lies in LittleFS behind the app and stays, unless
-  "erase device" is chosen.
-- GitHub serves release files without CORS headers, so a browser cannot
-  load them from a page on another site. The workflow therefore takes
-  `firmware-full.bin` from the release and publishes it together with the
-  page and the manifest. No firmware is committed to the repository.
-- ESP Web Tools (Apache-2.0) is downloaded from npm in a pinned version and
-  checked against its SHA-512 when the site is built; it is not kept in the
-  repository and not loaded from a CDN.
-- Pre-releases are not published. GitHub Pages needs a public repository
-  (on the free plan); set Settings → Pages → Source to "GitHub Actions".
-
-To try the installer locally (Web Serial works on `localhost` without
-HTTPS):
-
-```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\build_installer.py --firmware .pio\build\xiao_esp32s3_plus\firmware-full.bin --version 0.2.0-dev --serve
-```
-
-Then open <http://localhost:8000/> in Chrome, Edge or Firefox 151+. The site
-is written to `.pio/installer/`.
+- **The installer clears the Wi-Fi access and the calendar address** every
+  time, because it writes the whole flash image (`firmware-full.bin`),
+  including the protected storage. It asks for the Wi-Fi right away; enter
+  the calendar address again on the settings page. The settings
+  (`config.json`) stay, unless "erase device" is chosen.
+- **Cable:** a USB-C cable that carries data, not a charging-only cable.
+- If no port is offered, hold the BOOT button on the small XIAO board while
+  plugging in the cable and try again; press RESET after the installation
+  (see [troubleshooting.md](troubleshooting.md)).
 
 ## Update button on the settings page
 
@@ -86,8 +54,7 @@ is written to `.pio/installer/`.
   check and writes it like an uploaded file (below). The display keeps
   showing its data meanwhile.
 - If the repository is private or has no release, the page says so; nothing
-  else happens. A fork can build with its own repository:
-  `-DINKTAVLA_UPDATE_REPOSITORY=\"owner/name\"` in `build_flags`.
+  else happens.
 
 ## File upload on the settings page
 

@@ -1,12 +1,48 @@
 # Troubleshooting
 
-Problems when flashing the firmware or setting up the display.
+Problems when installing, setting up or using the display. If nothing here
+helps, [report the problem](#reporting-a-problem).
 
 ## Find out what the display does
 
 The system log tells why data is missing, why the Wi-Fi drops or why the
 display restarted: press KEY2 on the display, or open the page "System" on
 the settings page and download the log. See [system-log.md](system-log.md).
+
+## What the display says
+
+Texts in a column or on the whole screen (German; in English with
+`language: "en"`):
+
+| Text | Meaning | What to do |
+|---|---|---|
+| "Auf der Einstellungsseite einrichten (Taste 3)" | The widget of this column is not set up yet. | Press KEY3 and set it up on the [settings page](settings-page.md). |
+| "Haltestelle fehlt" | Departures without a station. | Choose a station on the page *Abfahrten*. |
+| "Standort fehlt" | Weather without a place. | Choose a place on the page *Wetter*. |
+| "Kalender-Adresse fehlt" | No calendar address saved. | Enter it on the page *Kalender* ([how](widgets/calendar.md#the-calendar-address)). |
+| "Kalender-Adresse prüfen" | The calendar service rejected the address or sent no calendar (for example after the address was reset or the calendar no longer shared). | Copy the address again and test it on the page *Kalender*. |
+| "Kalender nicht erreichbar" | The calendar service has not answered for a minute. | Nothing; the display keeps trying. If it stays, look at the [system log](system-log.md). |
+| "Passt hier nicht" | The widget needs a wider column (the departures need step M). | Choose another arrangement on the page *Layout und Darstellung* ([columns](screen.md#layouts-and-columns)). |
+| "Stand 14:32" next to a title | The data could not be updated for more than a minute; it is from 14:32. | Usually nothing; it goes away with the next update. |
+| "Keine Verbindung" / "Keine Daten" | No data since the start. | Check the Wi-Fi; see the [system log](system-log.md). |
+| Struck-through Wi-Fi symbol after the time | No Wi-Fi for more than a minute. | The display reconnects by itself; see [below](#the-display-connects-to-a-far-access-point). |
+| "Noch kein WLAN eingerichtet." | No Wi-Fi saved (new or erased device). | Set it up over USB as the screen says, or with the [web installer](updating.md#web-installer). |
+| "Das WLAN ist nicht erreichbar." | The saved Wi-Fi has not been reached for 10 minutes since the start (e.g. a new router). | Check the router, or set up the new Wi-Fi over USB. |
+| "WLAN-Verbindung fehlgeschlagen." | A Wi-Fi setup failed (e.g. a wrong password). | See [below](#wi-fi-setup-fails). |
+
+## The installer offers no serial port
+
+Use a USB-C cable that carries data (not a charging-only cable) and a
+computer, not a phone. If the port still does not appear, hold the
+**BOOT** button on the small XIAO board while plugging in the cable, then
+try again; press **RESET** once after the installation.
+
+## Starting over
+
+On the settings page, page *Neustart und Zurücksetzen*, **Einstellungen
+zurücksetzen** / **Reset settings** sets all settings to their defaults and
+deletes the calendar address; Wi-Fi stays. To start from nothing, run the
+[web installer](updating.md#web-installer) and choose to erase the device.
 
 ## The board keeps connecting and disconnecting after erasing the flash
 
@@ -69,3 +105,16 @@ never logged. What to check on that router or access point:
   use a separate 2.4 GHz network.
 - After a change, restart the display (system page or settings page) and
   look at the log again.
+
+## Reporting a problem
+
+Open an issue on GitHub:
+<https://github.com/Fluddel94/InkTavla/issues/new/choose>. Please give the
+firmware version (settings page, page *Firmware*, or the system page on
+KEY2), the layout and what you expected, and add the lines of the
+[system log](system-log.md) around the time it happened.
+
+**Do not post your Wi-Fi name or password, your calendar address, your own
+station or address, or the code of the settings page.** The system log
+never contains Wi-Fi names, passwords or addresses of services, but check
+what you paste anyway.

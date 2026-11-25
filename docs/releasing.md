@@ -53,7 +53,7 @@ file names), so they are not changed without a reason.
    - **Files:** exactly two, names unchanged: `firmware.bin` (the app,
      downloaded by the update button) and `firmware-full.bin` (the whole
      flash image, taken by the web installer workflow). See
-     [Files of a build and of a release](updating.md#files-of-a-build-and-of-a-release).
+     [Files of a build and of a release](../CONTRIBUTING.md#firmware-files-and-the-web-installer).
    - **Set as the latest release:** ticked. **Set as a pre-release:** only
      for versions with a suffix (`vX.Y.Z-rc.1`), not for normal `0.x`
      versions. The update button only offers the latest release, and the

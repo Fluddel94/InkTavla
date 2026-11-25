@@ -77,9 +77,7 @@ chart with extreme values and a real day of steady rain, `briefing_departure_inc
 messages and two stations, `briefing_band_topics.png` sentences on
 departures, events and tomorrow's temperature (`test/test_briefing`),
 `sim_*.png` the whole screen in the simulation (`test/test_app_simulation`). Their image data is
-compared byte by byte (metadata chunks that tools may add are ignored);
-after an intended change of the appearance, update them with
-`INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`.
-Before committing reference images, remove any metadata that tools may have
-added: `python tools/png_strip.py` (the whole repository; the folder
-`test/fixtures/ui` can be given as an argument to limit it).
+compared byte by byte (metadata chunks that tools may add are ignored).
+How to update them after an intended change of the appearance and strip
+their metadata before committing:
+[CONTRIBUTING.md](../../CONTRIBUTING.md#unit-tests).

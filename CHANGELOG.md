@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The logo at the top of the README (light and dark mode).
+- An issue template for bug reports.
+
+### Changed
+
+- The documentation is reorganised for new users: a shorter README from
+  installing to updating, one page per widget (setup, settings, data
+  source, limits), pages for the settings page and the screen, more help in
+  the troubleshooting guide, and the developer parts in `CONTRIBUTING.md`.
+- The web installer links to the README and the troubleshooting guide.
+
 ## [0.5.0] - 2026-11-24
 
 The weather column has a new chart with weather symbols, and the band

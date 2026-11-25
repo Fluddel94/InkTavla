@@ -1,177 +1,18 @@
-# Configuration
+# Configuration file
 
-All user-specific settings live in one JSON file, `/config.json`, in the
+All settings of the display live in one JSON file, `/config.json`, in the
 device's flash file system (LittleFS). Nothing user-specific is compiled
-into the firmware.
+into the firmware. Usually the [settings page](settings-page.md) writes the
+file; this page is the reference for reading and writing it by hand, for
+example to keep a backup (page **Sicherung / Backup**) or to send it over
+USB.
 
 **Not in this file:** Wi-Fi credentials and other secrets such as the
 address of your calendar. They are entered at runtime (Wi-Fi via Improv over
 USB or on the settings page, the calendar address on the settings page or
 with `tools/inktavla_config.py calendar-url`, see
-[the calendar widget](#calendar-calendar-agenda)) and kept only in the
-device's protected storage; they cannot be read back.
-
-## The settings page
-
-All settings below can be changed in a browser, on a phone or a computer in
-the same Wi-Fi as the display:
-
-1. Press **KEY3** on the display. The band at the top shows the address of
-   the page (e.g. `192.168.178.45`), a one-time code of six digits and a QR
-   code. On a new device without settings (no `config.json`, or an empty
-   one, e.g. after resetting) the page opens by itself once after the
-   start, as soon as Wi-Fi is connected. Until then, columns without their
-   settings say what is missing and "Auf der Einstellungsseite einrichten
-   (Taste 3)".
-2. Scan the QR code (address and code in one), or open the address in a
-   browser and enter the code.
-3. Change what you like and press **Speichern und neu starten** / **Save
-   and restart**. The display checks the settings with the same rules as
-   below; if it finds problems, nothing is saved and the page lists them
-   (with **Trotzdem speichern** / **Save anyway** invalid values use their
-   defaults). After saving, the display restarts and the page opens again
-   for the rest of its time with the same code.
-
-The page closes 30 minutes after the last action on it, when you press KEY3
-again or press **Schließen** / **Close**, and after five wrong codes.
-
-The page opens with a card on the state of the display: the
-Wi-Fi it is connected to, the signal, the version and how long it has been
-running, and for every source a dot (green: up to date; amber: not set up,
-waiting or outdated; red: no data or failing again and again) with the time
-of its last update. The card is asked for when the page opens and on every
-change of page, not in a rhythm; looking does not extend the time limit.
-
-Below it is the overview: a list in the groups **Anzeige** / **Display**,
-**Widgets**, **Gerät** / **Device** and **Diagnose** / **Diagnostics**. Every
-row opens a page of its own (the address ends in `#/mvg`, `#/wifi` …, so the
-back button of the browser leads to the overview and reloading stays on
-the page); **‹ Übersicht** / **‹ Overview** leads back. The widgets listed
-are those in a column (in the order of the columns) and the weather, which
-keeps its row without a column because the band shows it. A widget without
-a symbol of its own gets a plain square. The settings of a widget without a
-column stay in the file. The second line of a row tells the current
-entries of its page (for example "MVG · Marienplatz · Zwei Richtungen");
-a row shows at most one mark: **n Fehler** / **n errors**, **Einrichten** /
-**Set up** (departures without a station, weather without a place,
-calendar without an address) or **geändert** / **changed** (differs from
-the settings as loaded, not saved yet). In a window at least 860 px wide
-the overview stays on the left and the chosen page is shown on the right
-(without a page chosen, "Layout und Darstellung"). The bar with **Speichern und neu starten** / **Save
-and restart** is at the bottom of every page (on the overview only once
-something is changed); it saves the changes of all pages at once. A row
-whose page has an entry to correct shows **1 Fehler** / **1 error**; a
-problem the display reports when saving is listed at the top of the
-overview, with a link to its page. At the top of the page of a widget that
-has something for the band (departures, weather, calendar) is a switch that
-turns its part of the band sentence off.
-
-- **Layout und Darstellung / Layout and display:** the arrangement of the
-  screen (band + 3 or band + 2) and a sketch of the display (the band shows
-  an example with the date and time of the phone; its sentence follows the
-  band switches of the widgets – one widget alone with a longer example,
-  with two the event shorter, as on the display –, and the weather picture becomes the
-  placeholder where the display would show it): tap a place to
-  choose it, then pick its widget below the sketch (with a link to that
-  widget's settings); below that the language, the full refresh and the
-  dotted lines between the columns. Every widget is offered once; choosing
-  one that is in another column already swaps the two. With three widgets
-  the wide column moves to where the departures are.
-- **Abfahrten / Departures** (MVG): station search; the display name
-  follows the chosen station (and can still be edited); one list, two
-  directions or two stations; under every station buttons for the means of
-  transport that serve it, then for every line and direction whether and
-  where it is shown. At first all means of transport are on and all lines
-  ticked; switching one off clears and hides its lines, switching it on
-  again ticks them all (with two directions it hides its lines and restores
-  the previous assignment). When all lines of a station are ticked, no line
-  list is saved: the station then shows all its lines, also ones added
-  later, and the limit of 16 lines does not apply. With two stations the
-  display name is the title of the first one. Below the station search
-  (**Ändern** / **Change**) the link **Global-ID setzen** / **Set global ID**
-  opens a field for a station's global ID (e.g. `de:09162:10`) when the
-  search does not find it; the display checks it with the MVG and shows its
-  name.
-  The example destinations come from the departures of the next 12 hours;
-  the names of two directions are suggested as "Zentrum" / "Auswärts"
-  ("Centre" / "Outbound" in English).
-- **Wetter / Weather** (Open-Meteo): place search ([Open-Meteo](https://open-meteo.com/en/docs/geocoding-api)),
-  display name, coordinates under **Erweitert** / **Advanced**.
-- **Kalender / Calendar** (Google): replace or remove the private iCal address (the
-  page only shows whether one is set), and the settings of the column under
-  **Anzeige** / **Display**, **Filter** and **Abruf** / **Updates**.
-- **WLAN / Wi-Fi:** the current network (name, signal, address) and **WLAN
-  wechseln** / **Change Wi-Fi**, which tests a new network and saves it only
-  if the display can connect (otherwise it goes back to the old one).
-- **Firmware:** the installed version and the update (see below).
-- **Sicherung / Backup:** download and load `config.json` (secrets are never
-  in it).
-- **Zeit / Time:** time zone (also as a POSIX text) and time server.
-- **Neustart und Zurücksetzen / Restart and reset:** restart, and
-  **Einstellungen zurücksetzen** / **Reset settings** (all settings to their
-  defaults and the calendar address deleted; Wi-Fi stays, so the display
-  can still be reached; the page then opens again by itself after the
-  restart).
-- **System** (state and diagnosis, always English): uptime, restart, Wi-Fi
-  and its drops, memory, the data sources with their fails, and the system
-  log (see [system-log.md](system-log.md)).
-
-To try the page without the display: `python tools/mock_device.py` serves it
-with made-up data at `http://localhost:8080/?code=123456`.
-
-### Updating the firmware on the settings page
-
-**Nach Updates suchen / Check for updates** asks GitHub for the newest
-release, only when pressed, and offers a newer version with a link to its
-release notes; **Installieren / Install** downloads and installs it. Or
-choose a file `firmware.bin` (from a release, or after a build in
-`.pio/build/xiao_esp32s3_plus/`). Details:
-[docs/updating.md](updating.md#update-button-on-the-settings-page).
-
-Either way the display checks while receiving it
-that it is an InkTavla firmware for the ESP32-S3 and refuses anything else;
-the running firmware stays until the new one is complete. Then the display
-restarts with the new firmware and the page opens again. The new firmware
-is only kept once it runs properly (30 seconds with Wi-Fi, or 10 minutes
-without); if it crashes or restarts before, the display goes back to the
-previous firmware by itself. The settings stay in both cases.
-
-**Security:** the page uses plain HTTP, since a device in the home network
-cannot get a certificate a browser trusts. Only use it in your private home
-network, not in open or shared networks, where the code, the session or a
-new Wi-Fi password or calendar address could be read along. That is also
-why the page only opens on request and closes again by itself.
-
-## Over the USB cable
-
-The file can also be sent over the USB cable with
-`tools/inktavla_config.py` (needs Python 3 and pyserial:
-`pip install -r tools/requirements.txt`). Close the serial monitor first;
-only one program can use the port.
-
-```sh
-python tools/inktavla_config.py put my-config.json --port COM5
-python tools/inktavla_config.py get backup.json --port COM5
-python tools/inktavla_config.py info --port COM5
-python tools/inktavla_config.py log inktavla-log.txt --port COM5
-```
-
-Without a separate Python installation, the Python that comes with
-PlatformIO works as well (pyserial is included there). In a VS Code terminal
-on Windows:
-
-```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\inktavla_config.py put my-config.json --port COM5
-```
-
-`put` checks the file, sends it and lists the problems the device finds in
-it. The device saves the file only if it is valid JSON (at most 16 KB); it
-writes a temporary file first and then replaces `/config.json`, so a
-broken transfer never leaves a half file. Then it restarts with the new
-settings. `get` reads the stored file back.
-
-The commands are plain text lines on the serial line, next to Improv; see
-`lib/core/src/core/config_command.h` for the protocol.
+[the calendar](widgets/calendar.md#the-calendar-address)) and kept only in
+the device's protected storage; they cannot be read back.
 
 ## Example
 
@@ -258,456 +99,49 @@ firmware.
 | `layout.slots` | list of 2 or 3 widget IDs | `["mvg", "calendar", "weather"]` | Widget for each column of the screen from left to right. The number of entries is the layout: three widgets below the band, or two. A widget may appear more than once (its data is fetched only once); the settings page offers every widget once. |
 | `layout.dividers` | `true`, `false` | `true` | Dotted vertical lines in the middle between the columns; `false` turns them off. |
 
-The columns only come in three widths, the size steps **S** (214 px),
-**M** (280 px) and **L** (367 px); they are 260 px high.
+How the number of widgets decides the layout and which widget fits in
+which column: [the screen](screen.md#layouts-and-columns).
 
-| `layout.slots` | Layout | Columns |
-|---|---|---|
-| 3 entries | band + 3 | one of M and two of S: 280 \| 214 \| 214 px |
-| 2 entries | band + 2 | two of L: 367 \| 367 px |
-
-In band + 3 the wide column (M) is the first one from the left whose widget
-needs M, so `["calendar", "weather", "mvg"]` gives 214 | 214 | 280 px.
-Without such a widget the first column is the wide one.
-
-Every widget has a smallest step and goes into every column of at least
-that width:
-
-| Widget | Smallest step |
-|---|---|
-| `mvg` | M (280 px) |
-| `weather` | S (214 px) |
-| `calendar` | S (214 px) |
-
-A widget in a column that is too narrow for it - a second one that needs M
-in band + 3 - is reported (`layout.slots: widget "mvg" does not fit slot 3
-(214 px); it needs 280 px`) and the column shows "Passt hier nicht" instead
-of a clipped view; another number of entries than 2 or 3 is reported
-(`layout.slots: must have 2 or 3 entries`) and the standard is used.
-
-### The "Briefing" layout
-
-The screen keeps a margin of 20 px at the left, right and top (the capitals
-of the date line start 20 px from the top) and 15 px at the bottom. The
-margins are two constants in the firmware (`kMargin` and `kMarginBottom` in
-`lib/ui/src/ui/layout.h`), in case a case covers the edge of the panel; the
-steps M and L follow from them (S stays 214 px).
-
-At the top a band with the date and time, a sentence and a weather picture
-with the temperature of now ("Jetzt 8°"); below two or three columns without frames
-that are filled down to the bottom edge. The sentence follows fixed rules
-(no AI): a greeting by the time of day ("Guten Morgen" until 11:00, "Guten
-Tag" until 18:00, then "Guten Abend"), then
-
-1. without Wi-Fi for 60 s: "Keine Verbindung zum WLAN – die Angaben sind
-   von 07:12." (shorter "Kein WLAN – Stand 07:12." if that makes room for
-   the rest; and a struck-through Wi-Fi symbol after the time); with Wi-Fi,
-   widgets on the screen whose updates have failed for 60 s: "Die Abfahrten
-   lassen sich gerade nicht abrufen – Stand 07:12.", "Wetter und Kalender
-   lassen sich gerade nicht abrufen.";
-2. a cancelled departure among the next two departures of each direction
-   (or station), within the next hour, at most one (the earliest): "Die S2
-   um 07:54 nach Dachau fällt aus.";
-3. always a sentence about the weather, by the time of day:
-   - until 11:00 the whole day: "Heute wird es sonnig, bis 16°.", "Erst
-     trocken, ab 16 Uhr Regen – Schirm mit. Bis 14°.", "Heute regnet es den
-     ganzen Tag – Schirm mit. Höchstens 9°.", "Ab 9 Uhr schneit es, um 0°.
-     Es kann glatt werden.", "Sonnig und heiß, bis 32°.";
-   - then the afternoon and the evening (temperature at 20:00): "Der
-     Nachmittag bleibt sonnig, am Abend 11°.", "Ab 16 Uhr regnet es –
-     Schirm mit. Am Abend 9°.", "Es regnet noch bis etwa 17 Uhr, danach
-     trocken. Am Abend 8°."; after sunset the evening: "Ein klarer,
-     trockener Abend, später 5°.";
-   - tomorrow from the first full hour after sunset, but not before 18:00
-     and not after 21:00 (in Munich 18:00 in winter, 21:00 in June):
-     "Morgen wird es sonnig, 4° bis 15°.", "Morgen früh Nebel, später
-     sonnig, bis 12°.", "Morgen ab 10 Uhr Regen – Schirm einpacken. Bis
-     11°.", "Morgen zeitweise neblig, sonst trocken, bis 11°.", and if
-     tomorrow's high differs by 8° or more "Morgen wird es deutlich kälter:
-     höchstens 6°, wolkig.".
-
-   The sentence and the symbols do not contradict each other. Today the
-   sentence talks about the same weather as the band picture and uses the
-   same rain rule: "Schirm mit" exactly when the picture is the umbrella (a
-   probability of 70 % in one of the hours ahead), "vielleicht Regen" from
-   30 % or when the hours bring rain by their amounts. Tomorrow the weather
-   word is the daily code of Open-Meteo, as the symbol in the weather
-   column; the hours give the times, "Schirm einpacken" only if that symbol
-   shows rain, and weather of the code that is only at night is
-   "zeitweise". For the same dry weather there are up to three wordings; the
-   date and the time of day pick one, so it does not change with every
-   refresh.
-
-   Wind (gusts from Open-Meteo, as the warning levels of the German
-   weather service, without speeds): from 50 km/h "Dazu windig mit
-   kräftigen Böen." (only if there is room), from 65 km/h "Stürmisch,
-   Sturmböen möglich." and "Kapuze statt Schirm" instead of "Schirm mit",
-   from 105 km/h "Achtung, orkanartige Böen."; today the hours still
-   ahead, in the evening tomorrow 06:00 to 22:00 ("Morgen stürmisch, …").
-
-   The band picture: the umbrella with two, four or six drops by the
-   intensity of the likely rain (snow as one flake or three, a
-   thunderstorm with hail grains); from gusts of 65 km/h in the hours
-   still ahead today a windsock instead of a dry sky, a windsock with
-   driven rain instead of the umbrella and a snowflake with wind lines for
-   snow (a thunderstorm stays).
-
-4. the next event of the calendar (if the calendar is on the screen): until
-   the evening (the hour from which the weather sentence talks about
-   tomorrow) the next event of today that has not begun yet, "Um 09:30
-   Zahnarzt.", or, if no event with a time is left today, an all-day event
-   that begins today, "Heute: Geburtstag Oma."; in the evening the first
-   event of tomorrow, "Morgen um 08:00 Zahnarzt.", "Morgen: Geburtstag
-   Oma.". Events of several days are named on their first day only; the
-   settings of the calendar column (`all_day`, `exclude`) apply.
-
-Disruption messages are not part of the sentence; they are shown in their
-column. The parts stand side by side in this order; the sentence has at
-most three lines in Fraunces 38 (never a smaller size).
-
-**Length of the sentence.** Every part comes in up to three forms, and the
-band picks them so that the sentence fills at least half and at most about
-85 % of its three lines (the width of the whole sentence in Fraunces 38):
-if only one widget has something to say, it tells more; if several do,
-they get shorter. Of the combinations that fit within that range, the
-higher rank keeps the longer form, so the event gets shorter first, then
-the weather, then a cancellation or a notice. If none is within the range,
-the band takes one that reaches half and goes least beyond it; if all stay
-below half, the longest.
-
-| Part | Longer | Usual | Shorter |
-|---|---|---|---|
-| Notice | – | "Keine Verbindung zum WLAN – die Angaben sind von 07:12." | "Kein WLAN – Stand 07:12." (failed updates without the time) |
-| Cancellation | "…, die nächste fährt um 08:14." (next departure of the same line to the same destination) | "Die S2 um 07:54 nach Dachau fällt aus." | "S2 um 07:54 fällt aus." |
-| Weather | a look ahead: in the morning "Am Abend noch 9°.", in the afternoon the sentence about tomorrow, in the evening "Heute Nacht bis 2°." | as above | without the temperature ("Heute wird es sonnig."); a storm stays |
-| Event | "…, danach um 14:00 Elternabend." (next event with a time of the same day) | "Um 09:30 Zahnarzt." | "09:30 Zahnarzt.", "Morgen 08:00 Zahnarzt.", "Heute: Geburtstag Oma.", title shortened with "…" |
-
-English in the same way ("S2 at 07:54 cancelled.", "Still 9° in the
-evening.", "Down to 2° tonight.", "…, then Elternabend at 14:00."). Only if
-even the shorter forms of all parts do not fit, the greeting is left out,
-then the part of the lowest rank (the event first). This happens only
-when much comes together, e.g. no Wi-Fi, a cancellation, a storm and an
-event. With nothing else to say the greeting names the weekday: "Guten
-Morgen und einen schönen Dienstag.", "Guten Tag und noch einen schönen
-Dienstag.", "Guten Abend und einen schönen Dienstagabend." ("Good morning,
-have a nice Tuesday."). Parts of sources without fresh data are left
-out. The band reads the weather section (`widgets.weather`) even if the
-weather column is not on the screen, the departures and the calendar only
-if they are on the screen. Every widget has a switch `band` in its section
-that takes its part out of the sentence: `widgets.weather.band: false`
-leaves out the weather sentence (the picture stays), `widgets.mvg.band:
-false` the cancellation, `widgets.calendar.band: false` the event. The notes on failed updates do not depend on it. Without a
-weather column, `widgets.weather.band: false` also stops the weather from
-being fetched; the band then shows a dotted cloud and "–°" in place of the
-picture and the temperature (as it does when no place is set). The picture shows by daylight the weather of the rest of the
-daylight hours (the umbrella with drops for likely rain, a cloud for rain
-that is only possible), at night the weather of now.
-
-The calendar column shows today (past events stay until midnight unless
-switched off, "Keine Termine" without any), then the next day that has
-events ("MORGEN" with the weekday on the right, or the name of the weekday
-with the date) if there is room, then the following events of the week, one
-line each with the weekday on the first line of every day, the title (from
-the same position as the titles above) and the time on the right, as many
-as fit (settings: see [the calendar
-widget](#calendar-calendar-agenda)). The departure column shows one list
-(title: the station) or the two `sections` (titles with an arrow, or with
-the stop sign for two stations), 28 px per row. Disruption messages of
-the shown lines follow the station title: a warning sign and the texts of
-the API for the departures drawn, with their lines (each once, at most three
-lines, two with sections).
-
-## Widgets
+## Widget settings
 
 Each widget reads its own section under `widgets`, named by its ID.
 
-### `mvg`: Munich public transport departures
+| Section | Widget | Settings |
+|---|---|---|
+| `widgets.mvg` | Departures | [departures.md](widgets/departures.md#settings) |
+| `widgets.weather` | Weather | [weather.md](widgets/weather.md#settings) |
+| `widgets.calendar` | Calendar | [calendar.md](widgets/calendar.md#settings) |
 
-Departures from the unofficial MVG API (Munich transport and tariff
-association area, MVV). The API is not endorsed by MVG and may change at any
-time.
+Every widget has a setting `band` (`true` by default) that takes its part
+out of the sentence of the band ([the band](screen.md#the-band)).
 
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `station` | text | `""` | Station as MVG `globalId`, e.g. `"de:09162:10"` (München-Pasing). Empty: widget not set up. |
-| `name` | text (≤ 64 bytes) | `""` | Name shown on the display. Empty: the name from the MVG API. |
-| `transport_types` | list | all | Means of transport to request: `"SBAHN"`, `"UBAHN"`, `"TRAM"`, `"BUS"`, `"REGIONAL_BUS"`, `"BAHN"` (regional trains). Rail replacement buses come with the means of transport they replace. Ignored when `lines` is set. |
-| `lines` | list | `[]` (all lines) | Only show these lines, at most 16. Each entry is `"line:direction:type"`, see below. Not used with `sections`. |
-| `direction` | `"all"`, `"H"`, `"R"` | `"all"` | Only departures with this MVG direction code (applies to all lines, in addition to `lines`). Not used with `sections`. |
-| `sections` | list of 2 sections | none (one list) | Show the departures in two freely named sections instead of one list, for two directions or two stations, see below. |
-| `time_format` | `"clock"`, `"minutes"` | `"clock"` | Departure as planned time with delay (`14:32 +3`; in a column of step L `14:32 +3 min`) or as minutes until departure (`4 min`, from 60 minutes on as clock time). |
-| `band` | `true`, `false` | `true` | Mention a cancelled departure in the sentence of the band (see "Layouts" and the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Abfahrten* ("Ausfälle im Satz des Bands nennen"). Only `false` is saved. |
-| `incidents` | `0`, `1`, `2` | `1` | Most lines of the disruption text under the station title. `0` hides only the text; the warning signs at the departures stay. Up to 0.4.x a switch: `false` still means `0`, `true` means `2`. On the settings page: page *Abfahrten*. |
+## Over the USB cable
 
-Line entries (`lines`):
+The file can also be sent over the USB cable with
+`tools/inktavla_config.py` (needs Python 3 and pyserial:
+`pip install -r tools/requirements.txt`). Close the serial monitor first;
+only one program can use the port.
 
-- **line:** as shown, spaces are ignored and case does not matter (`"RE 80"`
-  = `"RE80"`).
-- **direction:** `H` or `R` (MVG direction code of the line) or `B` for both.
-  The codes are fixed per line and do not mean "towards the city centre";
-  to name the directions, use two sections (see below).
-- **type:** `S` S-Bahn, `U` U-Bahn, `T` tram, `B` bus, `R` regional bus,
-  `Z` regional train.
-
-Examples: `"S3:B:S"` (S3, both directions), `"RE80:R:Z"` (RE 80, direction R).
-
-If any regional train is selected, rail replacement buses for regional trains
-are shown as well (also those without a line name), because the API does not
-say which line they replace.
-
-#### Two directions (`sections`)
-
-Instead of one list, the column can show two sections with names of your
-choice, for example towards the city and away from it:
-
-```json
-"mvg": {
-  "station": "de:09162:10",
-  "name": "Pasing",
-  "sections": [
-    {"name": "Zentrum", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
-    {"name": "Auswärts", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
-  ]
-}
+```sh
+python tools/inktavla_config.py put my-config.json --port COM5
+python tools/inktavla_config.py get backup.json --port COM5
+python tools/inktavla_config.py info --port COM5
+python tools/inktavla_config.py log inktavla-log.txt --port COM5
 ```
 
-- Exactly two sections, each with a `name` (up to 24 bytes, shown in
-  capitals) and its `lines` in the same format as above (at least one).
-- Above the sections a title line shows the station (stop sign and
-  `name`, or the name from the API). While the data is old, the age badge
-  ("Stand 14:32") stands on its right.
-- Lines that are in no section are not shown; `lines` and `direction` are
-  ignored.
-- The MVG direction code is fixed per line and does not say which way a
-  line goes: at München-Pasing tram 14 "H" leaves the city while tram 19 "H"
-  goes into it, and the same code can even lead to opposite destinations on
-  one line. That is why every line is assigned with its direction.
-- The column has room for 6 departures with two sections (8 as one list).
-  They are shared evenly (3 + 3); rows a section cannot fill go to the
-  other one.
-- If anything about `sections` is invalid, the departures are shown as one
-  list and the problem is reported.
+Without a separate Python installation, the Python that comes with
+PlatformIO works as well (pyserial is included there). In a VS Code terminal
+on Windows:
 
-The same response from the API is used for both sections, so two sections do
-not cause more requests.
-
-#### Two stations
-
-A section can show a station of its own, for example the station at the
-door and one a short walk away:
-
-```json
-"mvg": {
-  "station": "de:09162:5",
-  "sections": [
-    {"name": "Ostbahnhof", "lines": ["S3:H:S", "S4:H:S"]},
-    {"name": "Leuchtenbergring", "station": "de:09162:900"}
-  ]
-}
+```powershell
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\inktavla_config.py put my-config.json --port COM5
 ```
 
-- `station` of a section: an MVG station ID as above; without it the section
-  uses the station of the widget. If both sections have one, the widget's
-  `station` may be left out.
-- A section with a station of its own may leave out `lines`: then it shows
-  all lines of that station.
-- While the data is old, the first title shows the age badge on its right.
-- The settings page writes the display name as the `name` of the first
-  section.
-- Both titles get the stop sign.
-- Each station is requested once a minute, so two stations mean two
-  requests a minute.
+`put` checks the file, sends it and lists the problems the device finds in
+it. The device saves the file only if it is valid JSON (at most 16 KB); it
+writes a temporary file first and then replaces `/config.json`, so a
+broken transfer never leaves a half file. Then it restarts with the new
+settings. `get` reads the stored file back.
 
-#### Disruption messages
-
-Messages of the type "INCIDENT" that the API reports for the departures
-that are drawn (not for the ones that do not fit on the display) appear
-below the station title (two stations: below the title of the first one,
-its rows follow the text), with a warning sign: "S2: Verspätung eines
-vorausfahrenden Zuges.". The API only gives short texts without a heading.
-Only the first message is shown (the one of the earliest departure drawn);
-if there are more, the end of the text says how many: "+2" (in every
-language). The
-line in front ("S2: ") is left out when the departures drawn belong to one
-line only; for several lines it names the lines of the message. Long
-German words are hyphenated at the end of a line. The text has at most
-the lines set with `incidents` (one by default, at most two), and gets
-shorter, down to one line, so that every section keeps at least two
-departures. If the text does not fit, its last line ends with "…" right
-after the last letter that fits ("Wegen einer Stellwerksst…"), also in front
-of "+1"; a word is not kept whole for the sake of the ending. The
-affected departures keep a warning sign, right before the time and in the
-same place in every row; a cancelled departure has the same sign and its
-time struck through. Notes on early terminations stay in the row, fare notes
-are not shown. `widgets.mvg.incidents: 0` hides the text only; the
-warning signs and the cancellations stay.
-
-### `weather`: Weather forecast
-
-Forecast from [Open-Meteo](https://open-meteo.com/) for one place, updated
-every 30 minutes. The column shows the course of today from 0 to 24
-o'clock as a temperature curve (the hourly values, each averaged with its
-neighbours so that the line runs smoothly) and the next three days. At
-four hours (5, 10, 15 and 20 o'clock) the curve shows the temperature of
-that hour and above it a 30 px symbol of the weather around it (at night
-with the moon; showers at night as rain of the same strength). The curve is
-thin up to now and thicker from now on; a black dot marks now. In a column
-of step L (367 px, band + 2) the labelled hours are 2, 6, 10, 14, 18 and 22
-o'clock, and below follow tomorrow
-in three parts (morning, midday, evening) and the two days after. The
-forecast is fetched for six days (today and five); the band at the top uses
-the same data for its sentence and picture.
-Temperatures are in degrees Celsius. The column title is the place (`name`)
-with the location pin and the credit "Open-Meteo" on the right.
-
-The next three days are spread evenly below the chart: weekday, a 44 px
-symbol and the high and low temperature at the bottom of the column. The
-symbol of each day follows the daily weather code of
-Open-Meteo. Rain is shown by its intensity: one stroke below the cloud for
-drizzle and slight rain, two for moderate and three for heavy rain. Showers
-have the sun behind the cloud, freezing drizzle and freezing rain a snow star
-between two strokes. The band always shows the umbrella for rain; its
-sentence uses the rain probability.
-
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `latitude` | −90 to 90 | none | Latitude of the place in decimal degrees, e.g. `48.137`. |
-| `longitude` | −180 to 180 | none | Longitude of the place in decimal degrees, e.g. `11.575`. |
-| `name` | text (≤ 32 bytes) | `""` | Name of the place, the title of the column (without a name: "Wetter"). |
-| `band` | `true`, `false` | `true` | Mention the weather in the sentence of the band. `false` leaves it out; the weather picture stays. Without a weather column the weather is then not fetched and the band shows a placeholder (see the band above). On the settings page: the switch at the top of the page *Wetter* ("Wetter im Satz des Bands nennen"). Only `false` is saved. |
-
-Without `latitude` and `longitude` the column shows "Standort fehlt".
-
-To find the coordinates of a place: open it in a map service such as
-[OpenStreetMap](https://www.openstreetmap.org/) and right-click it
-(**Adresse anzeigen** / **Show address** shows them on the left), or use the
-[place search of Open-Meteo](https://open-meteo.com/en/docs/geocoding-api).
-Two or three decimals are enough; the weather models work with a grid of
-about 2 km.
-
-Open-Meteo is free for non-commercial use; the data is licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), which is why the
-source ("Open-Meteo") is named in the title of the weather column (the age
-badge takes its place while the data is old). The values are shown rounded,
-and the curve of the day is averaged from the hourly values.
-
-### `calendar`: Calendar agenda
-
-An agenda of one calendar from its private iCal address, updated every 15
-minutes (setting `refresh_minutes`). The address works with Google Calendar, Outlook, Nextcloud, iCloud
-and other services that publish a calendar in iCalendar format.
-
-The column shows today with the week number ("KW 43"), then the next day
-that has events and the rest of the week, as described under
-[The "Briefing" layout](#the-briefing-layout). All events are in the same
-weight; a long title wraps once onto a second line where there is room
-(today only as long as every event of today that fits still has its line),
-with long words hyphenated as in the disruption text of the departures,
-else it is shortened with "…". All-day events have a small calendar symbol.
-In a column of step L (367 px, band + 2) today and the next day show the
-end time as well ("10:00–11:30"; not for events that end on a later day).
-
-Emoji in titles and locations are shown as small pictures for a set of 30
-common ones (hearts of every colour, a few faces, thumbs up, party, cake,
-gift, star, check mark, warning, exclamation mark, fire, calendar, clock,
-phone, briefcase, house, medical, tooth, shopping cart, airplane, car, train,
-dining, coffee, soccer ball, Christmas tree); related emoji share a picture (for example
-all hearts). Skin tones are ignored. Every other emoji is left out, because
-the fonts have no colour emoji.
-
-The widget only needs the address; the settings below are optional. Without
-them the column looks as described above.
-
-```json
-"calendar": {
-  "days": 7,
-  "location": true,
-  "more": true,
-  "exclude": ["Geburtstag", "Müll"]
-}
-```
-
-| Key | Values | Default | Meaning |
-|---|---|---|---|
-| `days` | `1`, `2`, `3`, `7` | `7` | Days of the agenda: today only, today and tomorrow, the next 3 or the next 7 days (counting today). Today and tomorrow are always there (with "Keine Termine"), later days only if they have events. |
-| `all_day` | `true`, `false` | `true` | All-day events, and the later days of events that last several days. `false` leaves them out. |
-| `past` | `true`, `false` | `true` | Events of today that are over stay until midnight. `false` removes them as soon as they end. |
-| `location` | `true`, `false` | `false` | The place of an event (`LOCATION`) in small letters below the title, today and on the next day. |
-| `more` | `true`, `false` | `false` | If not all events of today or of the next day fit, "+ 2 weitere Termine" in small letters below them, right-aligned. Past events that give way are not counted. |
-| `wrap` | `true`, `false` | `true` | Long titles wrap once onto a second line where there is room. `false`: always one line, shortened with "…". |
-| `exclude` | list of words | `[]` | Events whose title contains one of the words are left out, e.g. `["Geburtstag"]`. Upper and lower case do not matter, part of the title is enough. At most 10 words of at most 32 bytes. |
-| `band` | `true`, `false` | `true` | Mention the next event in the sentence of the band (see the band above). `false` leaves it out; the notes on failed updates stay. On the settings page: the switch at the top of the page *Kalender* ("Nächsten Termin im Satz des Bands nennen"). Only `false` is saved. |
-| `refresh_minutes` | 5 to 360 | `15` | How often the calendar is fetched; changes appear with the next fetch. Every request loads the whole calendar file and blocks the device for a few seconds. |
-
-How the column uses its room: today first gets as many events as fit in one
-line each (past events give way first, then the last ones; with `more` the
-hint line is kept free). The space that is left goes first to the places,
-then to second title lines, from the top; they can push the next day out of
-the column. The next day is filled the same way with `more`; without it,
-row by row, each with its place and second line as long as they fit. The
-rest of the week has one line per event and no places. A title that is too
-long ends with "…" where the line is full, also in the middle of a word
-("Mittagessen mit Jonas und Mare…").
-
-#### Setting the address
-
-The private iCal address is a secret: **whoever knows it can read the whole
-calendar.** It therefore never goes into `config.json` but into the
-device's protected storage, like the Wi-Fi password.
-
-1. Copy the address. In Google Calendar (in a browser): point at the
-   calendar in the list on the left, click the three dots and choose
-   **Einstellungen und Freigabe** / **Settings and sharing**, then under
-   **Kalender integrieren** / **Integrate calendar** copy
-   **Privatadresse im iCal-Format** / **Secret address in iCal format**.
-2. Send it to the device (connected by USB, serial monitor closed):
-
-   ```sh
-   python tools/inktavla_config.py calendar-url --port COM5
-   ```
-
-   The script asks for the address without showing it (paste it and press
-   Enter). The device checks it (it must start with `https://` or
-   `webcal://`), saves it and restarts. `info` then shows
-   `calendar_url=set`.
-3. To remove it: `python tools/inktavla_config.py calendar-url --clear --port COM5`.
-
-On the settings page the address is entered on the page *Kalender*.
-**Adresse testen** / **Test address** has the display request the address
-in the field (without saving it), or the saved one if the field is empty,
-and say whether it works and how many events lie in the next 7 days
-(without the word filter), or why not: address rejected, no iCal file, not
-reachable, longer than 30 s, or the clock not set yet. The test counts as
-an action (it extends the time limit) and holds the page for a few seconds;
-the address is neither sent back nor logged.
-
-There is no command to read the address back, and the device never prints
-it (not even in error messages). If it may have been seen by someone else,
-reset it in Google Calendar (**Zurücksetzen** / **Reset** next to the
-address); the old one stops working, and you send the new one to the
-device.
-
-Without an address the column shows "Kalender-Adresse fehlt". If the
-server rejects the address (HTTP 401, 403, 404 or 410) or sends something
-other than an iCal file (e.g. a sign-in page after the calendar was no
-longer shared or the address was reset), the column shows "Kalender-Adresse
-prüfen" at once and the sentence at the top asks to check the address. If
-the server cannot be reached for a minute, the column shows "Kalender nicht
-erreichbar"; the device keeps trying.
-
-#### What is read
-
-The file is read as it arrives and never held as a whole (up to 8 MB, years
-of history are fine); only events of the coming days are kept, at most
-400 per file. Supported:
-
-- Single, all-day and multi-day events; cancelled events are left out.
-- Series (`RRULE`) by day, week, month and year with `INTERVAL`, `COUNT`,
-  `UNTIL`, weekdays (also "second Tuesday", "last Friday"), days of the
-  month, months and `BYSETPOS` (e.g. "last working day"); excluded dates
-  (`EXDATE`) and single occurrences that were moved or cancelled
-  (`RECURRENCE-ID`). Series with other rules (e.g. several times a day)
-  only show their first occurrence.
-- Time zones from the file (`VTIMEZONE`), so an event in New York appears
-  at the right local time. Times without a zone and zones the file does not
-  describe use the device's `time_zone`.
+The commands are plain text lines on the serial line, next to Improv; see
+`lib/core/src/core/config_command.h` for the protocol.

@@ -8,7 +8,10 @@
 # repository. Pre-releases are not published.
 #
 # Setup once (when the repository is public): Settings → Pages → Source:
-# "GitHub Actions".
+# "GitHub Actions"; then Settings → Environments → github-pages →
+# "Deployment branches and tags" → add a rule of type Tag with the pattern
+# v*. Without it the run fails with "Tag … is not allowed to deploy to
+# github-pages" (see docs/releasing.md).
 #
 # Every action is pinned to the commit of a release tag (the tag is noted
 # behind it); update them deliberately, one at a time.

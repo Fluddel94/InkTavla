@@ -1,289 +1,134 @@
-# InkTavla
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-white.png">
+    <img alt="InkTavla" src="docs/images/logo.png" width="440">
+  </picture>
+</p>
 
-Firmware for a 7.5" e-paper display that shows several widgets on one
-overview screen: public transport departures (MVG), weather and calendar to
-start with. The image is rendered on the device itself; no server is needed.
+InkTavla is a firmware for a 7.5" e-paper display that shows the day at a
+glance: the next departures of your station in Munich, the weather and your
+calendar, below a short sentence that sums them up ("Guten Morgen. Mal
+Sonne, mal Wolken, bis 12°. Heute um 18:30: Kino mit Lena."). Everything runs
+on the display itself; no server, no account, no app. It is set up in the
+browser of your phone or computer.
 
-> **Status:** early development (0.x), no release yet. Departures, weather
-> and calendar run on the reference hardware; Wi-Fi is set up over USB
-> (Improv), everything else on a settings page in the browser, which also
-> updates the firmware. Settings and layout may still change.
+<!-- Photo of the display: docs/images/display.png (to be added) -->
 
-## Reference hardware
+<p align="center">
+  <img alt="The screen of InkTavla: departures, calendar and weather below the band with date, time and a sentence" src="test/fixtures/ui/sim_briefing_morning.png" width="600">
+</p>
 
-[Seeed TRMNL 7.5" (OG) DIY Kit](https://wiki.seeedstudio.com/trmnl_7inch5_diy_kit_main_page/):
-XIAO ESP32-S3 Plus (16 MB flash, 8 MB PSRAM), EE04 driver board and a
-7.5" 800×480 monochrome panel (UC8179). This is the only hardware that is
-tested. Hardware-specific code is isolated in the HAL so other boards can be
-added later.
+**Install: <https://fluddel94.github.io/InkTavla/>** (Chrome or Edge on a
+computer)
 
-## Architecture
+## What you need
 
-The firmware is split into layers; each layer only knows the ones below it.
+- The [Seeed TRMNL 7.5" (OG) DIY Kit](https://wiki.seeedstudio.com/trmnl_7inch5_diy_kit_main_page/)
+  (XIAO ESP32-S3 Plus, EE04 driver board, 7.5" 800×480 black-and-white
+  panel). It is the only hardware InkTavla is tested on.
+- A USB-C cable that carries data, and a computer with Chrome or Edge
+  (Firefox from version 151 works too) for the installation.
+- A Wi-Fi with 2.4 GHz (the display does not use 5 GHz).
 
-| Layer | Folder | Responsibility |
+## Installing
+
+1. Open the **[web installer](https://fluddel94.github.io/InkTavla/)** and
+   connect the display with the USB cable.
+2. Press **Install InkTavla**, choose the serial port of the display and
+   wait about a minute.
+3. Enter your Wi-Fi when asked (Improv). The name and password go straight
+   to the display and stay there.
+
+The display restarts and opens its settings page by itself. Details and
+other ways to install: [docs/updating.md](docs/updating.md). Problems:
+[docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Setting it up
+
+Press **KEY3** on the display: it shows an address, a six-digit code and a
+QR code. Scan the QR code with your phone (or open the address in a
+browser in the same Wi-Fi and enter the code). On the settings page you
+choose the station, the place for the weather, the calendar address and
+the arrangement of the screen, then **Speichern und neu starten** / **Save
+and restart**. The page closes by itself after 30 minutes.
+
+More: [the settings page](docs/settings-page.md),
+[the screen and its sentence](docs/screen.md),
+[the configuration file](docs/configuration.md).
+
+## Widgets
+
+| Widget | Shows | Data from |
 |---|---|---|
-| Widgets | `lib/widgets` | *What* is shown. Each widget has a data source (fetching, data model) and one or more views. |
-| UI | `lib/ui` | *How* it looks: layout templates, canvas, building blocks, fonts, icons, i18n. |
-| Core | `lib/core` | Scheduler, display controller, configuration, cache, Wi-Fi, time, HTTPS, logging. |
-| HAL | `lib/hal` | The only layer that knows the concrete hardware (panel, buttons, battery). |
+| [Departures](docs/widgets/departures.md) | Departures of one or two stations, in one list or in two directions, with delays, cancellations and disruptions | MVG (Munich area only) |
+| [Weather](docs/widgets/weather.md) | Today as a curve with symbols, the next days | Open-Meteo |
+| [Calendar](docs/widgets/calendar.md) | Today, the next day with events and the rest of the week | Your calendar's private iCal address (Google, Outlook, Nextcloud, iCloud, …) |
 
-`src/main.cpp` only provides the hardware parts; `widgets::App` builds the
-widgets, the screen and the display controller from the configuration.
-Logic is kept free of hardware, display and network code so it can be
-unit-tested on the PC.
+The screen shows three of them below the band, or two in wide columns.
 
-### Widgets
+## Buttons
 
-A widget consists of two parts (`widgets/widget.h`):
-
-- a **data source** fetches and keeps its data (e.g. the departures of a
-  station). The display controller decides when it fetches and tracks how
-  fresh its data is. One source can be read by several views;
-- a **view** draws one area of the screen from the data of one or more
-  sources.
-
-All widgets are listed in `widgets/registry.cpp` with their ID, the
-smallest column width their view is made for, whether they have something
-for the band and how their source and view are created.
-The screen follows the "Briefing" design: a band with the date, the time, a
-sentence and the weather at the top and three or two columns below. The
-columns only come in three widths (steps S 214, M 280 and L 367 px). A
-widget placed in a column that is too narrow for it is reported and the
-column shows "Passt hier nicht" instead of a clipped view. Adding a widget means adding
-its folder and one entry in `registry.cpp` (plus its API object in
-`Services` and `deviceServices()` in the same file).
-
-### Screen
-
-The screen keeps a margin of 20 px at the left, right and top and 15 px at
-the bottom; they are two constants (`kMargin` and `kMarginBottom` in
-`lib/ui/src/ui/layout.h`), so they can be adapted if a case covers the edge
-of the panel. Below the band there are three columns of 280, 214 and
-214 px (the wide one is where the departures are) or two of 367 px, with
-26 px between them, separated by dotted lines that can be switched off
-(`layout.dividers`); `layout.slots` chooses the widgets and, by their
-number, the layout. The weather chart shows the temperature of the whole
-day with weather symbols at four or six hours and a dot for now.
-
-### Main loop
-
-The display controller (`core/display_controller.h`) runs the device:
-
-- It fetches each widget's data when it is due (MVG: once a minute at a
-  second between 20 and 45, chosen at random at every start so that not all
-  displays ask the MVG at once; calendar: every 15 minutes or as set,
-  weather: every 30 minutes) and redraws the screen at second 1 of every
-  minute for the clock, before any fetch. New departures are drawn with
-  that redraw (one panel refresh a minute); new weather or calendar data,
-  the first data and data after a failure at once.
-- Short disturbances of up to 60 s are bridged silently. After that a widget
-  shows its last data with the badge "Stand 14:32"; a widget that never had
-  data shows "Keine Verbindung". A failing widget only affects its own column.
-  A lost Wi-Fi connection is likewise only shown (struck-through Wi-Fi
-  symbol) after 60 s; reconnecting (with growing pauses between attempts,
-  `core/wifi_policy.h`) goes on in the background.
-- It compares the new frame with the one on the panel and refreshes only the
-  changed areas; every `display.full_refresh_minutes` it does a full refresh
-  against ghosting.
-- It notes failed and recovered updates in the system log
-  (`core/syslog.h`) and sums up the updates of every source once an hour;
-  the system page (KEY2) and the page "System" of the settings page show the
-  log and the state of the device ([docs/system-log.md](docs/system-log.md)).
-
-### Buttons
-
-The three buttons of the EE04 board are read by an interrupt, so a press is
-not lost while the panel refreshes or data is fetched (debouncing as in the
-MVG departure display, `core/buttons.h`). Their functions are listed in one
-table (`core/keys.cpp`):
+The three buttons of the EE04 board:
 
 | Button | Short press |
 |---|---|
-| KEY1 (GPIO2) | Fetch everything now and refresh the whole panel |
-| KEY2 (GPIO3) | Show the system page (state and log, see [docs/system-log.md](docs/system-log.md)); again: back |
-| KEY3 (GPIO5) | Open the settings page (close it when open) |
+| KEY1 | Fetch everything now and refresh the whole panel |
+| KEY2 | Show the system page (state and log, see [docs/system-log.md](docs/system-log.md)); again: back |
+| KEY3 | Open the settings page (close it when open) |
 
-Long presses (held for 5 s) are supported but not used yet.
+## Updating
 
-### Without Wi-Fi
+On the settings page, **Gerät / Device → Firmware → Nach Updates suchen /
+Check for updates** installs a new release over Wi-Fi; settings, Wi-Fi and
+the calendar address stay. If the new version does not start properly, the
+display goes back to the previous one by itself.
+See [docs/updating.md](docs/updating.md) and the [changelog](CHANGELOG.md).
 
-Wi-Fi is set up over the USB cable with Improv. Without a saved network,
-the screen shows the steps for that at once. A setup attempt that fails
-(e.g. a wrong password) saves nothing; the screen then names the network
-that was tried. If a saved network has not
-been reached for 10 minutes since the start (e.g. a new router), the same
-screen shows its name; the device keeps trying in the background. A
-connection lost later only shows the offline hints of the normal screen
-(struck-through Wi-Fi symbol, age badges).
+## Help
 
-The whole loop also runs on the PC with a simulated clock, simulated data
-and a simulated panel that writes every refresh as a PNG file
-(`hal::PngDisplay`, see `test/test_app_simulation`).
+- [Troubleshooting](docs/troubleshooting.md): what the texts on the display
+  mean, Wi-Fi problems, starting over.
+- [System log](docs/system-log.md): KEY2 or the page *System* of the
+  settings page tells why data is missing or the Wi-Fi drops.
+- Found a bug? [Open an issue](https://github.com/Fluddel94/InkTavla/issues/new/choose).
+  Please never post your Wi-Fi password, your calendar address or other
+  personal details.
 
-## Building
+## Privacy and data sources
 
-Requirements: [VS Code](https://code.visualstudio.com/) (or VSCodium) with the
-[PlatformIO](https://platformio.org/) extension.
-
-The project uses the community platform
-[pioarduino](https://github.com/pioarduino/platform-espressif32) for
-Arduino-ESP32 3.x. The platform, the toolchain and all libraries are pinned to
-exact versions in `platformio.ini`; the first build downloads them.
-
-```sh
-pio run -e xiao_esp32s3_plus              # build the firmware
-pio run -e xiao_esp32s3_plus -t upload    # flash via USB
-pio device monitor                        # serial output (115200 baud)
-```
-
-If the board is not detected for flashing, hold BOOT while plugging in USB.
-
-A build writes `firmware.bin` (the app, for updates on the settings page) and
-`firmware-full.bin` (the whole flash image, for the web installer) to
-`.pio/build/xiao_esp32s3_plus/`. Installing without building, the web
-installer and the update button: [docs/updating.md](docs/updating.md).
-Updates are meant to go over the update button on the settings page; the
-web installer is for the first installation and repairs and resets Wi-Fi
-and the calendar address.
-
-**Windows:** the framework package contains paths longer than 260 characters.
-Enable long path support once (PowerShell as administrator), then restart
-VS Code:
-
-```powershell
-New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
-  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
-```
-
-### Unit tests
-
-```sh
-pio test -e native
-```
-
-Some tests draw complete screens with the real UI code and compare them
-with reference images in `test/fixtures/ui/`; the images are also written to
-`.pio/preview/` for viewing. The simulation of the main loop writes every
-panel refresh to `.pio/simulation/`. After an intended change of the appearance,
-update the references with `INKTAVLA_UPDATE_PREVIEWS=1 pio test -e native`
-and strip metadata from them before committing with
-`python tools/png_strip.py` (checks and cleans the whole repository). The
-tools in `tools/` also run with the Python that comes with PlatformIO, e.g.
-on Windows
-`& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py`.
-
-The tests run on the PC and need a host C++ compiler (GCC or Clang; on
-Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
-folder on `PATH`). Test data lives in `test/fixtures/`.
-
-### Formatting
-
-C and C++ sources are formatted with clang-format (settings in
-`.clang-format`). The version is pinned in `tools/requirements.txt`, because
-other versions may format differently. Install it together with the other
-tool packages, e.g. into the Python that comes with PlatformIO:
-
-```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -m pip install -r tools\requirements.txt
-```
-
-This puts `clang-format.exe` into `%USERPROFILE%\.platformio\penv\Scripts\`.
-To format on save in VS Code with exactly this version, set
-`C_Cpp.clang_format_path` in the user settings to its full path
-(e.g. `C:\Users\<name>\.platformio\penv\Scripts\clang-format.exe`) and
-enable `editor.formatOnSave` for C and C++. Check all files from the
-command line with:
-
-```sh
-clang-format --dry-run -Werror <files>
-```
-
-Third-party code in `lib/qrcodegen/` keeps its original formatting.
-
-### Continuous integration
-
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
-request to `main`: formatting check, image metadata check, a warning for AI
-notes (see [Contributing](#contributing)), the unit tests and the firmware
-build. The run summary shows the flash and RAM usage, and the built
-`firmware.bin` and `firmware-full.bin` can be downloaded from the run for
-30 days. The web installer is built as a check, and published on GitHub
-Pages for every release by `.github/workflows/pages.yml`.
-
-## Flash layout
-
-Defined in `partitions.csv` (16 MB): NVS (20 KB), two 4 MB app slots for OTA
-updates, ~7.9 MB LittleFS for configuration, cache and fonts, and a 64 KB
-core dump partition. Changing the layout requires a full reflash via USB.
-
-## Configuration
-
-Nothing user-specific is compiled in.
-
-- **Wi-Fi:** connect the device by USB and enter the credentials with
-  [Improv](https://www.improv-wifi.com/) ("Connect device to Wi-Fi" in a
-  browser with Web Serial: Chrome, Edge or Firefox 151 or later on a
-  computer). They are stored only on the
-  device (NVS) and never printed.
-- **Settings page:** press KEY3; the display shows an address, a one-time
-  code and a QR code. The page in the browser sets everything else
-  (departures with station search, weather place, calendar address, layout,
-  language, a new Wi-Fi, a firmware update or the update button) and closes 30 minutes after the
-  last action. On a new device (no settings yet) the page opens by itself
-  once Wi-Fi is connected. Plain HTTP, so use it only in your private home
-  network. See [docs/configuration.md](docs/configuration.md#the-settings-page).
-  Problems while flashing or setting up: [docs/troubleshooting.md](docs/troubleshooting.md).
-- **Calendar address:** the private iCal address of your calendar is a
-  secret as well; it is set on the settings page (or sent over USB with
-  `tools/inktavla_config.py calendar-url`), stored only in NVS and can be
-  replaced or cleared but never read back.
-- **Everything else** is kept in a JSON file on the device (`config.json`),
-  written by the settings page or sent over USB with
-  `tools/inktavla_config.py`. See [docs/configuration.md](docs/configuration.md).
-
-## Network
-
-- Services on the internet are only requested over HTTPS, and certificates
-  are checked against the certificate bundle of the ESP32 core (the common
-  root CAs, built into the framework). No certificates are kept in this
-  repository.
-- Responses are read as a stream with a filter, never held as a whole;
-  large buffers go to PSRAM. Requests time out after 10 s without data.
-  Calendar files (iCalendar, up to 8 MB) are read the same way, keeping only
-  the events of the coming days.
-- Addresses are never written to the log, since some of them are secret
-  (the private iCal address).
-- Wi-Fi reconnects on its own with growing pauses (2, 5, 15, 30 s) and
-  switches itself off and on after six failures in a row; power saving is
-  off and the strongest access point is used.
-- The settings page is served over plain HTTP in the home network (see
-  [Configuration](#configuration)); it only answers while it is open. Its
-  files (`web/`) are compiled into the firmware: `tools/embed_web.py`
-  inlines and compresses them before every build into
-  `src/generated/settings_page.h` (not in the repository).
-- The clock is set by NTP (`ntp_server`, default `pool.ntp.org`).
-- The device only talks to the services that are configured; no telemetry.
-  The one exception is on request: the update button on the settings page
-  asks GitHub for the newest release only when it is pressed
-  ([docs/updating.md](docs/updating.md#update-button-on-the-settings-page)).
-- Departures come from the **unofficial** MVG API, which is not affiliated
-  with or endorsed by MVG, MVV or DB and may change at any time.
-
-## Data sources
-
-- **MVG** (Munich public transport): unofficial API, not affiliated with or
-  endorsed by MVG, MVV or DB. It may change or stop working at any time.
-- **Calendar:** your own calendar, from its private iCal address (Google
-  Calendar, Outlook, Nextcloud, iCloud, ...). It is only requested from the
-  service that publishes it.
+- The display only talks to the services you set up, and to a time
+  server. No account, no telemetry. The update button asks GitHub for the
+  newest release only when you press it.
+- Your Wi-Fi password and your calendar address are kept only on the
+  display, in its protected storage; they cannot be read back, not even on
+  the settings page, and are never written to the log.
+- The settings page uses plain HTTP: use it only in your private home
+  network ([why](docs/settings-page.md#security)).
+- **Departures** come from the **unofficial** MVG API, which is not
+  affiliated with or endorsed by MVG, MVV or DB and may change or stop
+  working at any time.
 - **Weather data by [Open-Meteo.com](https://open-meteo.com/)**, licensed
   under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The free
   API is for non-commercial use only; the source is named in the title of
   the weather column. Changes: values are rounded, and the symbol of a day
   is computed from its hourly values.
+- **Calendar:** your own calendar, requested only from the service that
+  publishes it.
 
-## Third-party libraries
+## Contributing
+
+How to build, test and change InkTavla: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+- InkTavla is developed with the help of Claude, Anthropic's AI assistant;
+  every change is reviewed and committed by the maintainer.
+- Because this is stated here once, commits, pull requests and files carry no
+  AI notes of their own (no co-author lines or "generated with" footers),
+  and links to AI chat sessions are never added: they can lead to private
+  conversations, and once the repository is public they stay in its history
+  (pull requests cannot be deleted). For contributors this is a request, not
+  a requirement; CI only warns (`tools/check_ai_notes.py`).
+
+## Credits
 
 | Library | Version | License | Used for |
 |---|---|---|---|
@@ -304,38 +149,6 @@ Weather symbols, the large weather pictures of the "Briefing" layout and the
 small symbols (calendar, location pin, stop sign) are our own, drawn by `tools/icongen`
 (Pillow).
 
-## Contributing
-
-- Everything in the repository is in English.
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-  (`type(scope): description`, scopes = modules such as `core`, `display`,
-  `transit`, `weather`, `calendar`).
-- Versions follow [Semantic Versioning](https://semver.org/); changes are
-  recorded in [CHANGELOG.md](CHANGELOG.md). How a version is released:
-  [docs/releasing.md](docs/releasing.md).
-- Code is formatted with `clang-format` (`.clang-format`, Google-based; the
-  version is pinned, see [Formatting](#formatting)).
-- InkTavla is developed with the help of Claude, Anthropic's AI assistant;
-  every change is reviewed and committed by the maintainer.
-- Because this is stated here once, commits, pull requests and files carry no
-  AI notes of their own (no co-author lines or "generated with" footers),
-  and links to AI chat sessions are never added: they can lead to private
-  conversations, and once the repository is public they stay in its history
-  (pull requests cannot be deleted). For contributors this is a request, not
-  a requirement; CI only warns (`tools/check_ai_notes.py`).
-- Images and 3D models are committed without personal metadata
-  (`python tools/png_strip.py` cleans the whole repository, `--check` only
-  looks; CI runs the check on every push). Editors and other tools may embed
-  details about the person who made or edited a file, which would stay in
-  the history for good. PNG files keep no metadata at all (copyright notes
-  are in README and `LICENSE`); other image formats (JPG, WebP, GIF) are not
-  accepted, use PNG. An STL file may carry a header naming the project, the
-  license and the repository (`InkTavla case - CC BY-NC-SA 4.0 -
-  github.com/Fluddel94/InkTavla`); the check fails only for paths, user or
-  computer names and e-mail addresses in the header (binary STL: the first
-  80 bytes, ASCII STL: the name behind `solid`/`endsolid`), and cleaning
-  replaces such a header by that line.
-
 ## License
 
 InkTavla is free software: you can redistribute it and/or modify it under the
@@ -354,7 +167,8 @@ Exceptions:
   1.1; the license texts are in `lib/ui/src/ui/fonts/`.
 - `lib/qrcodegen` is under the MIT license (see its `README.md`).
 - The MVV line symbols are public domain, but may be trademarks (see
-  [Third-party libraries](#third-party-libraries)).
-- Case and design files (3D models, logo artwork) are under
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/); they
-  will be added later with a `LICENSE` of their own in their folder.
+  [Credits](#credits)).
+- Design files are under
+  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), with
+  a `LICENSE` of their own in their folder: the logo in
+  [`docs/images/`](docs/images/); the case (3D models) will follow.
