@@ -92,8 +92,9 @@ void removeSpaces(std::string& text) {
   text.erase(std::remove(text.begin(), text.end(), ' '), text.end());
 }
 
-// Trailing spaces and dots of the API text are dropped (the view adds the
-// punctuation); long texts are cut at a character boundary.
+// Trailing spaces and dots of the API text are dropped (the message is shown
+// without a full stop at the end); long texts are cut at a character
+// boundary.
 std::string cleanIncidentMessage(std::string message) {
   while (!message.empty() && (message.back() == ' ' || message.back() == '.')) message.pop_back();
   if (message.length() > kMaxIncidentLength) {

@@ -90,8 +90,8 @@ Tag" until 18:00, then "Guten Abend"), then
 3. always a sentence about the weather, by the time of day:
    - until 11:00 the whole day: "Heute wird es sonnig, bis 16°.", "Erst
      trocken, ab 16 Uhr Regen – Schirm mit. Bis 14°.", "Heute regnet es den
-     ganzen Tag – Schirm mit. Höchstens 9°.", "Ab 9 Uhr schneit es, um 0°.
-     Es kann glatt werden.", "Sonnig und heiß, bis 32°.";
+     ganzen Tag – Schirm mit. Höchstens 9°.", "Ab 9 Uhr schneit es, um 0° –
+     es kann glatt werden.", "Sonnig und heiß, bis 32°.";
    - then the afternoon and the evening (temperature at 20:00): "Der
      Nachmittag bleibt sonnig, am Abend 11°.", "Ab 16 Uhr regnet es –
      Schirm mit. Am Abend 9°.", "Es regnet noch bis etwa 17 Uhr, danach

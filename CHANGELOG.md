@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source, limits), pages for the settings page and the screen, more help in
   the troubleshooting guide, and the developer parts in `CONTRIBUTING.md`.
 - The web installer links to the README and the troubleshooting guide.
+- Band: the warning of ice is part of the weather sentence ("Es schneit –
+  es kann glatt werden.") and no longer a sentence of its own; after a
+  dash it follows with a comma ("Schirm mit, es kann glatt werden.").
+- Departures: disruption messages no longer end with a full stop.
 
 ## [0.5.0] - 2026-11-24
 

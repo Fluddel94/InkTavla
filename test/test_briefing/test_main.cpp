@@ -243,7 +243,7 @@ void test_snow_thunder_heat_and_english() {
   const std::string nb = "\u00a0";
   // Snow: the temperature at its start, and the warning of ice.
   TEST_ASSERT_EQUAL_STRING(
-      ("Ab 15" + nb + "Uhr schneit es, um" + nb + "1°. Es kann glatt werden.").c_str(),
+      ("Ab 15" + nb + "Uhr schneit es, um" + nb + "1° – es kann glatt werden.").c_str(),
       text(forecast(course(-4, 1), rainFrom(15, 75), Condition::kSnow, Condition::kSnow), kMorning)
           .c_str());
   const wx::Forecast storm = forecast(course(19, 33), rainFrom(17, 70), Condition::kThunder);
@@ -257,6 +257,55 @@ void test_snow_thunder_heat_and_english() {
       ("Sonnig und heiß, bis" + nb + "33°.").c_str(),
       text(forecast(course(19, 33), {0}, Condition::kOvercast, Condition::kClear), kMorning)
           .c_str());
+}
+
+// The warning of ice is part of the weather sentence, not a sentence of its
+// own (2026-11-26): "Es schneit – es kann glatt werden." A sentence that has a
+// dash already gets a comma.
+void test_slippery_joins_the_sentence() {
+  const std::string nb = "\u00a0";
+  const auto en = ui::Language::kEnglish;
+  const int64_t noon = kMidnight + 13 * 3600;
+  const wx::Forecast snow =
+      forecast(course(-4, 1), rainFrom(15, 75), Condition::kSnow, Condition::kSnow);
+  const wx::Forecast cold_rain_all_day = forecast(course(-4, 1), rainFrom(0, 90), Condition::kRain);
+  const wx::Forecast cold_rain = forecast(course(-4, 1), rainFrom(15, 75), Condition::kRain);
+  const wx::Forecast afternoon_snow =
+      forecast(course(-4, 1), rainFrom(16, 75), Condition::kSnow, Condition::kSnow);
+
+  // Snow: one sentence with a dash.
+  TEST_ASSERT_EQUAL_STRING("Snow from 15:00, around 1° – it may be slippery.",
+                           text(snow, kMorning, en).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Ab 16" + nb + "Uhr schneit es – es kann glatt werden. Am Abend" + nb + "-1°.").c_str(),
+      text(afternoon_snow, noon).c_str());
+  TEST_ASSERT_EQUAL_STRING("Snow from 16:00 – it may be slippery. -1° in the evening.",
+                           text(afternoon_snow, noon, en).c_str());
+  // Cold rain: the sentence has a dash already ("– Schirm mit"), so a comma.
+  TEST_ASSERT_EQUAL_STRING(
+      ("Heute regnet es den ganzen Tag – Schirm mit, es kann glatt werden. Höchstens" + nb + "1°.")
+          .c_str(),
+      text(cold_rain_all_day, kMorning).c_str());
+  TEST_ASSERT_EQUAL_STRING("Rain all day – take an umbrella, and it may be slippery. At most 1°.",
+                           text(cold_rain_all_day, kMorning, en).c_str());
+  TEST_ASSERT_EQUAL_STRING(("Erst trocken, ab 15" + nb +
+                            "Uhr Regen – Schirm mit, es kann glatt werden. Bis" + nb + "1°.")
+                               .c_str(),
+                           text(cold_rain, kMorning).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      ("Ab 15" + nb + "Uhr regnet es – Schirm mit, es kann glatt werden. Am Abend" + nb + "-1°.")
+          .c_str(),
+      text(cold_rain, noon).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Rain from 15:00 – take an umbrella, and it may be slippery. -1° in the evening.",
+      text(cold_rain, noon, en).c_str());
+  // Never a sentence of its own.
+  for (const wx::Forecast* f : {&snow, &cold_rain_all_day, &cold_rain, &afternoon_snow}) {
+    for (const int64_t now : {kMorning, noon}) {
+      TEST_ASSERT_TRUE(text(*f, now).find(". Es kann glatt") == std::string::npos);
+      TEST_ASSERT_TRUE(text(*f, now, en).find(". It may be") == std::string::npos);
+    }
+  }
 }
 
 // 11-18 h: the afternoon and the evening (temperature at 20 h).
@@ -1001,16 +1050,16 @@ void test_view_incidents_switch() {
 void test_incident_label() {
   const std::vector<widgets::mvg::Incident> three = {
       {"Reparatur an einem Signal", {"S2"}},
-      {"Verspätung eines vorausfahrenden Zuges.", {"S2", "S3"}},
+      {"Verspätung eines vorausfahrenden Zuges", {"S2", "S3"}},
       {"Technische Störung am Zug", {"S3"}}};
   auto label = widgets::mvg::incidentLabel(three, true, ui::Language::kGerman);
-  TEST_ASSERT_EQUAL_STRING("S2: Reparatur an einem Signal.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("S2: Reparatur an einem Signal", label.text.c_str());
   TEST_ASSERT_EQUAL_STRING("+2", label.more.c_str());
   label = widgets::mvg::incidentLabel(three, false, ui::Language::kEnglish);
-  TEST_ASSERT_EQUAL_STRING("Reparatur an einem Signal.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("Reparatur an einem Signal", label.text.c_str());
   TEST_ASSERT_EQUAL_STRING("+2", label.more.c_str());
   label = widgets::mvg::incidentLabel({three[1]}, true, ui::Language::kGerman);
-  TEST_ASSERT_EQUAL_STRING("S2, S3: Verspätung eines vorausfahrenden Zuges.", label.text.c_str());
+  TEST_ASSERT_EQUAL_STRING("S2, S3: Verspätung eines vorausfahrenden Zuges", label.text.c_str());
   TEST_ASSERT_EQUAL_STRING("", label.more.c_str());
   label = widgets::mvg::incidentLabel({three[0], three[2]}, true, ui::Language::kGerman);
   TEST_ASSERT_EQUAL_STRING("+1", label.more.c_str());
@@ -1123,7 +1172,7 @@ void test_incidents_only_of_drawn_departures() {
   const int drawn = widgets::mvg::drawDeparturesColumn(canvas, source.sections(), options, &text);
   TEST_ASSERT_EQUAL_INT(5, drawn);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +1", text[0].c_str());  // no "S2: "
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk +1", text[0].c_str());  // no "S2: "
 
   // Fewer rows (a lower column): only the first message, nothing else.
   ui::Bitmap low(280, 214);
@@ -1131,7 +1180,7 @@ void test_incidents_only_of_drawn_departures() {
   ui::BitmapCanvas low_canvas(low, 0, 0, 280, 214);
   widgets::mvg::drawDeparturesColumn(low_canvas, source.sections(), options, &text);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk.", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk", text[0].c_str());
 
   // More rows (a taller column): the further messages are counted.
   ui::Bitmap tall(280, 400);
@@ -1139,7 +1188,7 @@ void test_incidents_only_of_drawn_departures() {
   ui::BitmapCanvas tall_canvas(tall, 0, 0, 280, 400);
   widgets::mvg::drawDeparturesColumn(tall_canvas, source.sections(), options, &text);
   TEST_ASSERT_EQUAL_size_t(1, text.size());
-  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk. +2", text[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("defektes Stellwerk +2", text[0].c_str());
 }
 
 // A long message above two sections gets two lines of text and every
@@ -2426,6 +2475,7 @@ int main() {
   RUN_TEST(test_greeting_by_time_of_day);
   RUN_TEST(test_morning_sentence);
   RUN_TEST(test_snow_thunder_heat_and_english);
+  RUN_TEST(test_slippery_joins_the_sentence);
   RUN_TEST(test_afternoon_sentence);
   RUN_TEST(test_evening_sentence);
   RUN_TEST(test_day_symbol);

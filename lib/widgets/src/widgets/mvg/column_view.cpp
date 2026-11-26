@@ -51,11 +51,6 @@ std::string joinLines(const std::vector<std::string>& lines) {
   return text;
 }
 
-std::string withFullStop(const std::string& message) {
-  const char last = message.empty() ? '.' : message.back();
-  return last == '.' || last == '!' || last == '?' ? message : message + ".";
-}
-
 // Messages of the departures that are really drawn: the first `rows[s]`
 // departures of every section, in the order of the sections.
 std::vector<Incident> visibleIncidents(const std::vector<Section>& sections,
@@ -78,7 +73,7 @@ std::vector<Incident> visibleIncidents(const std::vector<Section>& sections,
 // which departures, and so which messages, are shown), so the text gets the
 // fewest lines it needs, at most the lines allowed; with more
 // lines every section would get fewer than kIncidentMinRows rows, the text
-// ends with "..." instead.
+// ends with "…" instead.
 // Wraps the text (hyphenating long words) and puts `more` at the end of the
 // last line, on a line of its own if there is a line left, or by shortening
 // the last line. A text that has to be cut ends with "…" after the last
@@ -252,7 +247,7 @@ IncidentLabel incidentLabel(const std::vector<Incident>& incidents, bool with_li
   if (incidents.empty()) return label;
   const Incident& first = incidents[0];
   if (with_lines && !first.lines.empty()) label.text = joinLines(incidentLines({first})) + ": ";
-  label.text += withFullStop(first.message);
+  label.text += first.message;  // no full stop at the end (2026-11-26)
   if (incidents.size() > 1) {
     label.more = "+" + std::to_string(incidents.size() - 1);  // all languages (2026-11-24)
   }

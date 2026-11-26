@@ -463,6 +463,17 @@ std::string capitalized(std::string s) {
   return s;
 }
 
+// The warning of ice joins the weather sentence instead of being a sentence
+// of its own: "Es schneit – es kann glatt werden." (2026-11-26). A sentence
+// that already has a dash ("… – Schirm mit.") gets a comma instead of a
+// second dash.
+std::string withSlippery(std::string sentence, bool de) {
+  if (!sentence.empty() && sentence.back() == '.') sentence.pop_back();
+  const bool has_dash = sentence.find(" – ") != std::string::npos;
+  if (has_dash) return sentence + (de ? ", es kann glatt werden." : ", and it may be slippery.");
+  return sentence + (de ? " – es kann glatt werden." : " – it may be slippery.");
+}
+
 // Builds "full" and "shorter" from two parts: the weather and the
 // temperature clause (left out in the shorter form).
 void join(std::string& full, std::string& shorter, const std::string& main,
@@ -492,13 +503,15 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
       v);
   if (r.level == Wet::kLikely) {
     const bool slippery = r.kind == Kind::kSnow || r.temperature <= kSlipperyDegrees;
-    const std::string glatt =
-        slippery ? (de ? " Es kann glatt werden." : " It may be slippery.") : "";
+    const auto weatherSentence = [&](const std::string& text) {
+      const std::string sentence = fill(text, v);
+      return slippery ? withSlippery(sentence, de) : sentence;
+    };
     if (r.kind == Kind::kSnow) {
       const std::string main =
           r.from < 0 ? (de ? "Heute schneit es, um {at}°." : "Snow today, around {at}°.")
                      : (de ? "Ab {from} schneit es, um {at}°." : "Snow from {from}, around {at}°.");
-      full = shorter = fill(main, v) + glatt;
+      full = shorter = weatherSentence(main);
       return;
     }
     const bool thunder = r.kind == Kind::kThunder;
@@ -508,7 +521,7 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
                            : "Thunderstorms all day – take an umbrella.")
                      : (de ? "Heute regnet es den ganzen Tag – Schirm mit."
                            : "Rain all day – take an umbrella.");
-      join(full, shorter, fill(main, v) + glatt,
+      join(full, shorter, weatherSentence(main),
            fill(de ? "Höchstens {hi}°." : "At most {hi}°.", v));
       return;
     }
@@ -523,7 +536,7 @@ void morning(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui::L
                      : (de ? "Erst trocken, ab {from} Regen – Schirm mit."
                            : "Dry at first, rain from {from} – take an umbrella.");
     }
-    join(full, shorter, fill(main, v) + glatt, hi_text);
+    join(full, shorter, weatherSentence(main), hi_text);
     return;
   }
   const Sky sky = skyOf(remainingCondition(f, now_s, now.hour));
@@ -562,8 +575,10 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
   v.until = r.until >= 0 ? hourText(r.until, lang) : "";
   if (r.level == Wet::kLikely) {
     const bool slippery = r.kind == Kind::kSnow || r.temperature <= kSlipperyDegrees;
-    const std::string glatt =
-        slippery ? (de ? " Es kann glatt werden." : " It may be slippery.") : "";
+    const auto weatherSentence = [&](const std::string& text) {
+      const std::string sentence = fill(text, v);
+      return slippery ? withSlippery(sentence, de) : sentence;
+    };
     std::string main;
     if (r.kind == Kind::kSnow) {
       main = r.from < 0 ? (de ? "Es schneit." : "It is snowing.")
@@ -585,7 +600,7 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
                                       : (de ? "Ab {from} regnet es – Schirm mit."
                                             : "Rain from {from} – take an umbrella.");
     }
-    join(full, shorter, fill(main, v) + glatt, eve_text);
+    join(full, shorter, weatherSentence(main), eve_text);
     return;
   }
   if (r.level == Wet::kMaybe) {
