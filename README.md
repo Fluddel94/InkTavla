@@ -41,7 +41,8 @@ Firefox 151 or later, on a computer)
 3. Enter your Wi-Fi when asked (Improv). The name and password go straight
    to the display and stay there.
 
-The display restarts and opens its settings page by itself. Details and
+The display restarts. On a new device it opens its settings page by
+itself; otherwise press **KEY3**. Details and
 other ways to install: [docs/updating.md](docs/updating.md). Problems:
 [docs/troubleshooting.md](docs/troubleshooting.md).
 

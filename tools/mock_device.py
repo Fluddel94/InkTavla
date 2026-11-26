@@ -31,12 +31,25 @@ import argparse
 import copy
 import json
 import os
+import re
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web")
 CODE = "123456"
+
+
+def firmware_version():
+    """The version of the real firmware (lib/core/src/core/version.h)."""
+    path = os.path.join(os.path.dirname(WEB), "lib", "core", "src", "core", "version.h")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return re.search(r'kFirmwareVersion\[\] = "([^"]+)"', f.read()).group(1)
+    except (OSError, AttributeError):
+        return "0.0.0-mock"
+
+
 STARTED = time.time()
 
 CONFIG = {
@@ -156,7 +169,7 @@ class Handler(BaseHTTPRequestHandler):
             s = {"lang": state["config"].get("language", "de"), "closes_in_s": self.closes_in(), "timeout_s": 1800,
                  "config": state["config"], "config_problem": "", "secrets": {"calendar_url": state["calendar"]},
                  "wifi": {"ssid": "Heimnetz", "rssi": -58, "ip": "192.168.178.42"},
-                 "device": {"firmware": "0.4.0-dev"}}
+                 "device": {"firmware": firmware_version()}}
             s.update(copy.deepcopy(LAYOUT))
             if state["extra"]:
                 s["widgets"].append({"id": "quote", "min": "S", "band": False})
@@ -169,7 +182,7 @@ class Handler(BaseHTTPRequestHandler):
         if route == "system":
             up = int(time.time() - STARTED) + 3 * 86400
             report = {
-                "device": {"firmware": "0.4.0-dev", "uptime_s": up, "restart_reason": "power on", "boot": 1,
+                "device": {"firmware": firmware_version(), "uptime_s": up, "restart_reason": "power on", "boot": 1,
                            "wifi_connected": True, "rssi": -58, "time_valid": True, "heap_free": 180000,
                            "heap_min_free": 150000, "heap_largest": 90000, "psram_free": 7000000,
                            "psram_size": 8388608},

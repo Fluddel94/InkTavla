@@ -18,6 +18,7 @@ needlessly.
 import gzip
 import io
 import os
+import re
 import sys
 
 
@@ -34,8 +35,11 @@ def build(project_dir):
     script = '<script src="app.js"></script>'
     if link not in html or script not in html:
         raise SystemExit("embed_web.py: web/index.html must reference style.css and app.js")
-    if "</script" in js:
+    # The browser ends an inline block at the first closing tag, in any case.
+    if re.search(r"</script", js, re.IGNORECASE):
         raise SystemExit("embed_web.py: app.js must not contain </script")
+    if re.search(r"</style", css, re.IGNORECASE):
+        raise SystemExit("embed_web.py: style.css must not contain </style")
     html = html.replace(link, "<style>\n" + css + "</style>")
     html = html.replace(script, "<script>\n" + js + "</script>")
 

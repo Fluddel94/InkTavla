@@ -161,6 +161,9 @@ The project uses the community platform
 [pioarduino](https://github.com/pioarduino/platform-espressif32) for
 Arduino-ESP32 3.x. The platform, the toolchain and all libraries are pinned to
 exact versions in `platformio.ini`; the first build downloads them.
+Only direct dependencies are pinned: the packages that PlatformIO or the
+tools themselves pull in are not, so the CI can turn red without a change in
+the repository.
 
 ```sh
 pio run -e xiao_esp32s3_plus              # build the firmware
@@ -307,17 +310,7 @@ To try the installer locally (Web Serial works on `localhost` without
 HTTPS):
 
 ```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\build_installer.py --firmware .pio\build\xiao_esp32s3_plus\firmware-full.bin --version 0.2.0-dev --serve
-```
-
-Then open <http://localhost:8000/> in Chrome, Edge or Firefox 151+. The site
-is written to `.pio/installer/`.
-
-To try the installer locally (Web Serial works on `localhost` without
-HTTPS):
-
-```powershell
-& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\build_installer.py --firmware .pio\build\xiao_esp32s3_plus\firmware-full.bin --version 0.6.0-dev --serve
+& "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\build_installer.py --firmware .pio\build\xiao_esp32s3_plus\firmware-full.bin --version 0.0.0-test --serve
 ```
 
 Then open <http://localhost:8000/> in Chrome, Edge or Firefox 151+. The site
@@ -329,7 +322,7 @@ A fork can build with its own repository for the update button:
 ## Flash layout
 
 Defined in `partitions.csv` (16 MB): NVS (20 KB), two 4 MB app slots for OTA
-updates, ~7.9 MB LittleFS for configuration, cache and fonts, and a 64 KB
+updates, ~7.9 MB LittleFS for the configuration (`config.json`), and a 64 KB
 core dump partition. Changing the layout requires a full reflash via USB.
 
 ## Network

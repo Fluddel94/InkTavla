@@ -94,10 +94,30 @@ def check_image(path):
         sys.exit("build_installer: %s is not a whole ESP32-S3 flash image" % path)
 
 
+# What an earlier run leaves in --out.
+OUTPUT_NAMES = {"index.html", "manifest.json", "firmware-full.bin", "esp-web-tools"}
+
+
+def clear_output(out):
+    """Removes --out, but only if it is empty or looks like an earlier output.
+
+    A typo such as "--out ." must not delete a folder with other files.
+    """
+    if not os.path.exists(out):
+        return
+    names = set(os.listdir(out)) if os.path.isdir(out) else {"(not a folder)"}
+    if names and not (names <= OUTPUT_NAMES and "manifest.json" in names):
+        sys.exit(
+            "build_installer: %s is not empty and does not look like an earlier "
+            "installer output (manifest.json, esp-web-tools/, ...); nothing deleted. "
+            "Use an empty or new folder for --out." % out
+        )
+    shutil.rmtree(out)
+
+
 def build(firmware, version, out):
     check_image(firmware)
-    if os.path.exists(out):
-        shutil.rmtree(out)
+    clear_output(out)
     os.makedirs(out)
     shutil.copyfile(os.path.join(ROOT, "installer", "index.html"), os.path.join(out, "index.html"))
     shutil.copyfile(firmware, os.path.join(out, "firmware-full.bin"))

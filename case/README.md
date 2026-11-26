@@ -29,7 +29,8 @@ python case/source/inktavla_case.py slim-battery
 
 This writes `case/slim/` and `case/slim-battery/`. Every STL starts with the
 header `InkTavla case - CC BY-NC-SA 4.0 - github.com/Fluddel94/InkTavla`
-(CI checks it, see [CONTRIBUTING.md](../CONTRIBUTING.md)). Another version of
+(CI checks that the header contains no paths, names or addresses, see
+[CONTRIBUTING.md](../CONTRIBUTING.md)). Another version of
 CadQuery may split the surfaces into slightly different triangles; the
 shape stays the same.
 
