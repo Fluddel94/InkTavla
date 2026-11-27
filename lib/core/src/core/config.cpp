@@ -71,6 +71,18 @@ bool readConfig(const char* json, size_t length, JsonDocument& doc, ConfigIssues
   return true;
 }
 
+bool stripSecrets(JsonObject root) {
+  JsonObject calendar = root["widgets"]["calendar"];
+  if (calendar.isNull()) return false;
+  bool removed = false;
+  for (const char* key : kCalendarSecretKeys) {
+    if (calendar[key].isUnbound()) continue;
+    calendar.remove(key);
+    removed = true;
+  }
+  return removed;
+}
+
 std::string readString(JsonObjectConst obj, const char* key, const std::string& fallback,
                        size_t max_length, const std::string& path, ConfigIssues& issues) {
   JsonVariantConst value = obj[key];

@@ -57,6 +57,7 @@ class MemoryStore : public core::ConfigStore {
 class MemorySecrets : public core::SecretStore {
  public:
   bool write(const char* name, const std::string& value) override {
+    if (fail_write) return false;
     values[name] = value;
     return true;
   }
@@ -70,6 +71,7 @@ class MemorySecrets : public core::SecretStore {
     return true;
   }
   std::map<std::string, std::string> values;
+  bool fail_write = false;
 };
 
 JsonDocument fixture(const char* name, const JsonDocument* filter = nullptr) {
@@ -127,6 +129,17 @@ void test_login_with_the_code() {
   TEST_ASSERT_TRUE(s.login("482913", 4000, second) == SettingsSession::Login::kOk);
   TEST_ASSERT_FALSE(s.authorized(token, 5000));
   TEST_ASSERT_TRUE(s.authorized(second, 5000));
+  // The first browser is told why, and the code stays valid.
+  TEST_ASSERT_TRUE(s.replaced(token, 5000));
+  TEST_ASSERT_FALSE(s.replaced(second, 5000));
+  TEST_ASSERT_FALSE(s.replaced("", 5000));
+  std::string third;
+  TEST_ASSERT_TRUE(s.login("482913", 6000, third) == SettingsSession::Login::kOk);
+  TEST_ASSERT_TRUE(s.replaced(second, 7000));
+  // Opening the page again (or closing it) forgets the replaced session.
+  s.open(8000);
+  TEST_ASSERT_FALSE(s.replaced(second, 9000));
+  TEST_ASSERT_FALSE(s.replaced(third, 9000));
 }
 
 void test_five_wrong_codes_close_the_page() {
@@ -268,6 +281,54 @@ void test_a_bad_secret_is_never_saved() {
                          widgets::validateConfig, &secrets);
   TEST_ASSERT_EQUAL_INT(200, r.status);
   TEST_ASSERT_EQUAL_size_t(0, secrets.values.count("calendar_url"));
+}
+
+void test_a_calendar_address_in_the_file_is_never_stored() {
+  MemoryStore store;
+  MemorySecrets secrets;
+  const std::string body = R"({"config": {"widgets": {"calendar": {"days": 7,
+      "url": "https://calendar.example.org/private.ics", "ical": "https://a.example.org/x.ics",
+      "ical_url": "https://b.example.org/y.ics", "address": "https://c.example.org/z.ics"}}}})";
+  // The check reports it (not blocking), so nothing is saved without force.
+  core::SettingsSaveResult r = core::saveSettings(body, store, widgets::validateConfig, &secrets);
+  TEST_ASSERT_EQUAL_INT(422, r.status);
+  const JsonDocument reply = parse(r.json);
+  TEST_ASSERT_EQUAL_STRING("widgets.calendar.url", reply["issues"][0]["path"]);
+  TEST_ASSERT_FALSE(reply["issues"][0]["blocking"].as<bool>());
+  TEST_ASSERT_EQUAL_size_t(0, store.files.count("/config.json"));
+  // "Save anyway": saved, but without the four keys.
+  r = core::saveSettings(body.substr(0, body.size() - 1) + R"(, "force": true})", store,
+                         widgets::validateConfig, &secrets);
+  TEST_ASSERT_EQUAL_INT(200, r.status);
+  const std::string& file = store.files["/config.json"];
+  TEST_ASSERT_EQUAL_size_t(std::string::npos, file.find("example.org"));
+  const JsonDocument saved = parse(file);
+  TEST_ASSERT_EQUAL_INT(7, saved["widgets"]["calendar"]["days"]);
+  for (const char* key : core::kCalendarSecretKeys) {
+    TEST_ASSERT_TRUE_MESSAGE(saved["widgets"]["calendar"][key].isUnbound(), key);
+  }
+  TEST_ASSERT_TRUE(secrets.values.empty());  // not moved into the secrets either
+  // A file written by an older firmware: the page and the backup never see it.
+  store.files["/config.json"] =
+      R"({"widgets": {"calendar": {"days": 3, "url": "https://calendar.example.org/p.ics"}}})";
+  const std::string shown = core::storedConfig(store);
+  TEST_ASSERT_EQUAL_size_t(std::string::npos, shown.find("example.org"));
+  TEST_ASSERT_EQUAL_INT(3, parse(shown)["widgets"]["calendar"]["days"]);
+}
+
+void test_secrets_are_saved_before_the_file() {
+  MemoryStore store;
+  store.files["/config.json"] = "{\"language\": \"de\"}";
+  MemorySecrets secrets;
+  secrets.fail_write = true;
+  const core::SettingsSaveResult r = core::saveSettings(
+      R"({"config": {"language": "en"},
+        "secrets": {"calendar_url": "https://calendar.example.org/private.ics"}})",
+      store, widgets::validateConfig, &secrets);
+  TEST_ASSERT_EQUAL_INT(500, r.status);
+  TEST_ASSERT_FALSE(r.restart);
+  // The old file stays, so settings and secret still belong together.
+  TEST_ASSERT_EQUAL_STRING("{\"language\": \"de\"}", store.files["/config.json"].c_str());
 }
 
 void test_bad_requests_and_write_errors() {
@@ -474,6 +535,8 @@ int main() {
   RUN_TEST(test_problems_are_returned_and_nothing_is_saved);
   RUN_TEST(test_a_bad_secret_is_never_saved);
   RUN_TEST(test_bad_requests_and_write_errors);
+  RUN_TEST(test_a_calendar_address_in_the_file_is_never_stored);
+  RUN_TEST(test_secrets_are_saved_before_the_file);
   RUN_TEST(test_reset_and_stored_configuration);
   RUN_TEST(test_mvg_station_search);
   RUN_TEST(test_mvg_lines_with_example_destinations);

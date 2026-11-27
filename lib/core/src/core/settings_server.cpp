@@ -107,7 +107,10 @@ bool authorized(bool passive = false) {
     return true;
   }
   const bool open = session.isOpen(now);
+  // replaced: this browser was logged out by a login on another device.
+  const bool replaced = session.replaced(cookieToken(), now);
   sendJson(401, std::string("{\"open\":") + (open ? "true" : "false") +
+                    (replaced ? ",\"replaced\":true" : "") +
                     ",\"lang\":" + escaped(options.language) + "}");
   return false;
 }
@@ -413,9 +416,13 @@ void handleFirmwarePart() {
     if (!uploadOk()) return;
     if (upload->writer.finish()) Serial.println("Firmware update: restarting");
   } else if (part.status == UPLOAD_FILE_ABORTED) {
+    // The core server does not call handleFirmwareDone() after an abort, so
+    // the claim is released here, or the update button stays blocked.
     if (upload != nullptr) {
       if (upload->error.empty()) upload->error = "upload aborted";
       upload->writer.abort();
+      if (upload->claimed) releaseFirmware();
+      upload->claimed = false;
     }
   }
 }

@@ -19,6 +19,7 @@ void SettingsSession::open(int64_t now_ms) {
   std::snprintf(code, sizeof(code), "%06u", static_cast<unsigned>(random_() % 1000000));
   code_ = code;
   token_.clear();
+  replaced_token_.clear();
   wrong_ = 0;
   open_ = true;
   closes_ms_ = now_ms + kTimeoutMs;
@@ -28,6 +29,7 @@ void SettingsSession::close() {
   open_ = false;
   code_.clear();
   token_.clear();
+  replaced_token_.clear();
   wrong_ = 0;
 }
 
@@ -55,6 +57,7 @@ SettingsSession::Login SettingsSession::login(const std::string& code, int64_t n
     return Login::kWrongCode;
   }
   // One session at a time; a second login (other browser) replaces it.
+  replaced_token_ = token_;
   token_.clear();
   char part[9];
   for (size_t i = 0; i < kTokenLength / 8; i++) {
@@ -69,6 +72,10 @@ SettingsSession::Login SettingsSession::login(const std::string& code, int64_t n
 
 bool SettingsSession::authorized(const std::string& token, int64_t now_ms) {
   return isOpen(now_ms) && !token_.empty() && equalConstantTime(token, token_);
+}
+
+bool SettingsSession::replaced(const std::string& token, int64_t now_ms) {
+  return isOpen(now_ms) && !replaced_token_.empty() && equalConstantTime(token, replaced_token_);
 }
 
 SettingsSession::Snapshot SettingsSession::snapshot(int64_t now_ms) const {

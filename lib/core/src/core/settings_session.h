@@ -4,6 +4,8 @@
 // only open on request (a button) and closes 30 minutes after the last
 // action. Opening it shows a one-time code of six digits on the display;
 // whoever enters it (or scans the QR code with it) gets a session cookie.
+// One session at a time: a login on a second browser ends the first one,
+// which is then told so (replaced()); the code stays valid.
 // After kMaxWrongCodes wrong codes the page closes at once.
 //
 // Pure logic with an injected random source, tested on the PC; the web
@@ -57,6 +59,10 @@ class SettingsSession {
   // True for the token of the current session (while open).
   bool authorized(const std::string& token, int64_t now_ms);
 
+  // True for the token of the session that the last login replaced (while
+  // open), so that browser can say it was logged out by another device.
+  bool replaced(const std::string& token, int64_t now_ms);
+
   Snapshot snapshot(int64_t now_ms) const;
   // Opens the page again from a snapshot (does nothing if it is invalid or
   // its time is up).
@@ -78,7 +84,8 @@ class SettingsSession {
   bool open_ = false;
   int64_t closes_ms_ = 0;
   std::string code_;
-  std::string token_;  // empty: nobody logged in yet
+  std::string token_;           // empty: nobody logged in yet
+  std::string replaced_token_;  // session ended by the last login, "" if none
   int wrong_ = 0;
 };
 

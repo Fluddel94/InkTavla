@@ -399,6 +399,31 @@ void test_handle_put_saves_atomically_and_reports_issues() {
       r.text.c_str());
 }
 
+void test_handle_put_and_get_drop_a_calendar_address() {
+  MemoryStore store;
+  CommandParser::Event e;
+  e.kind = CommandParser::Event::Kind::kConfigPut;
+  e.payload = R"({"widgets":{"calendar":{"days":7,"url":"https://calendar.example.org/p.ics"}}})";
+  core::CommandReply r = core::handleCommand(e, store, nullptr, "");
+  TEST_ASSERT_TRUE(r.restart);
+  JsonDocument saved;
+  deserializeJson(saved, store.files["/config.json"]);
+  TEST_ASSERT_EQUAL_INT(7, saved["widgets"]["calendar"]["days"]);
+  TEST_ASSERT_TRUE(saved["widgets"]["calendar"]["url"].isUnbound());
+  // A file written by an older firmware is sent without it.
+  store.files["/config.json"] = e.payload;
+  e.kind = CommandParser::Event::Kind::kConfigGet;
+  r = core::handleCommand(e, store, nullptr, "");
+  TEST_ASSERT_EQUAL_size_t(std::string::npos, r.text.find("example.org"));
+  std::string data;
+  serializeJsonPretty(saved, data);
+  data += "\n";
+  TEST_ASSERT_EQUAL_STRING(("INKTAVLA DATA " + std::to_string(data.size()) + " " + crcHex(data) +
+                            "\n" + data + "\nINKTAVLA OK\n")
+                               .c_str(),
+                           r.text.c_str());
+}
+
 void test_handle_put_rejects_invalid_files() {
   MemoryStore store;
   store.files["/config.json"] = "{\"old\":true}";
@@ -551,6 +576,7 @@ int main() {
   RUN_TEST(test_command_put_receives_exact_bytes);
   RUN_TEST(test_command_put_errors);
   RUN_TEST(test_handle_put_saves_atomically_and_reports_issues);
+  RUN_TEST(test_handle_put_and_get_drop_a_calendar_address);
   RUN_TEST(test_handle_put_rejects_invalid_files);
   RUN_TEST(test_handle_get_and_info);
   RUN_TEST(test_secret_commands_are_parsed);

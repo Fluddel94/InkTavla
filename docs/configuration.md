@@ -12,7 +12,10 @@ address of your calendar. They are entered at runtime (Wi-Fi via Improv over
 USB or on the settings page, the calendar address on the settings page or
 with `tools/inktavla_config.py calendar-url`, see
 [the calendar](widgets/calendar.md#the-calendar-address)) and kept only in
-the device's protected storage; they cannot be read back.
+the device's protected storage; they cannot be read back. A calendar
+address in this file (`url`, `ical`, `ical_url` or `address` under
+`widgets.calendar`) is reported and removed when the file is saved, so a
+backup never contains it.
 
 ## Example
 

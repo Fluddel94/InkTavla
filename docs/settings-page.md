@@ -27,6 +27,11 @@ and in [configuration.md](configuration.md).
 The page closes 30 minutes after the last action on it, when you press KEY3
 again or press **Schließen** / **Close**, and after five wrong codes.
 
+One browser is logged in at a time: logging in with the code on a second
+device (e.g. your phone) logs out the first one, which then says so. If
+that was not you, press KEY3 to close the page; the next opening shows a
+new code.
+
 ## What is on it
 
 The page opens with a card on the state of the display: the
@@ -86,7 +91,8 @@ turns its part of the band sentence off.
   if the display can connect (otherwise it goes back to the old one).
 - **Firmware:** the installed version and the update (see [below](#updating-the-firmware)).
 - **Sicherung / Backup:** download and load `config.json` (secrets are never
-  in it).
+  in it: loading a backup keeps the calendar address the display has; on a
+  new or reset display, enter it again).
 - **Zeit / Time:** time zone (also as a POSIX text) and time server.
 - **Neustart und Zurücksetzen / Restart and reset:** restart, and
   **Einstellungen zurücksetzen** / **Reset settings** (all settings to their

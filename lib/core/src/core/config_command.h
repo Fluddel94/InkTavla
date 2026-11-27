@@ -14,6 +14,8 @@
 // Secrets (core/secrets.h, e.g. "calendar_url") are kept in NVS, never in
 // the configuration file; there is no command to read them back, and
 // replies never repeat them. Saving or clearing one restarts the device.
+// A calendar address inside a configuration file is removed when it is
+// saved and when it is read (core::stripSecrets()).
 //
 // Replies are lines starting with "INKTAVLA ": "OK ...", "ERR <reason>",
 // "ISSUE <path>: <message>" (problems found in a new configuration),

@@ -31,6 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dash it follows with a comma ("Schirm mit, es kann glatt werden.").
 - Departures: disruption messages no longer end with a full stop.
 
+### Fixed
+
+- A calendar address in an imported or hand-written `config.json` (`url`,
+  `ical`, `ical_url` or `address` under `widgets.calendar`) could be saved
+  with **Trotzdem speichern** / **Save anyway** or over USB, and then
+  appeared in the backup. It is now removed when the file is saved and when
+  it is read, so it never leaves the protected storage.
+- A browser logged out by a login on another device said the page was
+  closed; it now says that another device has logged in.
+- After an aborted firmware upload, the update button said an update was
+  already running until the display restarted.
+- If the calendar address cannot be saved, the configuration file is no
+  longer changed either.
+
 ## [0.5.0] - 2026-11-24
 
 The weather column has a new chart with weather symbols, and the band

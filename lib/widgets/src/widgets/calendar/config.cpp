@@ -50,12 +50,12 @@ std::vector<std::string> readExclude(JsonObjectConst section, core::ConfigIssues
 Config parseConfig(JsonObjectConst section, core::ConfigIssues& issues) {
   Config c;
   if (section.isNull()) return c;
-  for (const char* key : {"url", "ical", "ical_url", "address"}) {
+  for (const char* key : core::kCalendarSecretKeys) {
     if (section[key].isNull()) continue;
     issues.push_back(
         {core::configPath(kPath, key),
-         "ignored: the iCal address is secret and does not belong in this file; set it "
-         "with: tools/inktavla_config.py calendar-url"});
+         "removed when saving: the iCal address is secret and does not belong in this file; "
+         "enter it on the settings page or with: tools/inktavla_config.py calendar-url"});
   }
   core::reportUnknownKeys(section,
                           {"days", "all_day", "past", "more", "location", "wrap", "exclude",

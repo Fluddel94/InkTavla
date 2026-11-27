@@ -98,12 +98,20 @@ SettingsSaveResult saveSettings(const std::string& body, ConfigStore& store,
     serializeJson(reply, r.json);
     return r;
   }
-  if (!writeConfig(store, text)) return failure(500, "cannot write the file");
+  // Secrets first: if one cannot be saved, the old file stays as it was.
   for (const SecretChange& c : changes) {
     const bool ok =
         c.erase ? secrets->erase(c.name.c_str()) : secrets->write(c.name.c_str(), c.value);
     if (!ok) return failure(500, "cannot save " + c.name);
   }
+  // A calendar address in the file itself (e.g. an imported one) is dropped;
+  // the check above has reported it.
+  if (stripSecrets(parsed.as<JsonObject>())) {
+    text.clear();
+    serializeJsonPretty(parsed, text);
+    text += "\n";
+  }
+  if (!writeConfig(store, text)) return failure(500, "cannot write the file");
   reply["saved"] = true;
   serializeJson(reply, r.json);
   r.restart = true;
@@ -130,6 +138,11 @@ std::string storedConfig(ConfigStore& store, std::string* problem) {
   if (!readConfig(text.data(), text.size(), doc, issues)) {
     if (problem != nullptr) *problem = issues.empty() ? "invalid file" : issues.front().message;
     return "{}";
+  }
+  if (stripSecrets(doc.as<JsonObject>())) {  // written by an older firmware
+    text.clear();
+    serializeJsonPretty(doc, text);
+    text += "\n";
   }
   return text;
 }

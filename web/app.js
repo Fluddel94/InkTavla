@@ -14,6 +14,8 @@ const TEXTS = {
     loginQr: "Mit dem QR-Code auf dem Display entfällt dieser Schritt. Nach 5 falschen Codes schließt sich die Seite.",
     loginWrong: "Der Code stimmt nicht.",
     closedHint: "Die Einstellungsseite ist geschlossen. Zum Öffnen die Taste am Display drücken; der neue Code steht dann auf dem Display.",
+    replacedHint: "Abgemeldet: Ein anderes Gerät hat sich mit dem Code angemeldet. Warst du das nicht, schließe die Seite mit Taste 3 am Display. Zum erneuten Anmelden die Seite neu laden.",
+    replacedLogin: "Abgemeldet: Ein anderes Gerät hat sich mit dem Code angemeldet.",
     close: "Schließen",
     openUntil: "Offen bis",
     saveHint: "Änderungen gelten nach dem Speichern; das Display startet dann neu.",
@@ -242,6 +244,8 @@ const TEXTS = {
     loginQr: "With the QR code on the display you can skip this step. After 5 wrong codes the page closes.",
     loginWrong: "The code is not correct.",
     closedHint: "The settings page is closed. Press the button on the display to open it; the new code then appears on the display.",
+    replacedHint: "Logged out: another device has logged in with the code. If that was not you, close the page with button 3 on the display. To log in again, reload the page.",
+    replacedLogin: "Logged out: another device has logged in with the code.",
     close: "Close",
     openUntil: "Open until",
     saveHint: "Changes apply after saving; the display then restarts.",
@@ -675,9 +679,14 @@ function setDirty(on) {
   updateBar();
   if (page !== null) refreshHome();
 }
-function pageClosed() {
+// body: the reply to a request (401); "replaced" means another device has
+// logged in with the code, which ends this session.
+function pageClosed(body) {
   if ($("restarting").hidden === false) return;
-  if (S && !$("main").hidden) { show("closed"); return; }
+  if (S && !$("main").hidden) {
+    show("closed");
+    $("closed").querySelector(".hint").textContent = t(body && body.replaced ? "replacedHint" : "closedHint");
+  }
 }
 
 // --- Start ------------------------------------------------------------------------
@@ -707,6 +716,10 @@ async function loadState() {
     lang = body.lang === "en" ? "en" : "de";
     applyTexts();
     show(body.open ? "login" : "closed");
+    if (body.open && body.replaced) {
+      $("loginError").textContent = t("replacedLogin");
+      $("loginError").hidden = false;
+    }
     if (body.open) $("code").focus();
     return;
   }

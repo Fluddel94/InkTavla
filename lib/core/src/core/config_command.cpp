@@ -181,6 +181,14 @@ CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store
         reply.text = std::string(kPrefix) + "ERR no configuration file\n";
         return reply;
       }
+      JsonDocument doc;
+      ConfigIssues ignored;
+      if (readConfig(data.data(), data.size(), doc, ignored) &&
+          stripSecrets(doc.as<JsonObject>())) {  // written by an older firmware
+        data.clear();
+        serializeJsonPretty(doc, data);
+        data += "\n";
+      }
       const uint32_t crc = crc32(reinterpret_cast<const uint8_t*>(data.data()), data.size());
       reply.text = std::string(kPrefix) + "DATA " + std::to_string(data.size()) + " " + hex(crc) +
                    "\n" + data + "\n" + kPrefix + "OK\n";
@@ -222,7 +230,14 @@ CommandReply handleCommand(const CommandParser::Event& event, ConfigStore& store
     return reply;
   }
   if (validate) validate(doc.as<JsonObjectConst>(), issues);
-  if (!store.write(kTempPath, event.payload) || !store.rename(kTempPath, kConfigPath)) {
+  // A calendar address in the file is dropped (reported by the check above).
+  std::string text = event.payload;
+  if (stripSecrets(doc.as<JsonObject>())) {
+    text.clear();
+    serializeJsonPretty(doc, text);
+    text += "\n";
+  }
+  if (!store.write(kTempPath, text) || !store.rename(kTempPath, kConfigPath)) {
     reply.text = std::string(kPrefix) + "ERR cannot write the file, old configuration kept\n";
     return reply;
   }

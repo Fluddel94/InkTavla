@@ -49,6 +49,15 @@ struct CoreConfig {
 // returned; the caller then works with the defaults.
 bool readConfig(const char* json, size_t length, JsonDocument& doc, ConfigIssues& issues);
 
+// Keys under widgets.calendar that would hold the calendar address. It is a
+// secret (core/secrets.h) and never belongs in the file.
+inline constexpr const char* kCalendarSecretKeys[] = {"url", "ical", "ical_url", "address"};
+
+// Removes the keys above from a parsed configuration, so a secret in an
+// imported or hand-written file is never stored or read back (settings
+// page, backup, INKTAVLA CONFIG GET). True if something was removed.
+bool stripSecrets(JsonObject root);
+
 // Reads the core settings; missing values keep their defaults.
 CoreConfig parseCoreConfig(JsonObjectConst root, ConfigIssues& issues);
 
