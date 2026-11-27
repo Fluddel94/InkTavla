@@ -4,6 +4,7 @@
 
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "core/fault_counts.h"
@@ -192,6 +193,19 @@ void test_fetch_problem_is_taken_once() {
   core::noteFetchProblem("HTTP %d", 404);
   TEST_ASSERT_EQUAL_STRING("HTTP 404", core::takeFetchProblem().c_str());
   TEST_ASSERT_EQUAL_STRING("", core::takeFetchProblem().c_str());
+  // Kept per task: another task (e.g. a search on the settings page) never
+  // changes the reason of this one.
+  core::noteFetchProblem("HTTP %d", 503);
+  std::string other;
+  std::thread([&] {
+    core::noteFetchProblem("timed out after %u bytes", 0u);
+    other = core::takeFetchProblem();
+  }).join();
+  TEST_ASSERT_EQUAL_STRING("timed out after 0 bytes", other.c_str());
+  TEST_ASSERT_EQUAL_STRING("HTTP 503", core::takeFetchProblem().c_str());
+  // Long texts are cut like log texts.
+  core::noteFetchProblem("%s", std::string(200, 'x').c_str());
+  TEST_ASSERT_EQUAL_size_t(core::kLogTextSize - 1, core::takeFetchProblem().size());
 }
 
 core::SystemReport sampleReport() {

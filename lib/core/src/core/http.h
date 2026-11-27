@@ -27,6 +27,13 @@ namespace core {
 // now and then (HTTP -11 in the MVG departure display).
 inline constexpr uint32_t kHttpTimeoutMs = 10000;
 
+// fetchJsonStream() stops reading after this time or this many bytes, so a
+// server that sends slowly but steadily (kHttpTimeoutMs only counts time
+// without data) cannot hold the main loop for minutes, and an endless
+// answer cannot fill the memory. Answers are a few KB.
+inline constexpr uint32_t kJsonLimitMs = 30000;
+inline constexpr size_t kMaxJsonBytes = 256 * 1024;
+
 struct HttpResult {
   int status = 0;          // HTTP status, negative: error of the HTTP client
   size_t bytes = 0;        // body bytes read
@@ -40,7 +47,8 @@ using BodySink = std::function<bool(const char* data, size_t length)>;
 
 #if defined(ARDUINO)
 // GET url and read the JSON body into doc, keeping only the fields in
-// filter. True on status 200 and valid JSON.
+// filter. True on status 200 and valid JSON. Stops after kJsonLimitMs or
+// kMaxJsonBytes (error "took too long" / "response too large").
 bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocument& filter,
                      HttpResult* result = nullptr);
 

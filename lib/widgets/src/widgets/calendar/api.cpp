@@ -20,8 +20,8 @@ void ApiSource::begin() {
 
 namespace {
 
-// Requests url into parser; limit_ms > 0 stops the request after that time
-// (error kTimeout).
+// Requests url into parser and stops the request after limit_ms (error
+// kTimeout).
 bool fetchUrl(const std::string& url, Parser& parser, FetchError& error, uint32_t limit_ms) {
   core::HttpResult result;
   const uint32_t start = millis();
@@ -29,7 +29,7 @@ bool fetchUrl(const std::string& url, Parser& parser, FetchError& error, uint32_
   const bool ok = core::fetchStream(
       core::secretUrl(url),
       [&](const char* data, size_t length) {
-        if (limit_ms > 0 && millis() - start > limit_ms) {
+        if (millis() - start > limit_ms) {
           late = true;
           return false;
         }
@@ -47,6 +47,9 @@ bool fetchUrl(const std::string& url, Parser& parser, FetchError& error, uint32_
                                                          : "network");
     // For the system log; the HTTP status is noted by core::fetchStream().
     if (parser.notCalendar()) core::noteFetchProblem("no iCal file (address wrong?)");
+    if (late) {
+      core::noteFetchProblem("took longer than %u s", static_cast<unsigned>(limit_ms / 1000));
+    }
   }
   // Only sizes and counts in the log, never the address or titles.
   if (ok) {
@@ -65,7 +68,7 @@ bool ApiSource::fetchCalendar(Parser& parser) {
   core::NvsSecretStore secrets;
   std::string url;
   if (!secrets.read(core::kSecretCalendarUrl, url) || url.empty()) return false;
-  return fetchUrl(url, parser, error_, 0);
+  return fetchUrl(url, parser, error_, kFetchLimitMs);
 }
 
 bool UrlSource::fetchCalendar(Parser& parser) {

@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A watchdog restarts the display if its main loop hangs for 2 minutes, so
+  an old picture with old departures never stays on the screen for good.
+- A server that sends very slowly no longer holds the clock and the
+  departures: the calendar is stopped after 90 seconds, departures and
+  weather after 30 seconds (or 256 KB).
+- `inktavla_config.py get` asks again (up to three times) when a log line
+  of the display damaged the transfer.
+- The system log no longer gives a fetch the reason of a failed search on
+  the settings page that happened at the same time.
 - A calendar address in an imported or hand-written `config.json` (`url`,
   `ical`, `ical_url` or `address` under `widgets.calendar`) could be saved
   with **Trotzdem speichern** / **Save anyway** or over USB, and then

@@ -8,6 +8,7 @@
 #include <WiFi.h>
 #include <esp_heap_caps.h>
 #include <esp_ota_ops.h>
+#include <esp_task_wdt.h>
 
 #include <algorithm>
 #include <string>
@@ -41,6 +42,12 @@ namespace {
 
 // Longest wait between two passes of the main loop (Wi-Fi checks).
 constexpr int64_t kMaxWaitMs = 250;
+// Task watchdog of the main loop: restarts the device if a pass hangs, so
+// an old picture never stays on the panel for good. Generous, since a pass
+// may wait for a calendar (calendar/api.h: at most 90 s, fed while reading),
+// a full refresh (20 s) or a TLS handshake (10 s). A restart by it appears
+// as "watchdog (task)" in the system log.
+constexpr uint32_t kLoopWatchdogMs = 120000;
 
 core::SystemClock clock_source;
 hal::TrmnlDisplay display;
@@ -278,9 +285,21 @@ void setup() {
   // A press stops a running fetch of the main loop, so the button is
   // answered at once (core/fetch_cancel.h). Only in this task: the requests
   // of the settings page (own task) are never stopped by a button.
+  // The same check runs while a fetch reads, so it also feeds the watchdog
+  // of the main loop during a long request.
   static const TaskHandle_t loop_task = xTaskGetCurrentTaskHandle();
-  core::setFetchCancelCheck(
-      [] { return xTaskGetCurrentTaskHandle() == loop_task && buttons.pressWaiting(); });
+  core::setFetchCancelCheck([] {
+    if (xTaskGetCurrentTaskHandle() != loop_task) return false;
+    esp_task_wdt_reset();
+    return buttons.pressWaiting();
+  });
+
+  // Last, so a slow start (e.g. formatting LittleFS) cannot trigger it. One
+  // timeout for all watched tasks: the idle task of core 0 gets it too.
+  const esp_task_wdt_config_t watchdog = {
+      .timeout_ms = kLoopWatchdogMs, .idle_core_mask = 1 << 0, .trigger_panic = true};
+  esp_task_wdt_reconfigure(&watchdog);
+  enableLoopWDT();  // the Arduino core feeds it after every loop()
 }
 
 void loop() {

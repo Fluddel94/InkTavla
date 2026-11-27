@@ -21,9 +21,17 @@ namespace {
 // without a TLS close notification: "ssl_client ... (-76)" in the log).
 class HttpBodyStream : public Stream {
  public:
-  // length: Content-Length, negative if unknown.
-  HttpBodyStream(Client& client, bool chunked, int64_t length, uint32_t timeout_ms)
-      : in_(client), chunked_(chunked), length_(chunked ? -1 : length), timeout_ms_(timeout_ms) {}
+  // length: Content-Length, negative if unknown. limit_ms and max_bytes
+  // (0: none) end the body after that time or that many bytes.
+  HttpBodyStream(Client& client, bool chunked, int64_t length, uint32_t timeout_ms,
+                 uint32_t limit_ms, size_t max_bytes)
+      : in_(client),
+        chunked_(chunked),
+        length_(chunked ? -1 : length),
+        timeout_ms_(timeout_ms),
+        limit_ms_(limit_ms),
+        max_bytes_(max_bytes),
+        start_ms_(millis()) {}
 
   int read() override {
     const int c = peek();
@@ -42,7 +50,9 @@ class HttpBodyStream : public Stream {
   bool timedOut() const { return timed_out_; }
   // Reading stopped for a button press (core/fetch_cancel.h).
   bool cancelled() const { return cancelled_; }
-  int64_t length() const { return length_; }  // negative if unknown
+  int64_t length() const { return length_; }    // negative if unknown
+  bool tooLong() const { return too_long_; }    // limit_ms reached
+  bool tooLarge() const { return too_large_; }  // max_bytes reached
 
  private:
   // Next byte from the network, -1 at the end, after the timeout or when
@@ -50,7 +60,7 @@ class HttpBodyStream : public Stream {
   int rawByte() {
     if (++since_check_ >= kCancelCheckBytes) {
       since_check_ = 0;
-      if (stop()) return -1;
+      if (stop() || overTime()) return -1;
     }
     const uint32_t start = millis();
     uint32_t waited = 0;
@@ -63,8 +73,13 @@ class HttpBodyStream : public Stream {
         return -1;
       }
       delay(1);
-      if (++waited % 50 == 0 && stop()) return -1;
+      if (++waited % 50 == 0 && (stop() || overTime())) return -1;
     }
+  }
+
+  bool overTime() {
+    if (limit_ms_ > 0 && millis() - start_ms_ >= limit_ms_) too_long_ = true;
+    return too_long_;
   }
 
   bool stop() {
@@ -77,6 +92,11 @@ class HttpBodyStream : public Stream {
   int nextBodyByte() {
     while (true) {
       if (length_ >= 0 && raw_bytes_ >= length_) {
+        finished_ = true;
+        return -1;
+      }
+      if (max_bytes_ > 0 && raw_bytes_ >= static_cast<int64_t>(max_bytes_)) {
+        too_large_ = true;
         finished_ = true;
         return -1;
       }
@@ -101,6 +121,11 @@ class HttpBodyStream : public Stream {
   int64_t length_;
   int64_t raw_bytes_ = 0;
   uint32_t timeout_ms_;
+  uint32_t limit_ms_;
+  size_t max_bytes_;
+  uint32_t start_ms_;
+  bool too_long_ = false;
+  bool too_large_ = false;
   ChunkedDecoder decoder_;
   bool finished_ = false;
   bool timed_out_ = false;
@@ -141,7 +166,8 @@ void noteProblem(NetworkClientSecure& client, const HttpResult& r) {
   }
 }
 
-bool get(const std::string& url, bool follow_redirects,
+// limit_ms, max_bytes: see HttpBodyStream (0: none).
+bool get(const std::string& url, bool follow_redirects, uint32_t limit_ms, size_t max_bytes,
          const std::function<bool(HttpBodyStream&, HttpResult&)>& read, HttpResult* result) {
   HttpResult r;
   NetworkClientSecure client;
@@ -164,10 +190,14 @@ bool get(const std::string& url, bool follow_redirects,
     r.status = http.GET();
     if (r.status == 200) {
       const bool chunked = http.header("Transfer-Encoding").equalsIgnoreCase("chunked");
-      HttpBodyStream body(client, chunked, http.getSize(), kHttpTimeoutMs);
+      HttpBodyStream body(client, chunked, http.getSize(), kHttpTimeoutMs, limit_ms, max_bytes);
       ok = read(body, r);
       r.bytes = body.bytes();
       r.timed_out = body.timedOut();
+      if (body.tooLong() || body.tooLarge()) {
+        ok = false;
+        r.error = body.tooLong() ? "took too long" : "response too large";
+      }
       if (body.cancelled()) {
         ok = false;
         r.error = "cancelled";
@@ -193,7 +223,7 @@ bool get(const std::string& url, bool follow_redirects,
 bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocument& filter,
                      HttpResult* result) {
   return get(
-      url, false,
+      url, false, kJsonLimitMs, kMaxJsonBytes,
       [&](HttpBodyStream& body, HttpResult& r) {
         const DeserializationError error =
             deserializeJson(doc, body, DeserializationOption::Filter(filter));
@@ -206,7 +236,7 @@ bool fetchJsonStream(const std::string& url, JsonDocument& doc, const JsonDocume
 bool fetchStream(const std::string& url, const BodySink& sink, size_t max_bytes, HttpResult* result,
                  const std::function<void(int64_t length)>& on_length) {
   return get(
-      url, true,
+      url, true, 0, 0,  // the caller limits the size (max_bytes) and time (sink)
       [&](HttpBodyStream& body, HttpResult& r) {
         if (on_length) on_length(body.length());
         char buffer[512];

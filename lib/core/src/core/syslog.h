@@ -119,9 +119,10 @@ void logWarning(const char* area, const char* format, ...) __attribute__((format
 void logError(const char* area, const char* format, ...) __attribute__((format(printf, 2, 3)));
 void logMessage(LogLevel level, const char* area, const char* format, va_list args);
 
-// Why the last request failed (e.g. "HTTP 404", "timed out"), noted by the
-// HTTP functions or a data source and read by the display controller for
-// the log line of the failed fetch. Fixed texts and numbers only.
+// Why the last request of the calling task failed (e.g. "HTTP 404", "timed
+// out"), noted by the HTTP functions or a data source and read by the
+// display controller for the log line of the failed fetch. Kept per task.
+// Fixed texts and numbers only.
 void noteFetchProblem(const char* format, ...) __attribute__((format(printf, 1, 2)));
 // The noted problem (empty if none); clears it.
 std::string takeFetchProblem();

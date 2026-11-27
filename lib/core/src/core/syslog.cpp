@@ -59,8 +59,11 @@ std::mutex clock_mutex;
 std::function<int64_t()> clock_monotonic;
 std::function<int64_t()> clock_wall;
 
-std::mutex problem_mutex;
-std::string fetch_problem;
+// One per task, so a failed search on the settings page (own task) never
+// gives its reason to a fetch of the main loop. A plain array: thread-local
+// storage takes room on every task's stack, and no destructor runs when a
+// task ends.
+thread_local char fetch_problem[kLogTextSize] = "";
 
 }  // namespace
 
@@ -246,14 +249,12 @@ void noteFetchProblem(const char* format, ...) {
   va_start(args, format);
   std::vsnprintf(text, sizeof(text), format, args);
   va_end(args);
-  std::lock_guard<std::mutex> lock(problem_mutex);
-  fetch_problem = text;
+  std::memcpy(fetch_problem, text, sizeof(fetch_problem));
 }
 
 std::string takeFetchProblem() {
-  std::lock_guard<std::mutex> lock(problem_mutex);
-  std::string problem;
-  problem.swap(fetch_problem);
+  std::string problem = fetch_problem;
+  fetch_problem[0] = '\0';
   return problem;
 }
 

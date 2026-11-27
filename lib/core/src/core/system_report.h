@@ -33,6 +33,15 @@ struct SourceReport {
   uint32_t fails_24h = 0;
 };
 
+// All fields but state equal (a new field belongs in here too).
+inline bool sameExceptState(const SourceReport& a, const SourceReport& b) {
+  return a.name == b.name && a.last_success_wall_s == b.last_success_wall_s &&
+         a.last_failure_wall_s == b.last_failure_wall_s && a.problem == b.problem &&
+         a.failures_in_row == b.failures_in_row && a.last_duration_ms == b.last_duration_ms &&
+         a.successes == b.successes && a.failures == b.failures && a.fails == b.fails &&
+         a.fails_24h == b.fails_24h;
+}
+
 // What only the hardware knows (filled by main.cpp, fixed in the PC
 // simulation).
 struct DeviceInfo {

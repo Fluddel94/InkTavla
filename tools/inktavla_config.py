@@ -109,36 +109,57 @@ def command_put(link, path):
             return 1
 
 
-def command_get(link, path):
+# A transfer damaged by other output of the device (a log line written
+# meanwhile) is asked for again; the checksum shows the damage.
+GET_ATTEMPTS = 3
+
+
+def read_config(link):
+    """One CONFIG GET: (data, None), or (None, message); message is None
+    when the transfer was damaged and can be repeated."""
     link.write(b"\n" + PREFIX + b"CONFIG GET\n")
     link.flush()
     deadline = time.monotonic() + TIMEOUT_S
     while True:
         line = read_reply_line(link, deadline)
         if line is None:
-            print("No answer from the device (is the InkTavla firmware running?)")
-            return 1
+            return None, "No answer from the device (is the InkTavla firmware running?)"
         if line.startswith("ERR"):
-            print("Error: " + line[3:].strip())
-            return 1
+            return None, "Error: " + line[3:].strip()
         if line.startswith("DATA "):
             try:
                 size_text, crc_text = line[5:].split()
                 size, crc = int(size_text), int(crc_text, 16)
             except ValueError:
-                print("Unexpected answer: " + line)
-                return 1
+                return None, "Unexpected answer: " + line
             data = read_exact(link, size, deadline)
             if len(data) != size or zlib.crc32(data) != crc:
-                print("Transfer incomplete or damaged, please try again")
-                return 1
-            if path:
-                with open(path, "wb") as f:
-                    f.write(data)
-                print(f"Saved to {path} ({size} bytes)")
-            else:
-                sys.stdout.write(data.decode("utf-8", errors="replace") + "\n")
-            return 0
+                return None, None
+            return data, None
+
+
+def command_get(link, path):
+    for attempt in range(GET_ATTEMPTS):
+        data, message = read_config(link)
+        if data is not None:
+            break
+        if message is not None:
+            print(message)
+            return 1
+        if attempt + 1 < GET_ATTEMPTS:
+            print("Transfer damaged, asking again ...")
+            time.sleep(0.5)
+            link.reset_input_buffer()
+    else:
+        print("Transfer incomplete or damaged, please try again")
+        return 1
+    if path:
+        with open(path, "wb") as f:
+            f.write(data)
+        print(f"Saved to {path} ({len(data)} bytes)")
+    else:
+        sys.stdout.write(data.decode("utf-8", errors="replace") + "\n")
+    return 0
 
 
 def wait_ok(link):

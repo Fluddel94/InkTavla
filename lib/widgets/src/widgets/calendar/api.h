@@ -11,6 +11,9 @@ namespace widgets::calendar {
 // Largest iCal file read (calendars with many years of history are a few
 // megabytes).
 inline constexpr size_t kMaxCalendarBytes = 8 * 1024 * 1024;
+// Longest a normal fetch may take: the main loop (clock, departures) waits
+// meanwhile. About 7 MB at the speed measured on the device (~80 KB/s).
+inline constexpr uint32_t kFetchLimitMs = 90000;
 
 #if defined(ARDUINO)
 class ApiSource : public Source {

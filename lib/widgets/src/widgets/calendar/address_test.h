@@ -16,7 +16,8 @@ namespace widgets::calendar {
 
 // Days counted from today on (today included).
 inline constexpr int kTestDays = 7;
-// The test stops a request after this time (a normal fetch has no limit).
+// The test stops a request after this time (a normal fetch after
+// kFetchLimitMs, api.h).
 inline constexpr uint32_t kTestTimeoutMs = 30000;
 
 enum class TestOutcome : uint8_t {

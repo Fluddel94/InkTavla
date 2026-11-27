@@ -53,7 +53,7 @@ the start, e.g. `+0:00:04`), a level, an area and a short English text:
 | `system` | start with the firmware version and the reason of the last restart (`start 0.3.0, reason: power on`); planned restarts with their reason |
 | `wifi` | connected again (time without connection, signal, channel), lost and a change of the reason while reconnecting (`attempt failed, -41 dBm, reason 202 (AUTH_FAIL)`: the signal of the access point that lost or refused the device, then the reason of the Wi-Fi driver), restart of the Wi-Fi module, new network set up; hourly the signal (`signal -63 dBm (good)`) |
 | `time` | the clock was set by NTP |
-| `mvg`, `weather`, `calendar` | at the start the second of the minute the MVG is asked at (`updates at second 33 of every 60 s`, random per start); the first failed update with its reason (e.g. `HTTP 404`, `timed out`, a TLS error) and the duration, a change of the reason, working again after n attempts, failing for 30 minutes; an update that took 5 s or more (`slow fetch: 6.2 s`); an update stopped for a button (see below); hourly the number of updates and their average and longest duration in seconds |
+| `mvg`, `weather`, `calendar` | at the start the second of the minute the MVG is asked at (`updates at second 33 of every 60 s`, random per start); the first failed update with its reason (e.g. `HTTP 404`, `timed out`, `took too long` (departures and weather: more than 30 s), a TLS error) and the duration, a change of the reason, working again after n attempts, failing for 30 minutes; an update that took 5 s or more (`slow fetch: 6.2 s`); an update stopped for a button (see below); hourly the number of updates and their average and longest duration in seconds |
 | `memory` | hourly: free internal memory, its lowest value since the start (`min`), the largest free block (`block`), free PSRAM |
 | `settings` | settings page opened, closed (button, page, time up), logged in, wrong code, saved, reset |
 | `update` | update check, download, firmware written, rejected or failed, new firmware confirmed |
@@ -134,5 +134,5 @@ settings page shows them in detail.
 | `USB (flashing or reset)` | new firmware over USB, or the serial monitor reset the board |
 | `reset pin` | the reset button |
 | `crash (panic)` | the firmware crashed (logged as an error) |
-| `watchdog …` | the firmware hung and was restarted (error) |
+| `watchdog …` | the firmware hung and was restarted (error); the main loop is restarted after 2 minutes without a pass |
 | `voltage drop (brownout)` | the supply voltage dropped too far, e.g. a weak USB power supply (error) |

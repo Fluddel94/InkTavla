@@ -507,6 +507,9 @@ void test_controller_logs_failures_once_and_the_recovery() {
   TEST_ASSERT_TRUE(r.failures_in_row > 180);
   TEST_ASSERT_EQUAL_STRING("timed out after 0 bytes", r.problem.c_str());
   TEST_ASSERT_TRUE(r.state == DataState::kStale);
+  TEST_ASSERT_EQUAL_STRING("timed out after 0 bytes",
+                           core::publishedSourceReports()[0].problem.c_str());
+  TEST_ASSERT_TRUE(core::publishedSourceReports()[0].state == DataState::kStale);
   // Works again: one line with the count and the time.
   a.succeed = true;
   const unsigned failures = r.failures_in_row;
@@ -519,8 +522,11 @@ void test_controller_logs_failures_once_and_the_recovery() {
                 "works again after %u failed attempts (0:33:", failures);
   TEST_ASSERT_EQUAL_STRING_LEN(expected, i.back().c_str(), std::strlen(expected));
   TEST_ASSERT_EQUAL(0, c.sourceReports()[0].failures_in_row);
-  // The published copy for the settings page is the same.
+  // The published copy for the settings page is the same (copied again
+  // after the change).
   TEST_ASSERT_EQUAL(1, core::publishedSourceReports().size());
+  TEST_ASSERT_EQUAL(0, core::publishedSourceReports()[0].failures_in_row);
+  TEST_ASSERT_TRUE(core::publishedSourceReports()[0].state == DataState::kFresh);
   core::setLogClock(nullptr, nullptr);
 }
 

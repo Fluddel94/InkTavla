@@ -22,7 +22,7 @@ enum class FetchError : uint8_t {
   kNone,
   kNetwork,  // no connection, timeout, server error: tried again
   kAddress,  // the address is wrong: rejected (401/403/404/410) or no iCal file
-  kTimeout,  // stopped after a time limit (only the address test, address_test.h)
+  kTimeout,  // stopped after a time limit (api.h, address_test.h)
 };
 
 // Kind of error for the HTTP status of a failed request (negative: error

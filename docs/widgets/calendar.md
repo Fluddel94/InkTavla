@@ -152,6 +152,8 @@ of history are fine); only events of the coming days are kept, at most
 - At most 400 events of the coming days per file are kept.
 - Every request loads the whole calendar file (up to 8 MB) and blocks the
   display for a few seconds; changes in the calendar appear with the next
-  fetch (every 15 minutes by default).
+  fetch (every 15 minutes by default). A request is stopped after 90
+  seconds (system log: `took longer than 90 s`), which is enough for about
+  7 MB.
 - Series with rules not listed above show their first occurrence only.
 - Only the 30 emoji listed above are shown.

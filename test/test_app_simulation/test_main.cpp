@@ -527,15 +527,29 @@ constexpr int64_t kBriefingMorning = 1792561310;
 constexpr char kBriefingConfig[] = R"({
   "language": "de",
   "widgets": {"mvg": {"station": "de:09162:10", "name": "Pasing", "sections": [
-    {"name": "In die Stadt", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
-    {"name": "Raus", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
+    {"name": "Zentrum", "lines": ["S3:H:S", "S4:H:S", "S5:H:S", "S6:H:S", "S8:H:S", "19:H:T"]},
+    {"name": "Auswärts", "lines": ["S3:R:S", "S4:R:S", "S6:R:S", "S8:R:S", "14:H:T", "RB6:H:Z"]}
   ]},
   "weather": {"latitude": 48.137, "longitude": 11.575, "name": "München"}}
 })";
 
-void test_briefing_morning() {
-  Rig rig(kBriefingConfig, "briefing", true, kBriefingMorning);
+// Friday 2026-11-27 at 07:41:50 CET: the morning of the pictures in the
+// README (tools/frame_screen.py). The same forecast as kBriefingMorning,
+// moved to that day at the same local time, and a short calendar with the
+// events of kBriefingMorning at the same distance from today.
+constexpr int64_t kReadmeMorning = 1795761710;
+
+void useReadmeData(Rig& rig, const char* calendar = "readme.ics") {
   rig.weather.fixture = "muenchen_20261022.json";
+  // Saved 2026-10-22 07:30 CEST; 36 days and the hour of summer time later
+  // it is 2026-11-27 07:30 CET.
+  rig.weather.shift_s = 36 * WeatherFixtureSource::kDay + 3600;
+  rig.calendar.fixture = calendar;
+}
+
+void test_briefing_morning() {
+  Rig rig(kBriefingConfig, "briefing", true, kReadmeMorning);
+  useReadmeData(rig);
   TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
   rig.app.controller().setNetworkConnected(true);
   // Order of the design: departures, calendar, weather.
@@ -729,8 +743,8 @@ void test_removed_grid_setting_is_reported() {
   // "layout.grid" from older files: a message, the display as usual.
   std::string config = kBriefingConfig;
   config.replace(config.find('{'), 1, R"({"layout": {"grid": "equal"},)");
-  Rig rig(config.c_str(), "briefing", true, kBriefingMorning);
-  rig.weather.fixture = "muenchen_20261022.json";
+  Rig rig(config.c_str(), "briefing", true, kReadmeMorning);
+  useReadmeData(rig);
   TEST_ASSERT_EQUAL_size_t(1, rig.issues.size());
   TEST_ASSERT_EQUAL_STRING("layout.grid", rig.issues[0].path.c_str());
   rig.app.controller().setNetworkConnected(true);
@@ -745,12 +759,11 @@ void test_briefing_morning_in_english() {
   // them only in German.
   std::string config = kBriefingConfig;
   config.replace(config.find(R"("language": "de")"), 16, R"("language": "en")");
-  config.replace(config.find("In die Stadt"), 12, "To the city");
-  config.replace(config.find("Raus"), 4, "Out");
+  config.replace(config.find("Zentrum"), std::strlen("Zentrum"), "Centre");
+  config.replace(config.find("Auswärts"), std::strlen("Auswärts"), "Outbound");
   config.replace(config.find("München"), std::strlen("München"), "Munich");
-  Rig rig(config.c_str(), "briefing", true, kBriefingMorning);
-  rig.weather.fixture = "muenchen_20261022.json";
-  rig.calendar.fixture = "week_en.ics";
+  Rig rig(config.c_str(), "briefing", true, kReadmeMorning);
+  useReadmeData(rig, "readme_en.ics");
   TEST_ASSERT_EQUAL_size_t(0, rig.issues.size());
   rig.app.controller().setNetworkConnected(true);
   rig.runUntil(0);

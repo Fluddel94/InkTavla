@@ -212,6 +212,8 @@ class DisplayController {
   // counts neither as success nor as failure and is due again at once).
   bool fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s);
   void logSummary();
+  // publishSourceReports() (core/system_report.h), only after a change.
+  void publishReportsIfChanged();
 
   void buildState(int64_t now_ms, int64_t wall_s);
   // Whether the network is shown as connected at this time.
@@ -230,6 +232,7 @@ class DisplayController {
   Scheduler scheduler_;
   Scheduler::TaskId redraw_task_;
   std::vector<Entry> entries_;
+  std::vector<SourceReport> published_;  // last copy for the settings page
   ScreenState state_;
   std::vector<uint8_t> shown_;  // frame on the panel; large, ends up in PSRAM
   FrameView shown_view_;

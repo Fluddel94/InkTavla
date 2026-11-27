@@ -129,6 +129,20 @@ std::vector<SourceReport> DisplayController::sourceReports() const {
   return result;
 }
 
+void DisplayController::publishReportsIfChanged() {
+  // Compared in place: a pass runs up to four times a second, and a copy
+  // for the settings page is only needed when something changed.
+  const int64_t now_ms = clock_.monotonicMs();
+  bool same = published_.size() == entries_.size();
+  for (size_t i = 0; same && i < entries_.size(); i++) {
+    same = published_[i].state == entries_[i].freshness.state(now_ms) &&
+           sameExceptState(published_[i], entries_[i].report);
+  }
+  if (same) return;
+  published_ = sourceReports();
+  publishSourceReports(published_);
+}
+
 bool DisplayController::fetch(Entry& e, Scheduler::TaskId id, int64_t& wall_s) {
   const int64_t before_ms = clock_.monotonicMs();
   takeFetchProblem();    // left over from a request outside the loop
@@ -329,7 +343,7 @@ int64_t DisplayController::step() {
   int64_t until = next_summary_ms_ - now_after;
   if (system_page_) until = std::min(until, system_page_ms_ + kSystemPageMs - now_after);
   wait = wait < 0 ? std::max<int64_t>(until, 0) : std::min(wait, std::max<int64_t>(until, 0));
-  publishSourceReports(sourceReports());
+  publishReportsIfChanged();
   return stopped ? 0 : wait;
 }
 
