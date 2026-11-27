@@ -6,11 +6,6 @@
 
 namespace widgets::mvg {
 
-int effectiveDelay(int delay_minutes) {
-  if (delay_minutes < 0 && delay_minutes > -kEarlyDepartureMinutes) return 0;
-  return delay_minutes;
-}
-
 TimeDisplay timeDisplay(const Departure& departure, TimeFormat format, int64_t now_s) {
   TimeDisplay t;
   const int delay = effectiveDelay(departure.delay_minutes);

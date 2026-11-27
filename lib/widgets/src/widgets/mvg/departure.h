@@ -31,6 +31,16 @@ enum class Direction : char {
 
 inline constexpr int kNoPlatform = -1;
 
+// Departures less than this many minutes early count as on time: "-1" is
+// confusing and mostly rounding or a forecast.
+inline constexpr int kEarlyDepartureMinutes = 3;
+
+// Delay after the early-departure rule: -1 and -2 become 0.
+inline int effectiveDelay(int delay_minutes) {
+  if (delay_minutes < 0 && delay_minutes > -kEarlyDepartureMinutes) return 0;
+  return delay_minutes;
+}
+
 // A disruption message ("INCIDENT" in the MVG API) of one trip and the line
 // the API reported it for (as shown: "S3", "RB6", "SEV"). The text is
 // cleaned like Incident::message.
@@ -79,8 +89,12 @@ struct Departure {
   // builds the disruption text from the departures it really shows.
   std::vector<DepartureIncident> incidents;
 
-  // Expected departure (planned + delay), seconds since 1970-01-01 UTC.
-  int64_t expected() const { return planned + static_cast<int64_t>(delay_minutes) * 60; }
+  // Expected departure as shown (planned + effectiveDelay()), seconds since
+  // 1970-01-01 UTC. Sorting and dropping departed trains use it, so the
+  // order matches the times on the display (CR2 N10).
+  int64_t expected() const {
+    return planned + static_cast<int64_t>(effectiveDelay(delay_minutes)) * 60;
+  }
 };
 
 // Departures of one section. A single section without a name is drawn as

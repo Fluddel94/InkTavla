@@ -595,8 +595,10 @@ void afternoon(const Forecast& f, int64_t now_s, const core::LocalTime& now, ui:
                    : (de ? "Es regnet bis in den Abend – Schirm mit."
                          : "Rain into the evening – take an umbrella.");
       } else {
-        main = de ? "Es regnet noch bis etwa {until}, danach trocken."
-                  : "Rain until about {until}, then dry.";
+        main = r.kind == Kind::kThunder ? (de ? "Gewitter bis etwa {until}, danach trocken."
+                                              : "Thunderstorms until about {until}, then dry.")
+                                        : (de ? "Es regnet noch bis etwa {until}, danach trocken."
+                                              : "Rain until about {until}, then dry.");
       }
     } else {
       main = r.kind == Kind::kThunder ? (de ? "Ab {from} Gewitter – Schirm mit."

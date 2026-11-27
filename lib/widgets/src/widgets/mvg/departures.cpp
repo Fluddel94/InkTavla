@@ -92,15 +92,22 @@ void removeSpaces(std::string& text) {
   text.erase(std::remove(text.begin(), text.end(), ' '), text.end());
 }
 
+void dropTrailingDots(std::string& text) {
+  while (!text.empty() && (text.back() == ' ' || text.back() == '.')) text.pop_back();
+}
+
 // Trailing spaces and dots of the API text are dropped (the message is shown
 // without a full stop at the end); long texts are cut at a character
-// boundary.
+// boundary and end with "…" (CR2b N12), all within kMaxIncidentLength bytes.
 std::string cleanIncidentMessage(std::string message) {
-  while (!message.empty() && (message.back() == ' ' || message.back() == '.')) message.pop_back();
+  dropTrailingDots(message);
   if (message.length() > kMaxIncidentLength) {
-    size_t cut = kMaxIncidentLength;
+    static const char kEllipsis[] = "\u2026";
+    size_t cut = kMaxIncidentLength - (sizeof(kEllipsis) - 1);
     while (cut > 0 && (static_cast<unsigned char>(message[cut]) & 0xC0) == 0x80) cut--;
     message.resize(cut);
+    dropTrailingDots(message);
+    message += kEllipsis;
   }
   return message;
 }
@@ -222,7 +229,10 @@ std::vector<Departure> parseDepartures(const JsonDocument& doc, DirectionFilter 
         if (message != nullptr) {
           const std::string m = message;
           const size_t idx = m.find("bis ");
-          if (idx != std::string::npos) r.actual_destination = m.substr(idx + 4);
+          if (idx != std::string::npos) {
+            r.actual_destination = m.substr(idx + 4);
+            dropTrailingDots(r.actual_destination);  // "Fährt nur bis Pasing."
+          }
         }
       }
     }

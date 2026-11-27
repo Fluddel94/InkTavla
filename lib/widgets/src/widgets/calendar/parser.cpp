@@ -6,6 +6,22 @@ namespace widgets::calendar {
 
 namespace {
 
+// True if an occurrence of the series with COUNT ends at or after from_local
+// (local seconds) and starts before to_local. Visits at most COUNT
+// occurrences, only up to that point.
+bool countReachesWindow(const Event& e, int64_t length_s, int64_t from_local, int64_t to_local) {
+  bool reaches = false;
+  expandRule(e.rule, e.start, floorDiv(from_local, kSecondsPerDay),
+             floorDiv(to_local, kSecondsPerDay), [&](int64_t local) {
+               if (local + length_s >= from_local) {
+                 reaches = true;
+                 return false;
+               }
+               return true;
+             });
+  return reaches;
+}
+
 // Name with parameters, e.g. "DTSTART;TZID=Europe/Berlin"; longer ones are
 // skipped.
 constexpr size_t kMaxName = 192;
@@ -395,6 +411,9 @@ void Parser::finishEvent() {
   if (recurring) {
     keep =
         start <= to_local_ && (!e.rule.until.valid() || e.rule.until.localSeconds() >= from_local_);
+    // A series with COUNT may have ended long ago ("10 times from 2019");
+    // such old series would only fill the kMaxEvents places (CR2 M3).
+    if (keep && e.rule.count > 0) keep = countReachesWindow(e, end - start, from_local_, to_local_);
   } else if (e.recurrence_id.valid()) {
     const int64_t original = e.recurrence_id.localSeconds();
     keep = overlaps || (original >= from_local_ && original <= to_local_);

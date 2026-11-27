@@ -80,6 +80,7 @@ class CalendarSource : public DataSource {
   Config config_;
   Occurrences occurrences_;
   FetchError error_ = FetchError::kNone;
+  bool limit_reached_ = false;  // logged once when a limit is first reached
 };
 
 }  // namespace widgets::calendar

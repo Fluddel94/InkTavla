@@ -192,7 +192,7 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
   const int centre = top + kColumnRowHeight / 2;
   const int baseline = centre + 7;
   const TimeDisplay t = timeDisplay(d, options.time_format, options.now_s);
-  drawLineSymbol(c, 0, centre - kSymbolHeight / 2, d.line, d.bus);
+  const int own_symbol = drawLineSymbol(c, 0, centre - kSymbolHeight / 2, d.line, d.bus);
 
   // With the unit ("+8 min", step L) the delay needs more room on the right.
   const int right_margin =
@@ -202,7 +202,8 @@ void drawRow(ui::Canvas& c, const Departure& d, int symbol_width, int time_width
                                                ui::text(options.language, ui::Text::kMinutesUnit))
           : kTimeRightMargin;
   const int time_right = c.width() - right_margin;
-  const int dest_x = symbol_width + kDestinationGap;
+  // A symbol wider than the others moves only its own destination.
+  const int dest_x = std::max(symbol_width, own_symbol) + kDestinationGap;
   int dest_width = time_right - time_width - kTimeGap - dest_x;
   // The warning sign stands right before the time column, in the same
   // place in every row.
@@ -301,15 +302,11 @@ int drawDeparturesColumn(ui::Canvas& canvas, const std::vector<Section>& section
   }
   if (sections.empty()) return 0;
 
-  // The destinations line up after the widest visible symbol.
-  int symbol_width = kLineIconWidth;
-  for (int s = 0; s < n; s++) {
-    const int count = std::min(rows[s], static_cast<int>(sections[s].departures.size()));
-    for (int i = 0; i < count; i++) {
-      const Departure& d = sections[s].departures[i];
-      symbol_width = std::max(symbol_width, lineSymbolWidth(d.line, d.bus));
-    }
-  }
+  // The destinations line up after the symbols. Almost all are
+  // kLineIconWidth wide; a wider one (a long name, up to
+  // kMaxLineSymbolWidth) moves only its own destination, so the other rows
+  // keep their room (CR2b M7).
+  const int symbol_width = kLineIconWidth;
   int time_width = ui::textWidth(timeFont(), "00:00");
   if (options.time_format == TimeFormat::kMinutes) {
     char sample[16];

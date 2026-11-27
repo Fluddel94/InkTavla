@@ -123,13 +123,10 @@ SentenceLayout layoutParts(const std::string& greeting, const std::vector<Part>&
            (!greeting.empty() && best(forms, count, "", &sentence));
   }
   if (!done) {
-    // Nothing fits: the greeting alone, or the most important part in its
-    // shortest form, shortened with "…".
-    sentence = greeting;
-    if (!forms.empty()) {
-      if (!sentence.empty()) sentence += " ";
-      sentence += forms[0].back();
-    }
+    // Nothing fits: the most important part in its shortest form, shortened
+    // with "…"; the greeting goes first, as everywhere (CR2b N12). Without
+    // parts the greeting alone.
+    sentence = forms.empty() ? greeting : forms[0].back();
   }
   if (text != nullptr) *text = sentence;
   SentenceLayout out;
@@ -209,20 +206,12 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
     ui::drawText(canvas, font, kSentenceX, first + step * static_cast<int>(i), layout.lines[i]);
   }
 
-  // Placeholder for the picture and the temperature: no weather.
-  if (data.forecast == nullptr && data.weather_missing) {
-    const ui::Icon& picture = ui::bandIcon(ui::WeatherIcon::kCloudy);
-    drawDottedIcon(canvas, kPictureX, kPictureY, picture);
-    const ui::Font& font = ui::fonts::kFraunces38;
-    const std::string none = "\u2013\u00b0";
-    const int width = ui::textWidth(font, none);
-    ui::drawText(canvas, font, kPictureX + inkCentre(picture) - width / 2, kNowBaseline, none);
-  }
-
   // Weather picture with the temperature of now.
+  bool picture_drawn = false;
   if (data.forecast != nullptr) {
     const WeatherSummary s = summarize(*data.forecast, context.now_s);
     if (s.valid) {
+      picture_drawn = true;
       const ui::Icon& picture = ui::bandIcon(s.picture);
       ui::drawIcon(canvas, kPictureX, kPictureY, picture);
       const ui::Font& font = ui::fonts::kFraunces38;  // as the sentence (2026-10-29)
@@ -232,6 +221,17 @@ void drawBand(ui::Canvas& canvas, const DrawContext& context, const BandData& da
           std::min(kPictureX + inkCentre(picture) - width / 2, ui::kScreenWidth - kHeaderX - width);
       ui::drawText(canvas, font, x, kNowBaseline, now);
     }
+  }
+
+  // Placeholder for the picture and the temperature: no weather set up, or
+  // no fresh data (old data stays out of the band, CR2b M6).
+  if (!picture_drawn) {
+    const ui::Icon& picture = ui::bandIcon(ui::WeatherIcon::kCloudy);
+    drawDottedIcon(canvas, kPictureX, kPictureY, picture);
+    const ui::Font& font = ui::fonts::kFraunces38;
+    const std::string none = "\u2013\u00b0";
+    const int width = ui::textWidth(font, none);
+    ui::drawText(canvas, font, kPictureX + inkCentre(picture) - width / 2, kNowBaseline, none);
   }
 
   canvas.hLine(kHeaderX, kRuleY, ui::kScreenWidth - 2 * kHeaderX, Color::kBlack);

@@ -26,12 +26,15 @@ struct Occurrence {
 
 using Occurrences = std::vector<Occurrence, core::PsramAllocator<Occurrence>>;
 
-// Most occurrences kept for the window.
+// Most occurrences kept for the window; beyond it the latest ones are left
+// out (the last days of the window first).
 inline constexpr size_t kMaxOccurrences = 200;
 
 // Occurrences that touch the local days first_day..last_day, sorted by day,
-// all-day events first, then by start time.
-Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_day);
+// all-day events first, then by start time. truncated (if given) tells
+// whether kMaxOccurrences was reached.
+Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_day,
+                         bool* truncated = nullptr);
 
 // --- Agenda ------------------------------------------------------------------
 

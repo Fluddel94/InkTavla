@@ -16,6 +16,8 @@ inline constexpr int kLineIconHeight = 16;
 // symbols); U-Bahn, tram and night tram symbols get more black space on
 // both sides.
 inline constexpr int kLineIconWidth = 36;
+// Widest generated symbol; longer names are shortened (CR2b M7).
+inline constexpr int kMaxLineSymbolWidth = 2 * kLineIconWidth;
 
 struct LineIcon {
   const char* label;    // as delivered by the MVG API: "S1", "U3", "19", "N17"
@@ -35,7 +37,8 @@ void drawLineIcon(ui::Canvas& canvas, int x, int y, const LineIcon& icon);
 // there is one (never for buses), otherwise a square frame with the name in
 // the pixel digits of the tram symbols (frame 2 px, 1 px for long names;
 // other characters in Roboto Condensed Bold 15). At least kLineIconWidth
-// wide, wider only for long names. Returns the width.
+// wide, wider only for long names, at most kMaxLineSymbolWidth (the name is
+// shortened with "."). Returns the width.
 int lineSymbolWidth(const std::string& label, bool bus);
 int drawLineSymbol(ui::Canvas& canvas, int x, int y, const std::string& label, bool bus);
 

@@ -326,6 +326,13 @@ void test_afternoon_sentence() {
   TEST_ASSERT_EQUAL_STRING(
       ("Es regnet noch bis etwa 17" + nb + "Uhr, danach trocken. Am Abend" + nb + "12°.").c_str(),
       text(forecast(temps, stops, Condition::kRain), noon).c_str());
+  // A thunderstorm that ends says so, as in the morning (CR2b N12).
+  TEST_ASSERT_EQUAL_STRING(
+      ("Gewitter bis etwa 17" + nb + "Uhr, danach trocken. Am Abend" + nb + "12°.").c_str(),
+      text(forecast(temps, stops, Condition::kThunder), noon).c_str());
+  TEST_ASSERT_EQUAL_STRING(
+      "Thunderstorms until about 17:00, then dry. 12° in the evening.",
+      text(forecast(temps, stops, Condition::kThunder), noon, ui::Language::kEnglish).c_str());
   TEST_ASSERT_EQUAL_STRING(
       "Maybe rain from 16:00. 12° in the evening.",
       text(forecast(temps, rainFrom(16, 40), Condition::kRain), noon, ui::Language::kEnglish)
@@ -1751,6 +1758,12 @@ void test_sentence_lengths() {
   // usual one below half.
   br::layoutParts("Guten Morgen.", {event}, &used);
   TEST_ASSERT_EQUAL_STRING(("Guten Morgen. " + event.longer).c_str(), used.c_str());
+  // Nothing fits at all (a very long text): the part alone, without the
+  // greeting, cut with "…" by the wrapping (CR2b N12).
+  std::string endless = "Regen";
+  for (int i = 0; i < 40; i++) endless += " und Regen";
+  br::layoutParts("Guten Morgen.", {{br::Topic::kWeather, endless, "", "", ""}}, &used);
+  TEST_ASSERT_EQUAL_STRING(endless.c_str(), used.c_str());
   // Nothing to say: the greeting alone.
   br::layoutParts("Guten Morgen und einen schönen Dienstag.", {}, &used);
   TEST_ASSERT_EQUAL_STRING("Guten Morgen und einen schönen Dienstag.", used.c_str());

@@ -149,7 +149,11 @@ of history are fine); only events of the coming days are kept, at most
   (Google, Outlook, Nextcloud, iCloud, …); nothing of it is sent anywhere
   else.
 - One calendar per display.
-- At most 400 events of the coming days per file are kept.
+- At most 400 events of the coming days per file are kept (series count
+  once; series that ended long ago do not count), and at most 200 entries
+  are shown across the days of the column; beyond that the latest days lose
+  their entries first. If a limit is reached, the system log notes it once
+  (`calendar: limit reached: …`, only numbers, no titles).
 - Every request loads the whole calendar file (up to 8 MB) and blocks the
   display for a few seconds; changes in the calendar appear with the next
   fetch (every 15 minutes by default). A request is stopped after 90

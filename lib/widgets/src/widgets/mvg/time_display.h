@@ -10,10 +10,6 @@
 
 namespace widgets::mvg {
 
-// Departures less than this many minutes early count as on time: "-1" is
-// confusing and mostly rounding or a forecast.
-inline constexpr int kEarlyDepartureMinutes = 3;
-
 // Larger delays are shown as +99 / -99 (the column has room for two digits).
 inline constexpr int kMaxShownDelay = 99;
 
@@ -25,9 +21,6 @@ enum class TimeFormat {
   kClock,    // planned time "14:32" plus delay "+3"
   kMinutes,  // "4 min" / "now" until kMinutesModeLimit, then clock time
 };
-
-// Delay after the early-departure rule: -1 and -2 become 0.
-int effectiveDelay(int delay_minutes);
 
 struct TimeDisplay {
   enum class Kind {

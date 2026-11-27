@@ -41,6 +41,7 @@ constexpr const char* kStems[] = {
     "nach-rich-ten",   "um-lei-tung",
     "ein-schrän-kung", "ein-schrän-kun-gen",
     "hin-der-nis",     "bahn-über-gän-ge",
+    "stel-le",         "stra-ße",
 };
 
 std::u32string toCodepoints(std::string_view text, std::vector<size_t>* offsets) {
@@ -182,8 +183,17 @@ std::vector<HyphenPoint> hyphenationPoints(std::string_view word) {
   }
 
   // Dictionary: every stem found in the word gives compound boundaries at
-  // its start and end, and its own syllable breaks. A linking "s" ("Stell-
-  // werks|störung") stays with the first part.
+  // its start and end, and its own syllable breaks. A linking letter
+  // ("Stellwerk-s-störung", "Weiche-n-störung") stays with the first part,
+  // but only if a known stem follows it: "Signal|störung" and "Unfall|stelle"
+  // have no linking "s" (CR2b M5). Stems are found first, so each end knows
+  // whether another stem starts right after it.
+  struct Found {
+    size_t at;
+    size_t stop;
+    size_t length;
+  };
+  std::vector<Found> found;
   for (const char* stem : kStems) {
     std::u32string plain;
     std::vector<size_t> inner;
@@ -201,14 +211,29 @@ std::vector<HyphenPoint> hyphenationPoints(std::string_view word) {
     for (size_t at = w.find(plain); at != std::u32string::npos; at = w.find(plain, at + 1)) {
       const size_t stop = at + plain.size();
       stem_spans.emplace_back(at, stop);
-      if (plain.size() >= 4) {
-        mark(at, 2);
-        mark(stop < n && w[stop] == 's' && stop + 1 < n ? stop + 1 : stop, 2);
-      }
+      found.push_back({at, stop, plain.size()});
       for (size_t b : inner) {
         mark(at + b, 1);
         if (kind[at + b] != 0) from_dictionary[at + b] = true;
       }
+    }
+  }
+
+  const auto stemStartsAt = [&](size_t pos) {
+    for (const Found& f : found) {
+      if (f.at == pos && f.length >= 4) return true;
+    }
+    return false;
+  };
+  for (const Found& f : found) {
+    if (f.length < 4) continue;
+    mark(f.at, 2);
+    if (stemStartsAt(f.stop)) {
+      mark(f.stop, 2);  // "Signal|störung": the next stem begins at once
+    } else if (f.stop + 1 < n && stemStartsAt(f.stop + 1)) {
+      mark(f.stop + 1, 2);  // "Stellwerks|störung", "Weichen|störung"
+    } else if (f.stop < n && w[f.stop] != 's') {
+      mark(f.stop, 2);  // an unknown part follows: only without a possible "s"
     }
   }
 

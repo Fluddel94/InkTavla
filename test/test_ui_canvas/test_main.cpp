@@ -630,6 +630,13 @@ void test_hyphenation_of_railway_words() {
   TEST_ASSERT_EQUAL_STRING("Ver|spä|tung", hyphenated("Verspätung").c_str());
   TEST_ASSERT_EQUAL_STRING("Bahn|über|gang", hyphenated("Bahnübergang").c_str());
   TEST_ASSERT_EQUAL_STRING("Zug|aus|fall", hyphenated("Zugausfall").c_str());
+  // The "s" is a linking "s" only if a known stem follows it (CR2b M5; was
+  // "Signals|törung", "Unfalls|telle", "Bahnhofs|traße", "Weiche|nstörung").
+  TEST_ASSERT_EQUAL_STRING("Sig|nal|stö|rung", hyphenated("Signalstörung").c_str());
+  TEST_ASSERT_EQUAL_STRING("Un|fall|stelle", hyphenated("Unfallstelle").c_str());
+  TEST_ASSERT_EQUAL_STRING("Bahn|hof|straße", hyphenated("Bahnhofstraße").c_str());
+  TEST_ASSERT_EQUAL_STRING("Wei|chen|stö|rung", hyphenated("Weichenstörung").c_str());
+  TEST_ASSERT_EQUAL_STRING("Stell|werks|stö|rung", hyphenated("Stellwerksstörung").c_str());
   // Existing hyphens are kept (no second one is added).
   TEST_ASSERT_EQUAL_STRING("S-|Bahn-|Stre|cke", hyphenated("S-Bahn-Strecke").c_str());
   // Words not in the dictionary: syllable rules ("ck" and "ch" stay together).

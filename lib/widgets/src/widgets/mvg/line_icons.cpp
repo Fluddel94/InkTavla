@@ -607,10 +607,38 @@ void drawLineIcon(ui::Canvas& canvas, int x, int y, const LineIcon& icon) {
   }
 }
 
+namespace {
+
+// The name as drawn in a generated frame: in the pixel digits if it has only
+// such characters, otherwise in the fallback font, shortened with "." if the
+// frame would be wider than kMaxLineSymbolWidth ("Wiesn-Sh.").
+struct FrameLabel {
+  std::string text;
+  int width = 0;       // of the text
+  bool pixel = false;  // drawn in the pixel digits
+};
+
+FrameLabel frameLabel(const std::string& label) {
+  // Frame 1 + 1 px on each side for names that need the room.
+  constexpr int kMaxText = kMaxLineSymbolWidth - 4;
+  FrameLabel f;
+  const int pixel = pixelTextWidth(label);
+  if (pixel >= 0 && pixel <= kMaxText) {
+    f.text = label;
+    f.width = pixel;
+    f.pixel = true;
+    return f;
+  }
+  f.text = ui::fitText(fallbackFont(), label, kMaxText);
+  f.width = ui::textWidth(fallbackFont(), f.text);
+  return f;
+}
+
+}  // namespace
+
 int lineSymbolWidth(const std::string& label, bool bus) {
   if (!bus && findLineIcon(label) != nullptr) return kLineIconWidth;
-  const int pixel = pixelTextWidth(label);
-  return frameWidth(pixel >= 0 ? pixel : ui::textWidth(fallbackFont(), label));
+  return frameWidth(frameLabel(label).width);
 }
 
 int drawLineSymbol(ui::Canvas& canvas, int x, int y, const std::string& label, bool bus) {
@@ -620,18 +648,17 @@ int drawLineSymbol(ui::Canvas& canvas, int x, int y, const std::string& label, b
       return kLineIconWidth;
     }
   }
-  const int pixel = pixelTextWidth(label);
-  const int text_width = pixel >= 0 ? pixel : ui::textWidth(fallbackFont(), label);
-  const int border = frameBorder(text_width);
-  const int w = frameWidth(text_width);
+  const FrameLabel f = frameLabel(label);
+  const int border = frameBorder(f.width);
+  const int w = frameWidth(f.width);
   canvas.fillRect(x, y, w, kLineIconHeight, ui::Color::kWhite);
   canvas.drawRect(x, y, w, kLineIconHeight, ui::Color::kBlack, border);
-  int cx = x + (w - text_width) / 2;
-  if (pixel < 0) {
-    ui::drawText(canvas, fallbackFont(), cx, y + kGlyphTop + kGlyphHeight, label);
+  int cx = x + (w - f.width) / 2;
+  if (!f.pixel) {
+    ui::drawText(canvas, fallbackFont(), cx, y + kGlyphTop + kGlyphHeight, f.text);
     return w;
   }
-  for (char ch : label) {
+  for (char ch : f.text) {
     const PixelGlyph* g = findGlyph(ch);
     for (int r = 0; r < kGlyphHeight; r++) {
       for (int c = 0; c < g->width; c++) {

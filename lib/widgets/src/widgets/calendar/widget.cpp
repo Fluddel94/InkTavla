@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "core/syslog.h"
 #include "core/time.h"
 #include "widgets/calendar/datetime.h"
 #include "widgets/calendar/timezone.h"
@@ -64,7 +65,18 @@ bool CalendarSource::fetch(int64_t wall_s) {
     return false;
   }
   error_ = FetchError::kNone;
-  occurrences_ = expandEvents(parser, today, last_day);
+  bool cut = false;
+  occurrences_ = expandEvents(parser, today, last_day, &cut);
+  // A limit leaves events out: a warning in the system log, only numbers,
+  // never titles (CR2 M3). Once, not with every update.
+  const bool reached = parser.truncated() || cut;
+  if (reached && !limit_reached_) {
+    core::logWarning("calendar", "limit reached: %u of %u events kept, at most %u entries",
+                     static_cast<unsigned>(parser.events().size()),
+                     static_cast<unsigned>(parser.eventsRead()),
+                     static_cast<unsigned>(kMaxOccurrences));
+  }
+  limit_reached_ = reached;
   return true;
 }
 

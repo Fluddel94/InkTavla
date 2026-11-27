@@ -400,6 +400,46 @@ void test_parser_window() {
   const cal::Parser many = parse(calendar(body));
   TEST_ASSERT_TRUE(many.truncated());
   TEST_ASSERT_EQUAL_size_t(cal::kMaxEvents, many.events().size());
+
+  // Series with COUNT that ended long ago take no place (CR2 M3); one that
+  // still reaches the window stays, also with its last occurrence only.
+  const cal::Parser counted =
+      parse(calendar("BEGIN:VEVENT\r\nSUMMARY:Alt\r\nDTSTART:20190107T090000Z\r\n"
+                     "RRULE:FREQ=WEEKLY;COUNT=10\r\nEND:VEVENT\r\n"
+                     "BEGIN:VEVENT\r\nSUMMARY:Laeuft\r\nDTSTART:20260901T090000Z\r\n"
+                     "RRULE:FREQ=WEEKLY;COUNT=20\r\nEND:VEVENT\r\n"
+                     "BEGIN:VEVENT\r\nSUMMARY:Letzter\r\nDTSTART:20261006T090000Z\r\n"
+                     "RRULE:FREQ=WEEKLY;COUNT=3\r\nEND:VEVENT\r\n"
+                     "BEGIN:VEVENT\r\nSUMMARY:Vorbei\r\nDTSTART:20261006T090000Z\r\n"
+                     "RRULE:FREQ=WEEKLY;COUNT=2\r\nEND:VEVENT\r\n"));
+  TEST_ASSERT_EQUAL_size_t(4, counted.eventsRead());
+  TEST_ASSERT_EQUAL_size_t(2, counted.events().size());
+  TEST_ASSERT_EQUAL_STRING("Laeuft", counted.events()[0].summary.c_str());
+  TEST_ASSERT_EQUAL_STRING("Letzter", counted.events()[1].summary.c_str());
+}
+
+// More occurrences than kMaxOccurrences: the last days give way, today stays
+// complete, whatever the order in the file (CR2 M3).
+void test_occurrence_limit_keeps_the_first_days() {
+  std::string body;
+  for (size_t i = 0; i < cal::kMaxOccurrences; i++) {
+    body += "BEGIN:VEVENT\r\nSUMMARY:Spaeter\r\nDTSTART:20261023T090000Z\r\nEND:VEVENT\r\n";
+  }
+  for (int i = 0; i < 50; i++) {
+    body += "BEGIN:VEVENT\r\nSUMMARY:Heute\r\nDTSTART:20261020T120000Z\r\nEND:VEVENT\r\n";
+  }
+  const cal::Parser parser = parse(calendar(body));
+  bool truncated = false;
+  const auto list = cal::expandEvents(parser, 20746, 20753, &truncated);
+  TEST_ASSERT_TRUE(truncated);
+  TEST_ASSERT_EQUAL_size_t(cal::kMaxOccurrences, list.size());
+  int today = 0;
+  for (const cal::Occurrence& o : list) today += o.summary == "Heute";
+  TEST_ASSERT_EQUAL_INT(50, today);
+  TEST_ASSERT_EQUAL_STRING("Heute", list.front().summary.c_str());
+  // Below the limit nothing is reported.
+  cal::expandEvents(parse(readFile("test/fixtures/calendar/week.ics")), 20746, 20753, &truncated);
+  TEST_ASSERT_FALSE(truncated);
 }
 
 // --- Occurrences ----------------------------------------------------------------------
@@ -917,6 +957,7 @@ int main(int, char**) {
   RUN_TEST(test_time_zones);
   RUN_TEST(test_parser_lines);
   RUN_TEST(test_parser_window);
+  RUN_TEST(test_occurrence_limit_keeps_the_first_days);
   RUN_TEST(test_expand_week);
   RUN_TEST(test_expand_exceptions);
   RUN_TEST(test_expand_zones_and_lengths);

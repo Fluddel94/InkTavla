@@ -136,6 +136,7 @@ void test_messages_missing_fields_and_product_fallback() {
 // --- Rules 2 and 3: duplicates and early termination ----------------------------
 
 void test_early_termination_stopping_here_shows_new_destination() {
+  // "Fährt nur bis Ostbahnhof." in the fixture: the dot is not shown.
   const std::vector<Departure> d = parse("rules_early_termination.json");
   TEST_ASSERT_EQUAL_STRING("S2>Ostbahnhof!", describe({d[0]}).c_str());
 }
@@ -344,10 +345,26 @@ void test_selection_regional_bus_without_train_replacement() {
 
 void test_sorted_by_planned_plus_delay_stable() {
   const std::vector<Departure> d = parse("rules_sorting.json");
-  // S3 +0 (5 late) = +5, S4 +2, S6 +4 (1 early) = +3, S8 +5 (tie with S3)
+  // S3 +0 (5 late) = +5, S4 +2, S6 +4 (1 early, shown on time) = +4, S8 +5
+  // (tie with S3). Sorted as shown, so 1 or 2 minutes early count as on time.
   assertRows("S4>Trudering | S6>Zorneding | S3>Holzkirchen | S8>Flughafen M\xC3\xBCnchen", d);
+  TEST_ASSERT_TRUE(d[1].expected() == kRulesStart + 4 * 60);
   TEST_ASSERT_TRUE(d[2].planned == kRulesStart);
   TEST_ASSERT_TRUE(d[2].expected() == kRulesStart + 5 * 60);
+}
+
+// The expected time follows the display: -1 and -2 count as on time, from
+// -3 on the trip is early (CR2 N10). "14:05 -2" stays after "14:04 +0".
+void test_expected_time_as_shown() {
+  Departure early;
+  early.planned = kRulesStart + 5 * 60;
+  early.delay_minutes = -2;
+  Departure on_time;
+  on_time.planned = kRulesStart + 4 * 60;
+  TEST_ASSERT_TRUE(early.expected() == kRulesStart + 5 * 60);
+  TEST_ASSERT_TRUE(on_time.expected() < early.expected());
+  early.delay_minutes = -3;
+  TEST_ASSERT_TRUE(early.expected() == kRulesStart + 2 * 60);
 }
 
 void test_limit_applies_after_sorting() {
@@ -618,13 +635,25 @@ void test_incidents_merged_and_lines_sorted() {
   odd.push_back({"y", {"S12345678901234567890123", "S2"}});
   const std::vector<std::string> odd_sorted = widgets::mvg::incidentLines(odd);
   TEST_ASSERT_EQUAL_STRING("S2", odd_sorted[0].c_str());
-  // Long texts are cut at a character boundary, at most kMaxIncidents texts.
+  // Long texts are cut at a character boundary and end with "…", at most
+  // kMaxIncidents texts.
   std::vector<widgets::mvg::Incident> many;
   std::vector<widgets::mvg::Incident> more;
   for (int i = 0; i < 10; i++) more.push_back({std::to_string(i) + std::string(200, 'x'), {"S1"}});
   widgets::mvg::mergeIncidents(many, more);
   TEST_ASSERT_EQUAL_size_t(widgets::mvg::kMaxIncidents, many.size());
   TEST_ASSERT_EQUAL_size_t(widgets::mvg::kMaxIncidentLength, many[0].message.size());
+  TEST_ASSERT_EQUAL_STRING("\u2026", many[0].message.substr(many[0].message.size() - 3).c_str());
+  // Cut inside a multi-byte character: it is left out entirely.
+  std::vector<widgets::mvg::Incident> umlauts;
+  widgets::mvg::mergeIncidents(umlauts, {{std::string(2, 'x') +
+                                              [] {
+                                                std::string u;
+                                                for (int i = 0; i < 100; i++) u += "\u00e4";
+                                                return u;
+                                              }(),
+                                          {"S1"}}});
+  TEST_ASSERT_EQUAL_size_t(widgets::mvg::kMaxIncidentLength - 1, umlauts[0].message.size());
 }
 
 int main() {
@@ -658,6 +687,7 @@ int main() {
   RUN_TEST(test_selection_rb55_both_directions);
   RUN_TEST(test_selection_regional_bus_without_train_replacement);
   RUN_TEST(test_sorted_by_planned_plus_delay_stable);
+  RUN_TEST(test_expected_time_as_shown);
   RUN_TEST(test_limit_applies_after_sorting);
   RUN_TEST(test_real_data_holzkirchen);
   RUN_TEST(test_real_data_pasing);

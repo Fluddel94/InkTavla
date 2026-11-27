@@ -94,7 +94,8 @@ std::string countdown(int64_t now_s, int64_t start, ui::Language language) {
 
 int64_t localDay(int64_t utc) { return floorDiv(deviceLocalSeconds(utc), kSecondsPerDay); }
 
-Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_day) {
+Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_day,
+                         bool* truncated) {
   struct Override {
     uint64_t uid;
     int64_t key;
@@ -105,10 +106,24 @@ Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_d
       overrides.push_back({e.uid, occurrenceKey(parser, e.recurrence_id)});
   }
 
+  const auto earlier = [](const Occurrence& a, const Occurrence& b) {
+    if (a.first_day != b.first_day) return a.first_day < b.first_day;
+    if (a.all_day != b.all_day) return a.all_day;
+    return a.start < b.start;
+  };
   Occurrences out;
+  bool full = false;
   auto add = [&](Occurrence o) {
     if (o.last_day < first_day || o.first_day > last_day) return;
-    if (out.size() < kMaxOccurrences) out.push_back(std::move(o));
+    if (out.size() < kMaxOccurrences) {
+      out.push_back(std::move(o));
+      return;
+    }
+    // Full: the latest one gives way to an earlier one, so the limit cuts
+    // the last days, never today (CR2 M3). Rare, so a simple search.
+    full = true;
+    auto latest = std::max_element(out.begin(), out.end(), earlier);
+    if (earlier(o, *latest)) *latest = std::move(o);
   };
 
   for (const Event& e : parser.events()) {
@@ -148,11 +163,8 @@ Occurrences expandEvents(const Parser& parser, int64_t first_day, int64_t last_d
     });
   }
 
-  std::stable_sort(out.begin(), out.end(), [](const Occurrence& a, const Occurrence& b) {
-    if (a.first_day != b.first_day) return a.first_day < b.first_day;
-    if (a.all_day != b.all_day) return a.all_day;
-    return a.start < b.start;
-  });
+  std::stable_sort(out.begin(), out.end(), earlier);
+  if (truncated != nullptr) *truncated = full;
   return out;
 }
 

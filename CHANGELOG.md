@@ -53,6 +53,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   already running until the display restarted.
 - If the calendar address cannot be saved, the configuration file is no
   longer changed either.
+- A large calendar could leave out events of today: series that ended long
+  ago no longer count against the limit of 400 events, and if more than 200
+  entries fall into the days shown, the latest days give way first. The
+  system log notes when a limit is reached.
+- Hyphenation no longer adds a wrong linking "s" ("Signal-störung" instead
+  of "Signals-törung", also "Unfall-stelle", "Weichen-störung").
+- With outdated weather data the band shows the placeholder (dotted cloud,
+  "–°") instead of an empty space.
+- A line with a very long name no longer shrinks the destinations of all
+  departures; its symbol is at most twice as wide as usual and only its own
+  row moves in.
+- Departures 1 or 2 minutes early are sorted as shown (on time) and no
+  longer disappear before their time.
+- In the afternoon a thunderstorm that ends is called a thunderstorm, not
+  rain. If nothing fits into the band, the greeting is left out first.
+- Long disruption texts end with "…"; "Fährt nur bis Pasing." no longer
+  shows the full stop in the destination.
 
 ## [0.5.0] - 2026-11-24
 
