@@ -1,6 +1,9 @@
 #include "widgets/mvg/config.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cstring>
+#include <vector>
 
 namespace widgets::mvg {
 
@@ -28,6 +31,8 @@ LineSelection readLines(JsonObjectConst obj, const char* key, const std::string&
   std::string text;
   bool valid = lines.is<JsonArrayConst>();
   int count = 0;
+  std::vector<std::string> keys;  // one entry per line, the first one counts
+  std::string twice;
   for (JsonVariantConst value : lines.as<JsonArrayConst>()) {
     const char* entry = value.as<const char*>();
     LineSelection single;
@@ -36,6 +41,13 @@ LineSelection readLines(JsonObjectConst obj, const char* key, const std::string&
       valid = false;
       continue;
     }
+    const std::string label(entry, std::strchr(entry, ':') - entry);
+    const std::string line = lineKey(label.c_str());
+    if (std::find(keys.begin(), keys.end(), line) != keys.end()) {
+      if (twice.empty()) twice = line;
+      continue;
+    }
+    keys.push_back(line);
     if (!text.empty()) text += ',';
     text += entry;
     count++;
@@ -46,6 +58,10 @@ LineSelection readLines(JsonObjectConst obj, const char* key, const std::string&
         where,
         "must be a list of entries \"line:direction:type\" such as \"S2:H:S\"; invalid "
         "entries are ignored"});
+  }
+  if (!twice.empty()) {
+    issues.push_back(core::ConfigIssue{
+        where, "lists the line " + twice + " more than once; only its first entry is used"});
   }
   if (count > LineSelection::kMaxLines) {
     issues.push_back(core::ConfigIssue{where, "has more than " +

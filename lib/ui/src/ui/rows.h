@@ -16,7 +16,8 @@ int rowsThatFit(int height, int row_height, int blocks = 1, int gap = 0);
 // Distributes `total` rows over blocks with the given numbers of entries:
 // evenly (earlier blocks get the remainder), rows a block cannot fill go to
 // the others. Every block keeps at least one row (e.g. for "no
-// departures").
+// departures") as long as `total` is at least the number of blocks; with
+// fewer rows the later blocks get 0.
 std::vector<int> distributeRows(int total, const std::vector<int>& available);
 
 }  // namespace ui

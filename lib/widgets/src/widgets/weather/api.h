@@ -16,7 +16,7 @@ namespace widgets::weather {
 
 // https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..
 //   &current=...&hourly=...&daily=...&timezone=auto&timeformat=unixtime
-//   &forecast_days=4
+//   &forecast_days=6
 // Coordinates with 4 decimals (about 10 m), the precision of the models is
 // far coarser.
 std::string forecastUrl(const Config& config);

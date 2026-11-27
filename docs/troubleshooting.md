@@ -94,7 +94,7 @@ INFO  wifi     connected after 0:00:12, -84 dBm, ch 1
 The access point with a good signal (-41 dBm) refused the password
 (reason 202), the display then took one with a weak signal (-84 dBm on
 channel 1). The network name and the addresses of the access points are
-never logged. What to check on that router or access point:
+never in the system log. What to check on that router or access point:
 
 - **WPA2/WPA3:** some routers refuse the ESP32 with WPA3 only or with a
   WPA3 setting that differs between the bands. Try "WPA2 + WPA3" (mixed

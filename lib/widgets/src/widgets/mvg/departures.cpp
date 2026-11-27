@@ -466,7 +466,8 @@ LineOrder lineOrder(const std::string& line) {
   while (i < line.length() && std::isalpha(static_cast<unsigned char>(line[i]))) i++;
   o.prefix = line.substr(0, i);
   size_t j = i;
-  while (j < line.length() && std::isdigit(static_cast<unsigned char>(line[j]))) {
+  // At most 9 digits, so the number cannot overflow; further digits sort as rest.
+  while (j < line.length() && j - i < 9 && std::isdigit(static_cast<unsigned char>(line[j]))) {
     o.number = o.number * 10 + (line[j] - '0');
     j++;
   }

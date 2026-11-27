@@ -44,6 +44,9 @@ void test_time_zone_syntax() {
                            "CET-1CEST,",
                            "CET-1CEST,M3.5.0",
                            "CET-1CEST,M13.5.0,M10.5.0",
+                           "CET-1CEST,M0.5.0,M10.5.0/3",
+                           "CET-1CEST,M3.0.0,M10.5.0/3",
+                           "CET-1CEST,J0,J300",
                            "CET-25",
                            "<AB>-1"};
   for (const char* tz : invalid) TEST_ASSERT_FALSE_MESSAGE(core::isValidTimeZone(tz), tz);

@@ -163,6 +163,10 @@ std::string fill(const std::string& text, const Values& v) {
       continue;
     }
     const size_t end = text.find('}', i);
+    if (end == std::string::npos) {  // no closing brace: keep the rest as it is
+      out += text.substr(i);
+      break;
+    }
     const std::string key = text.substr(i + 1, end - i - 1);
     if (key == "hi") out += std::to_string(v.hi);
     if (key == "lo") out += std::to_string(v.lo);

@@ -34,7 +34,7 @@ bool parseName(const char*& p) {
 }
 
 // Number with 1..max_digits digits, value <= max_value.
-bool parseNumber(const char*& p, int max_digits, int max_value) {
+bool parseNumber(const char*& p, int max_digits, int max_value, int min_value = 0) {
   int value = 0;
   int digits = 0;
   while (std::isdigit(static_cast<unsigned char>(*p)) && digits < max_digits) {
@@ -42,7 +42,8 @@ bool parseNumber(const char*& p, int max_digits, int max_value) {
     p++;
     digits++;
   }
-  return digits > 0 && value <= max_value && !std::isdigit(static_cast<unsigned char>(*p));
+  return digits > 0 && value >= min_value && value <= max_value &&
+         !std::isdigit(static_cast<unsigned char>(*p));
 }
 
 // [+-]hh[:mm[:ss]]
@@ -60,11 +61,11 @@ bool parseTime(const char*& p, int max_hours) {
 bool parseRule(const char*& p) {
   if (*p == 'J') {
     p++;
-    if (!parseNumber(p, 3, 365)) return false;
+    if (!parseNumber(p, 3, 365, 1)) return false;
   } else if (*p == 'M') {
     p++;
-    if (!parseNumber(p, 2, 12) || *p++ != '.') return false;
-    if (!parseNumber(p, 1, 5) || *p++ != '.') return false;
+    if (!parseNumber(p, 2, 12, 1) || *p++ != '.') return false;
+    if (!parseNumber(p, 1, 5, 1) || *p++ != '.') return false;
     if (!parseNumber(p, 1, 6)) return false;
   } else if (!parseNumber(p, 3, 365)) {
     return false;

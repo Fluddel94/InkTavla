@@ -13,6 +13,7 @@ namespace ui {
 
 // Next codepoint of a UTF-8 text starting at pos; pos moves to the next
 // character. Invalid sequences give U+FFFD (drawn as '?') and skip one byte.
+// Overlong forms and surrogates are not rejected but decoded as they are.
 uint32_t decodeUtf8(std::string_view text, size_t& pos);
 
 // Number of characters (codepoints).

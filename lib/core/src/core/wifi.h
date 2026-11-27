@@ -44,7 +44,6 @@ class Wifi {
   std::string failedNetwork() const;
   void setFailedNetwork(const std::string& ssid);
 
-  static bool hasCredentials();
   static bool loadCredentials(std::string& ssid, std::string& password);
   static bool saveCredentials(const std::string& ssid, const std::string& password);
 

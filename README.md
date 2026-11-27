@@ -110,7 +110,7 @@ See [docs/updating.md](docs/updating.md) and the [changelog](CHANGELOG.md).
   newest release only when you press it.
 - Your Wi-Fi password and your calendar address are kept only on the
   display, in its protected storage; they cannot be read back, not even on
-  the settings page, and are never written to the log.
+  the settings page, and are never written to the system log.
 - The settings page uses plain HTTP: use it only in your private home
   network ([why](docs/settings-page.md#security)).
 - **Departures** come from the **unofficial** MVG API, which is not

@@ -141,7 +141,8 @@ std::string settingsLayoutJson() {
   screen["gap"] = ui::kColumnGap;
   std::string text;
   serializeJson(doc, text);
-  // Members only, without the braces.
+  // Members only, without the braces (empty if out of memory).
+  if (text.size() < 2) return "";
   return text.substr(1, text.size() - 2);
 }
 

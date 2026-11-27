@@ -147,11 +147,6 @@ void Wifi::setFailedNetwork(const std::string& ssid) {
   failed_network_ = ssid;
 }
 
-bool Wifi::hasCredentials() {
-  std::string ssid, password;
-  return loadCredentials(ssid, password);
-}
-
 bool Wifi::loadCredentials(std::string& ssid, std::string& password) {
   Preferences prefs;
   if (!prefs.begin(kNamespace, true)) return false;

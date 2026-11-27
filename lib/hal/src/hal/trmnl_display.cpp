@@ -197,12 +197,16 @@ void TrmnlDisplay::show(const uint8_t* frame, size_t stride, Refresh mode, const
   powerOn();
   for (size_t i = 0; i < region_count && ready_; i++) partialRefresh(frame, stride, regions[i]);
   powerOff();
+#if defined(INKTAVLA_DEBUG_DISPLAY)  // build_flags = -DINKTAVLA_DEBUG_DISPLAY
   Serial.printf("Display: partial refresh of %u region(s) in %lu ms",
                 static_cast<unsigned>(region_count), static_cast<unsigned long>(millis() - start));
   for (size_t i = 0; i < region_count; i++) {
     Serial.printf(" [%d,%d %dx%d]", regions[i].x, regions[i].y, regions[i].w, regions[i].h);
   }
   Serial.println();
+#else
+  (void)start;
+#endif
 }
 
 }  // namespace hal

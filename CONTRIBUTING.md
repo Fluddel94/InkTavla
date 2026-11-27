@@ -212,6 +212,11 @@ The tests run on the PC and need a host C++ compiler (GCC or Clang; on
 Windows e.g. MinGW-w64 via [MSYS2](https://www.msys2.org/), with its `bin`
 folder on `PATH`). Test data lives in `test/fixtures/`.
 
+`pio test -e native_asan` runs the same tests with AddressSanitizer and
+UndefinedBehaviorSanitizer (GCC or Clang on Linux or macOS; MinGW does not
+support them). They stop at memory used after it was freed, writes past an
+array and overflows, which the plain tests do not notice.
+
 On Windows, the command to strip metadata from the reference images (in
 the folder of the repository):
 
@@ -252,8 +257,8 @@ Third-party code in `lib/qrcodegen/` keeps its original formatting.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and pull
 request to `main`: formatting check, image metadata check, a warning for AI
-notes (see [Contributing](README.md#contributing) in the README), the unit tests and the firmware
-build. The run summary shows the flash and RAM usage, and the built
+notes (see [Contributing](README.md#contributing) in the README), the unit tests (also with
+the sanitizers, `native_asan`) and the firmware build. The run summary shows the flash and RAM usage, and the built
 `firmware.bin` and `firmware-full.bin` can be downloaded from the run for
 30 days. The web installer is built as a check, and published on GitHub
 Pages for every release by `.github/workflows/pages.yml`.
@@ -335,7 +340,7 @@ core dump partition. Changing the layout requires a full reflash via USB.
   large buffers go to PSRAM. Requests time out after 10 s without data.
   Calendar files (iCalendar, up to 8 MB) are read the same way, keeping only
   the events of the coming days.
-- Addresses are never written to the log, since some of them are secret
+- Addresses are never written to the system log, since some of them are secret
   (the private iCal address).
 - Wi-Fi reconnects on its own with growing pauses (2, 5, 15, 30 s) and
   switches itself off and on after six failures in a row; power saving is

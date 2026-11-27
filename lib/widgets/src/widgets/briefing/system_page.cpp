@@ -107,14 +107,13 @@ void row(ui::Canvas& canvas, int x, int x1, int baseline, int label_width, const
 }
 
 struct Overview {
-  std::string version, uptime, restart, wifi, signal, drops, clock, psram, log;
+  std::string uptime, restart, wifi, signal, drops, clock, psram, log;
   bool restart_warning = false, wifi_warning = false, log_warning = false;
 };
 
 Overview overviewOf(const core::SystemReport& report) {
   const core::DeviceInfo& d = report.device;
   Overview o;
-  o.version = d.firmware;
   o.uptime = core::formatUptime(d.uptime_s);
   o.restart = d.restart_reason;
   o.restart_warning = d.restart_unplanned;
@@ -162,7 +161,7 @@ bool sourceWarning(const core::SourceReport& s) {
 }
 
 // Marker of the level: nothing, a warning sign, or a white sign in a black
-// square (error). Returns the width taken.
+// square (error).
 void levelMarker(ui::Canvas& canvas, int x, int baseline, core::LogLevel level) {
   const int h = kLogFont.cap_height;
   if (level == core::LogLevel::kWarning) {

@@ -57,8 +57,9 @@ constexpr uint32_t emojiCodepoint(EmojiIcon icon) {
 // Prepares a UTF-8 text for the fonts: every emoji with an icon becomes the
 // codepoint of its icon (variants share one: all hearts, all laughing
 // faces, ...), every other emoji, skin tone, flag and invisible emoji
-// control character is removed, and the spaces that remain around removed
-// emoji are merged. Text without emoji is returned unchanged.
+// control character is removed. If anything was removed, runs of spaces in
+// the whole text become one and spaces at the start and end are dropped.
+// ASCII text is returned unchanged.
 std::string mapEmoji(std::string_view text);
 
 }  // namespace ui

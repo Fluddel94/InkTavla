@@ -96,7 +96,7 @@ class Builder {
   }
 
   JsonObjectConst root_;
-  const Services& services_;
+  const Services services_;  // a copy: callers may pass a temporary
   core::ConfigIssues& issues_;
   std::vector<std::unique_ptr<DataSource>> sources_;
   std::vector<const char*> checked_;  // widgets whose settings were read

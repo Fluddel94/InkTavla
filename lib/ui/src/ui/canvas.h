@@ -59,9 +59,8 @@ class Canvas {
   // e.g. for curves in charts. The points are not rounded: a pixel is set
   // when its centre is at most width / 2 from the line.
   void drawPolyline(const std::vector<PointF>& points, double width, Color color);
-  // Circle around (cx, cy): filled, or as a ring of the given thickness.
+  // Filled circle around (cx, cy).
   void fillCircle(int cx, int cy, int radius, Color color);
-  void drawCircle(int cx, int cy, int radius, int thickness, Color color);
   void fillRoundRect(int x, int y, int w, int h, int radius, Color color);
   // Outline inside the rectangle with rounded corners.
   void drawRoundRect(int x, int y, int w, int h, int radius, Color color, int thickness = 1);

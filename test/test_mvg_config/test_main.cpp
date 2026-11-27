@@ -154,6 +154,21 @@ void test_lines_invalid_entries_are_dropped() {
   TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.lines"));
 }
 
+void test_lines_listed_twice() {
+  ConfigIssues issues;
+  const Config c = parse(R"({"lines":["S2:H:S","s2:R:S","S8:B:S"]})", issues);
+  TEST_ASSERT_EQUAL_STRING("S2:H:S,S8:B:S", c.lines.toString().c_str());
+  TEST_ASSERT_TRUE(hasIssue(issues, "widgets.mvg.lines"));
+  // 16 different lines plus a repeated one: no "more than 16 entries".
+  std::string json = R"({"lines":["L0:B:B")";
+  for (int i = 0; i < 16; i++) json += ",\"L" + std::to_string(i) + ":B:B\"";
+  json += "]}";
+  ConfigIssues more;
+  const Config d = parse(json, more);
+  TEST_ASSERT_EQUAL_INT(16, d.lines.size());
+  TEST_ASSERT_EQUAL_size_t(1, more.size());
+}
+
 void test_lines_limit() {
   std::string json = R"({"lines":[)";
   for (int i = 0; i < 20; i++)
@@ -291,6 +306,7 @@ int main() {
   RUN_TEST(test_invalid_values_fall_back_with_issues);
   RUN_TEST(test_empty_transport_types_fall_back);
   RUN_TEST(test_lines_invalid_entries_are_dropped);
+  RUN_TEST(test_lines_listed_twice);
   RUN_TEST(test_lines_limit);
   RUN_TEST(test_lines_not_a_list);
   RUN_TEST(test_sections_are_read);

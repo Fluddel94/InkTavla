@@ -123,17 +123,6 @@ void Canvas::fillCircle(int cx, int cy, int radius, Color color) {
   }
 }
 
-void Canvas::drawCircle(int cx, int cy, int radius, int thickness, Color color) {
-  const double outer = (radius + 0.5) * (radius + 0.5);
-  const double inner = std::max(0.0, radius + 0.5 - thickness);
-  for (int dy = -radius; dy <= radius; dy++) {
-    for (int dx = -radius; dx <= radius; dx++) {
-      const int d2 = dx * dx + dy * dy;
-      if (d2 <= outer && d2 > inner * inner) setPixel(cx + dx, cy + dy, color);
-    }
-  }
-}
-
 void Canvas::drawPolyline(const std::vector<PointF>& points, double width, Color color) {
   if (points.empty()) return;
   const double r = width / 2;

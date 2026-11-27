@@ -613,6 +613,11 @@ void test_incidents_merged_and_lines_sorted() {
   std::string text;
   for (const std::string& l : sorted) text += l + " ";
   TEST_ASSERT_EQUAL_STRING("RB6 S3 S8 S20 SEV U6 19 54 ", text.c_str());
+  // A number with too many digits does not overflow (UBSan in native_asan).
+  std::vector<widgets::mvg::Incident> odd;
+  odd.push_back({"y", {"S12345678901234567890123", "S2"}});
+  const std::vector<std::string> odd_sorted = widgets::mvg::incidentLines(odd);
+  TEST_ASSERT_EQUAL_STRING("S2", odd_sorted[0].c_str());
   // Long texts are cut at a character boundary, at most kMaxIncidents texts.
   std::vector<widgets::mvg::Incident> many;
   std::vector<widgets::mvg::Incident> more;

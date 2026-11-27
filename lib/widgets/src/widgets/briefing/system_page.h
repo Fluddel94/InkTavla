@@ -14,7 +14,7 @@
 
 namespace widgets::briefing {
 
-// Left: version, uptime, reason of the last restart, Wi-Fi connection and
+// Title: the firmware version. Left: uptime, reason of the last restart, Wi-Fi connection and
 // signal with its drops ("Drops 1 · Last 24h 0"), clock, memory, number of
 // warnings and errors, and per data source its state, last success, last
 // failure and its fails ("Fails 3 · Last 24h 1"; a fail is a series of

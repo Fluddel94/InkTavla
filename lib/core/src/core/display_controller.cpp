@@ -54,6 +54,8 @@ void DisplayController::addContent(Content& content) {
     Schedule schedule = content.schedule();
     if (schedule.spread_s > 0 && schedule.offset_s >= 0) {
       schedule.offset_s += static_cast<int32_t>(clock_.randomNumber() % (schedule.spread_s + 1));
+      // As the scheduler uses it (Scheduler::add() takes it modulo the interval).
+      if (schedule.interval_s > 0) schedule.offset_s %= static_cast<int32_t>(schedule.interval_s);
       logInfo(content.logName(), "updates at second %d of every %u s",
               static_cast<int>(schedule.offset_s), static_cast<unsigned>(schedule.interval_s));
     }

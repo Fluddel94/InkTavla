@@ -1,7 +1,8 @@
-# Continuous integration: checks, unit tests and the firmware build for every
-# push and pull request to main. Releases are still made by hand; the
-# firmware.bin and firmware-full.bin built here can be downloaded from the
-# run ("Artifacts") and attached to a release.
+# Continuous integration: checks, unit tests (also with AddressSanitizer and
+# UBSan) and the firmware build for every push and pull request to main.
+# Releases are still made by hand; the firmware.bin and firmware-full.bin
+# built here can be downloaded from the run ("Artifacts") and attached to a
+# release.
 #
 # Every action is pinned to the commit of a release tag (the tag is noted
 # behind it); update them deliberately, one at a time.
@@ -113,6 +114,33 @@ jobs:
           path: .pio/preview/
           if-no-files-found: ignore
           retention-days: 7
+
+  sanitizers:
+    name: Unit tests with AddressSanitizer and UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install PlatformIO
+        run: python -m pip install "platformio==${PLATFORMIO_VERSION}"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.platformio
+            !~/.platformio/.cache
+            .pio/libdeps
+          key: pio-${{ runner.os }}-native-asan-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-native-asan-
+
+      # Memory used after it was freed, writes past an array, overflows.
+      - name: Unit tests (native_asan)
+        run: pio test -e native_asan
 
   build:
     name: Firmware build (xiao_esp32s3_plus)
