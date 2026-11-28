@@ -7,29 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-28
+
+InkTavla 1.0.0 is the first stable version. It is a firmware for the Seeed
+TRMNL 7.5" (OG) DIY Kit that shows the next departures of your station in
+Bavaria, the weather and your calendar below a short sentence that sums them
+up; it runs on the display itself and is set up in the browser. From this
+version on a valid `config.json` stays valid with every 1.x firmware (see
+"Compatibility" in `docs/configuration.md`). Compared with 0.5.0 there are no
+new functions: the display recovers from hangs and slow servers by itself,
+the calendar address can no longer end up in a backup, the documentation is
+written for new users, and there is a 3D-printed case.
+
 ### Added
 
-- The logo at the top of the README (light and dark mode) and a picture of
-  the screen in a drawn frame.
-- An issue template for bug reports.
 - The case: two 3D-printed stands for the kit, Slim (USB cable) and
   Slim+Battery (with room for the kit's battery), as STL files with their
   CadQuery source and checks in `case/`, under CC BY-NC-SA 4.0. Print
   settings and assembly in `docs/case.md`. The buttons are labelled R 3 2 1
   from behind, so the numbers match KEY1 to KEY3 of the board.
+- The logo at the top of the README (light and dark mode), a photo of the
+  display on its stand and the screen in German and in English side by side
+  in a drawn frame.
+- An issue template for bug reports.
 
 ### Changed
 
-- The README shows the screen in German and in English side by side.
+- Band: the warning of ice is part of the weather sentence ("Es schneit –
+  es kann glatt werden.") and no longer a sentence of its own; after a
+  dash it follows with a comma ("Schirm mit, es kann glatt werden.").
+- Departures: disruption messages no longer end with a full stop.
 - The documentation is reorganised for new users: a shorter README from
   installing to updating, one page per widget (setup, settings, data
   source, limits), pages for the settings page and the screen, more help in
   the troubleshooting guide, and the developer parts in `CONTRIBUTING.md`.
 - The web installer links to the README and the troubleshooting guide.
-- Band: the warning of ice is part of the weather sentence ("Es schneit –
-  es kann glatt werden.") and no longer a sentence of its own; after a
-  dash it follows with a comma ("Schirm mit, es kann glatt werden.").
-- Departures: disruption messages no longer end with a full stop.
 
 ### Fixed
 
@@ -38,38 +50,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A server that sends very slowly no longer holds the clock and the
   departures: the calendar is stopped after 90 seconds, departures and
   weather after 30 seconds (or 256 KB).
-- `inktavla_config.py get` asks again (up to three times) when a log line
-  of the display damaged the transfer.
-- The system log no longer gives a fetch the reason of a failed search on
-  the settings page that happened at the same time.
+- Band: with outdated weather data it shows the placeholder (dotted cloud,
+  "–°") instead of an empty space. In the afternoon a thunderstorm that ends
+  is called a thunderstorm, not rain. If nothing fits, the greeting is left
+  out first.
+- Calendar: a large calendar could leave out events of today. Series that
+  ended long ago no longer count against the limit of 400 events, and if
+  more than 200 entries fall into the days shown, the latest days give way
+  first. The system log notes when a limit is reached.
+- Departures: a line with a very long name no longer shrinks the
+  destinations of all departures; its symbol is at most twice as wide as
+  usual and only its own row moves in.
+- Departures 1 or 2 minutes early are sorted as shown (on time) and no
+  longer disappear before their time.
+- Departures: long disruption texts end with "…"; "Fährt nur bis Pasing."
+  no longer shows the full stop in the destination. Hyphenation no longer
+  adds a wrong linking "s" ("Signal-störung" instead of "Signals-törung",
+  also "Unfall-stelle", "Weichen-störung").
 - A calendar address in an imported or hand-written `config.json` (`url`,
   `ical`, `ical_url` or `address` under `widgets.calendar`) could be saved
   with **Trotzdem speichern** / **Save anyway** or over USB, and then
   appeared in the backup. It is now removed when the file is saved and when
   it is read, so it never leaves the protected storage.
-- A browser logged out by a login on another device said the page was
-  closed; it now says that another device has logged in.
-- After an aborted firmware upload, the update button said an update was
-  already running until the display restarted.
 - If the calendar address cannot be saved, the configuration file is no
   longer changed either.
-- A large calendar could leave out events of today: series that ended long
-  ago no longer count against the limit of 400 events, and if more than 200
-  entries fall into the days shown, the latest days give way first. The
-  system log notes when a limit is reached.
-- Hyphenation no longer adds a wrong linking "s" ("Signal-störung" instead
-  of "Signals-törung", also "Unfall-stelle", "Weichen-störung").
-- With outdated weather data the band shows the placeholder (dotted cloud,
-  "–°") instead of an empty space.
-- A line with a very long name no longer shrinks the destinations of all
-  departures; its symbol is at most twice as wide as usual and only its own
-  row moves in.
-- Departures 1 or 2 minutes early are sorted as shown (on time) and no
-  longer disappear before their time.
-- In the afternoon a thunderstorm that ends is called a thunderstorm, not
-  rain. If nothing fits into the band, the greeting is left out first.
-- Long disruption texts end with "…"; "Fährt nur bis Pasing." no longer
-  shows the full stop in the destination.
+- Settings page: a browser logged out by a login on another device said the
+  page was closed; it now says that another device has logged in.
+- Settings page: after an aborted firmware upload, the update button said an
+  update was already running until the display restarted.
+- The system log no longer gives a fetch the reason of a failed search on
+  the settings page that happened at the same time.
+- `inktavla_config.py get` asks again (up to three times) when a log line
+  of the display damaged the transfer.
 
 ## [0.5.0] - 2026-11-24
 
