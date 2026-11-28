@@ -2,6 +2,10 @@
 # platforms (matches .editorconfig). Overrides core.autocrlf.
 * text=auto eol=lf
 
+# Git hooks are shell scripts: sh on Windows stops at CR line endings, so
+# they stay LF even if text detection or a local setting says otherwise.
+.githooks/* text eol=lf
+
 # Binary files: never convert.
 *.png binary
 *.stl binary

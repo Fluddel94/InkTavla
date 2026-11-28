@@ -1,0 +1,112 @@
+#!/bin/sh
+# Removes metadata from the images and 3D models of a commit before it is
+# made, so nobody has to remember tools/png_strip.py. CI checks the same for
+# every push (python tools/png_strip.py --check); this hook only saves the
+# extra commit. Turn it on once per clone:
+#
+#     git config core.hooksPath .githooks
+#
+# Plain POSIX sh: GitHub Desktop and Git for Windows run it with the sh that
+# comes with Git, Linux and macOS with /bin/sh. It looks only at the staged
+# PNG and STL files (and other image formats, which CI rejects), cleans them
+# with tools/png_strip.py and stages them again. It stops the commit if
+# Python is missing, if cleaning fails, or if a file is staged and changed
+# again after staging (the hook would otherwise stage those later changes
+# too). To commit without the hook: git commit --no-verify, or "Bypass
+# Commit Hooks" / "Commit anyway" in GitHub Desktop.
+
+set -u
+
+stop() {
+  echo "pre-commit: $*" >&2
+  echo "pre-commit: commit stopped, nothing was committed." >&2
+  exit 1
+}
+
+# Backslashes to slashes, for Windows paths such as C:\Users\name.
+to_slashes() {
+  rest=$1
+  out=
+  while :; do
+    case $rest in
+      *\\*)
+        out=$out${rest%%\\*}/
+        rest=${rest#*\\}
+        ;;
+      *)
+        printf '%s' "$out$rest"
+        return
+        ;;
+    esac
+  done
+}
+
+top=$(git rev-parse --show-toplevel) || stop "not inside a Git repository."
+cd "$top" || stop "cannot open $top."
+
+# Staged files that are added, copied, modified or renamed (new name).
+staged=$(git -c core.quotePath=false diff --cached --name-only \
+  --diff-filter=ACMR) || stop "git diff failed."
+
+newline='
+'
+set -f # file names are not patterns
+old_ifs=$IFS
+IFS=$newline
+selected=
+for file in $staged; do
+  case $file in
+    *.[pP][nN][gG] | *.[sS][tT][lL] | *.[jJ][pP][gG] | *.[jJ][pP][eE][gG] | \
+      *.[jJ][pP][eE] | *.[jJ][fF][iI][fF] | *.[wW][eE][bB][pP] | \
+      *.[gG][iI][fF] | *.[tT][iI][fF] | *.[tT][iI][fF][fF] | \
+      *.[hH][eE][iI][cC] | *.[hH][eE][iI][fF] | *.[aA][vV][iI][fF])
+      selected=$selected$file$newline
+      ;;
+  esac
+done
+
+[ -n "$selected" ] || exit 0
+
+# A file that changed again after staging: cleaning and staging it would
+# also stage the later changes, so leave the decision to the person.
+partly=
+for file in $selected; do
+  git diff --quiet -- "$file" || partly=$partly"  $file"$newline
+done
+IFS=$old_ifs
+if [ -n "$partly" ]; then
+  printf '%s\n%s' "pre-commit: these files were changed again after staging:" \
+    "$partly" >&2
+  stop "stage them again as they are now (or undo the later changes)," \
+    "then commit again."
+fi
+
+# Python: the one that comes with PlatformIO first (no other Python needed),
+# then python3 and python on PATH. Each is tried, because on Windows
+# "python3" may only be a shortcut to the Microsoft Store.
+python=
+for candidate in \
+  "$(to_slashes "${USERPROFILE:-/nonexistent}")/.platformio/penv/Scripts/python.exe" \
+  "${HOME:-/nonexistent}/.platformio/penv/Scripts/python.exe" \
+  "${HOME:-/nonexistent}/.platformio/penv/bin/python" \
+  python3 python; do
+  if "$candidate" -c "import sys; sys.exit(sys.version_info < (3, 8))" \
+    >/dev/null 2>&1; then
+    python=$candidate
+    break
+  fi
+done
+[ -n "$python" ] || stop "no Python 3 found (looked for PlatformIO's" \
+  "Python in .platformio/penv and for python3 and python on PATH);" \
+  "install PlatformIO or Python, or clean the files by hand with" \
+  "python tools/png_strip.py."
+
+IFS=$newline
+# shellcheck disable=SC2086 # split at newlines only, on purpose
+PYTHONUTF8=1 "$python" tools/png_strip.py $selected ||
+  stop "tools/png_strip.py could not clean the files above; see its" \
+    "messages (other image formats than PNG are not accepted)."
+# shellcheck disable=SC2086
+git add -- $selected || stop "git add failed."
+IFS=$old_ifs
+exit 0

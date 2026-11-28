@@ -224,10 +224,29 @@ the folder of the repository):
 & "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" tools\png_strip.py test\fixtures\ui
 ```
 
-Without a path it checks and cleans the whole repository. If
+Without a path it checks and cleans the whole repository. The Git hook
+below does this automatically for the files of each commit. If
 `sim_briefing_morning.png` changed, also redraw the picture in the README
 with `python tools/frame_screen.py`. The test data is
 described in [test/fixtures/README.md](test/fixtures/README.md).
+
+### Git hook
+
+`.githooks/pre-commit` cleans the staged PNG and STL files with
+`tools/png_strip.py` and stages them again, so a commit never carries image
+metadata. Turn it on once per clone (in the folder of the repository):
+
+```sh
+git config core.hooksPath .githooks
+```
+
+It works with `git commit` and GitHub Desktop (which shows the hook's
+output; Windows uses the sh that comes with Git) and needs Python: the one
+that comes with PlatformIO, otherwise `python3` or `python` on `PATH`. It
+stops the commit if Python is missing, if a file cannot be cleaned (e.g. a
+JPG image), or if a staged image was changed again after staging. To commit
+without it: `git commit --no-verify`, or "Bypass Commit Hooks" in GitHub
+Desktop. The hook is a convenience; CI still checks every push.
 
 ### Formatting
 
@@ -267,7 +286,7 @@ Pages for every release by `.github/workflows/pages.yml`.
 
 | Tool | Use |
 |---|---|
-| `tools/png_strip.py` | Removes metadata from PNG files and personal details from STL headers (`--check` only looks). |
+| `tools/png_strip.py` | Removes metadata from PNG files and personal details from STL headers (`--check` only looks); runs on each commit with the [Git hook](#git-hook). |
 | `tools/inktavla_config.py` | Sends `config.json` and the calendar address over USB, reads the log ([docs/configuration.md](docs/configuration.md#over-the-usb-cable)). The commands are plain text lines on the serial line, next to Improv; see `lib/core/src/core/config_command.h` for the protocol. |
 | `tools/mock_device.py` | Serves the settings page with made-up data at `http://localhost:8080/?code=123456`, to try it without the display. |
 | `tools/embed_web.py` | Inlines and compresses the settings page (`web/`) into `src/generated/settings_page.h` before every build (not in the repository). |
