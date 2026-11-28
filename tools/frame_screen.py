@@ -6,7 +6,11 @@ Takes the reference images test/fixtures/ui/sim_briefing_morning.png
 (German) and sim_briefing_morning_en.png (the same morning in English; the
 whole screen in the simulation, see test/test_app_simulation) and puts a
 light frame with rounded corners and a soft shadow around each, so that it
-looks like a display. Run it after a reference image has changed:
+looks like a display. The frame touches the outer edge of the picture (left
+for German, right for English) and has a transparent gap on the inner side:
+the README puts both side by side at 50 % without a space, so their outer
+edges line up with the text and the photo above. Run it after a reference
+image has changed:
 
     pip install -r tools/fontgen/requirements.txt
     python tools/frame_screen.py
@@ -21,13 +25,14 @@ from PIL import Image, ImageDraw, ImageFilter
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "test" / "fixtures" / "ui"
 IMAGES = ROOT / "docs" / "images"
-PICTURES = [  # (reference image, picture for the README)
-    (FIXTURES / "sim_briefing_morning.png", IMAGES / "screen-de.png"),
-    (FIXTURES / "sim_briefing_morning_en.png", IMAGES / "screen-en.png"),
+PICTURES = [  # (reference image, picture for the README, side of the gap)
+    (FIXTURES / "sim_briefing_morning.png", IMAGES / "screen-de.png", "right"),
+    (FIXTURES / "sim_briefing_morning_en.png", IMAGES / "screen-en.png", "left"),
 ]
 
 SCALE = 4  # drawn larger and scaled down, for smooth corners
-PAD = 24  # room for the shadow
+PAD = 24  # room for the shadow above and below
+GAP = 24  # transparent room on the inner side (half the gap between both)
 BEZEL = 36  # width of the frame around the screen
 RADIUS = 22  # corners of the frame
 BODY = (236, 236, 232, 255)  # light grey, like a case of light filament
@@ -36,40 +41,42 @@ INNER = (170, 170, 168, 255)  # thin line around the screen
 SHADOW = (0, 0, 0, 70)
 
 
-def frame(source, target):
+def frame(source, target, gap_side):
     screen = Image.open(source).convert("RGB")
     w, h = screen.size
-    width, height = w + 2 * (BEZEL + PAD), h + 2 * (BEZEL + PAD)
+    left = GAP if gap_side == "left" else 0  # x of the frame in the picture
+    framed = w + 2 * BEZEL  # width of the frame
+    width, height = framed + GAP, h + 2 * (BEZEL + PAD)
     s = SCALE
     big = Image.new("RGBA", (width * s, height * s), (0, 0, 0, 0))
 
     shadow = Image.new("RGBA", big.size, (0, 0, 0, 0))
     ImageDraw.Draw(shadow).rounded_rectangle(
-        [PAD * s, (PAD + 6) * s, (width - PAD) * s, (height - PAD + 6) * s], RADIUS * s, fill=SHADOW
+        [left * s, (PAD + 6) * s, (left + framed) * s, (height - PAD + 6) * s], RADIUS * s, fill=SHADOW
     )
     big = Image.alpha_composite(big, shadow.filter(ImageFilter.GaussianBlur(10 * s)))
 
     draw = ImageDraw.Draw(big)
     draw.rounded_rectangle(
-        [PAD * s, PAD * s, (width - PAD) * s - 1, (height - PAD) * s - 1],
+        [left * s, PAD * s, (left + framed) * s - 1, (height - PAD) * s - 1],
         RADIUS * s,
         fill=BODY,
         outline=EDGE,
         width=2 * s,
     )
-    x0 = y0 = (PAD + BEZEL) * s
+    x0, y0 = (left + BEZEL) * s, (PAD + BEZEL) * s
     draw.rectangle([x0 - 2 * s, y0 - 2 * s, x0 + (w + 2) * s - 1, y0 + (h + 2) * s - 1], fill=INNER)
 
     out = big.resize((width, height), Image.LANCZOS)
-    out.paste(screen, (PAD + BEZEL, PAD + BEZEL))
+    out.paste(screen, (left + BEZEL, PAD + BEZEL))
     target.parent.mkdir(parents=True, exist_ok=True)
     out.save(target, optimize=True)
     print(f"frame_screen: wrote {target.relative_to(ROOT)} ({width} x {height})")
 
 
 def main():
-    for source, target in PICTURES:
-        frame(source, target)
+    for source, target, gap_side in PICTURES:
+        frame(source, target, gap_side)
 
 
 if __name__ == "__main__":

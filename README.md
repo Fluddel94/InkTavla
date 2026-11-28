@@ -5,6 +5,8 @@
   </picture>
 </p>
 
+<img align="right" width="50%" alt="InkTavla on its 3D-printed stand, showing departures, calendar and weather" src="docs/images/display.png">
+
 InkTavla is a firmware for a 7.5" e-paper display that shows the day at a
 glance: the next departures of your station in Munich (or elsewhere in
 Bavaria), the weather and your calendar, below a short sentence that sums
@@ -12,16 +14,13 @@ them up ("Guten Morgen. Mal Sonne, mal Wolken, bis 12°. Heute um 18:30: Kino
 mit Lena."). Everything runs on the display itself; no server, no account, no app. It is set up in the
 browser of your phone or computer.
 
-<!-- Photo of the display: docs/images/display.png (to be added) -->
-
-<p align="center">
-  <img alt="The screen of InkTavla in German: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen-de.png" width="49%">
-  <img alt="The same screen in English" src="docs/images/screen-en.png" width="49%">
-</p>
-<p align="center"><sub>The same morning in German and in English (setting <code>language</code>).</sub></p>
-
 **Install: <https://fluddel94.github.io/InkTavla/>** (Chrome, Edge or
 Firefox 151 or later, on a computer)
+
+<p align="center">
+  <img alt="The screen of InkTavla in German: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen-de.png" width="50%"><img alt="The same screen in English" src="docs/images/screen-en.png" width="50%">
+</p>
+<p align="center"><sub>The same morning in German and in English (setting <code>language</code>).</sub></p>
 
 ## What you need
 
