@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The case is on MakerWorld, with print profiles for Bambu Lab printers;
+  the README, `docs/case.md` and `case/README.md` link to it.
+
 ## [1.0.0] - 2026-11-28
 
 InkTavla 1.0.0 is the first stable version. It is a firmware for the Seeed

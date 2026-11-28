@@ -2,7 +2,9 @@
 
 Two 3D-printed cases for InkTavla on the Seeed TRMNL 7.5" (OG) DIY Kit.
 Which one to choose, how to print and how to assemble:
-**[docs/case.md](../docs/case.md)**.
+**[docs/case.md](../docs/case.md)**. Also on
+[MakerWorld](https://makerworld.com/models/3703269-slim-stand-for-seeed-trmnl-7-5-og-diy-kit), with print profiles for
+Bambu Lab printers.
 
 | Folder | Contents |
 |---|---|

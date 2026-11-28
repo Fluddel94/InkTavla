@@ -17,6 +17,9 @@ browser of your phone or computer.
 **Install: <https://fluddel94.github.io/InkTavla/>** (Chrome, Edge or
 Firefox 151 or later, on a computer)
 
+**Print the stand: [Slim Stand on MakerWorld](https://makerworld.com/models/3703269-slim-stand-for-seeed-trmnl-7-5-og-diy-kit)** (STL files and print
+profiles; also in [`case/`](case/))
+
 <p align="center">
   <img alt="The screen of InkTavla in German: departures, calendar and weather below the band with date, time and a sentence" src="docs/images/screen-de.png" width="50%"><img alt="The same screen in English" src="docs/images/screen-en.png" width="50%">
 </p>
@@ -30,6 +33,8 @@ Firefox 151 or later, on a computer)
 - A USB-C cable that carries data, and a computer with Chrome, Edge or
   Firefox (version 151 or later) for the installation.
 - A Wi-Fi with 2.4 GHz (the display does not use 5 GHz).
+- Optional: a 3D printer for the stand ([MakerWorld](https://makerworld.com/models/3703269-slim-stand-for-seeed-trmnl-7-5-og-diy-kit), see
+  [Case](#case)).
 
 ## Installing
 
@@ -48,8 +53,12 @@ other ways to install: [docs/updating.md](docs/updating.md). Problems:
 ## Case
 
 A 3D-printed stand in two versions, **Slim** (USB cable) and **Slim+Battery**
-(with room for the kit's battery), with print settings and assembly:
-[docs/case.md](docs/case.md).
+(with room for the kit's battery).
+
+- **Download:** [Slim Stand for Seeed TRMNL 7.5" (OG) DIY Kit on MakerWorld](https://makerworld.com/models/3703269-slim-stand-for-seeed-trmnl-7-5-og-diy-kit)
+  – STL files and ready print profiles for Bambu Lab printers. The same STL
+  files are in [`case/`](case/).
+- **Print settings and assembly:** [docs/case.md](docs/case.md).
 
 ## Setting it up
 

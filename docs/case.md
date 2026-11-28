@@ -10,7 +10,9 @@ the display can be taken out again.
   <img alt="The case Slim from behind: lid with the four buttons and the USB opening" src="../case/slim/slim-back.png" width="49%">
 </p>
 
-The files are in [`case/`](../case/). They are under
+**Download:** on [MakerWorld](https://makerworld.com/models/3703269-slim-stand-for-seeed-trmnl-7-5-og-diy-kit) (STL files and
+print profiles for Bambu Lab printers) or from [`case/`](../case/) in this
+repository; both have the same files. They are under
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), not
 under the GPL of the firmware (see [License](#license)).
 
